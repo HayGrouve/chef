@@ -11,11 +11,19 @@ import { useState } from "react";
 import Link from "next/link";
 import { Id } from "../../convex/_generated/dataModel";
 
+type ShoppingListItem = {
+  _id: Id<"shoppingList">;
+  ingredient: string;
+  isChecked: boolean;
+  recipeId?: Id<"recipes">;
+  recipeTitle?: string;
+};
+
 interface GroupedItems {
   [key: string]: {
     id: string; // Use string here to accommodate both "General Items" and recipeIds
     title: string;
-    items: typeof items;
+    items: ShoppingListItem[];
   };
 }
 
@@ -44,11 +52,11 @@ export default function ShoppingListPage() {
 
   // Group items
   const groupedItems: GroupedItems = {};
-  
+
   items.forEach((item) => {
     const groupKey = item.recipeId ? item.recipeId : "general";
     const groupTitle = item.recipeTitle ? item.recipeTitle : "General Items";
-    
+
     if (!groupedItems[groupKey]) {
       groupedItems[groupKey] = {
         id: groupKey,
