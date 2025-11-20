@@ -21,29 +21,42 @@ import Image from "next/image";
 import { RecipeCardSkeleton } from "@/components/RecipeCardSkeleton";
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
-import { Search, Heart, ShoppingCart, ChefHat, Calendar, Plus, LogIn, SearchX, UtensilsCrossed } from "lucide-react";
+import {
+  Search,
+  Heart,
+  ShoppingCart,
+  ChefHat,
+  Calendar,
+  Plus,
+  LogIn,
+  SearchX,
+  UtensilsCrossed,
+} from "lucide-react";
 import { useMutation } from "convex/react";
 import { Badge } from "@/components/ui/badge";
 
 export default function Home() {
   const [search, setSearch] = useState("");
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
-  const recipes = useQuery(api.recipes.list, { 
+  const recipes = useQuery(api.recipes.list, {
     search: search === "" ? undefined : search,
   });
   const toggleFavorite = useMutation(api.recipes.toggleFavorite);
 
   // Extract unique tags from recipes for the filter list
-  const allTags = Array.from(new Set(recipes?.flatMap(r => r.tags || []) || [])).sort();
+  const allTags = Array.from(
+    new Set(recipes?.flatMap((r) => r.tags || []) || [])
+  ).sort();
 
   // Client-side filtering for tags (simpler for now, or update backend)
-  const filteredRecipes = recipes?.filter(recipe => 
-    !selectedTag || (recipe.tags && recipe.tags.includes(selectedTag))
+  const filteredRecipes = recipes?.filter(
+    (recipe) =>
+      !selectedTag || (recipe.tags && recipe.tags.includes(selectedTag))
   );
 
   return (
     <main className="container mx-auto p-4">
-      <header className="flex justify-between items-center mb-8">
+      <header className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4 md:gap-0">
         <div className="flex items-center gap-2">
           <ChefHat className="h-8 w-8" />
           <h1 className="text-4xl font-bold">CHEF</h1>
@@ -53,21 +66,22 @@ export default function Home() {
             <Button disabled>Loading...</Button>
           </AuthLoading>
           <Authenticated>
-            <Link href="/meal-planner">
+            <Link href="/shopping-list">
               <Button variant="ghost">
-                <Calendar className="mr-2 h-4 w-4" />
-                Meal Planner
+                <ShoppingCart className="h-5 w-5" />
+                <span className="hidden md:inline ml-2">Shopping List</span>
               </Button>
             </Link>
-            <Link href="/shopping-list">
-              <Button variant="ghost" size="icon">
-                <ShoppingCart className="h-5 w-5" />
+            <Link href="/meal-planner">
+              <Button variant="ghost">
+                <Calendar className="h-5 w-5" />
+                <span className="hidden md:inline ml-2">Meal Planner</span>
               </Button>
             </Link>
             <Link href="/create">
               <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                Add Recipe
+                <Plus className="h-5 w-5" />
+                <span className="hidden md:inline ml-2">Add Recipe</span>
               </Button>
             </Link>
             <UserButton />
@@ -75,7 +89,7 @@ export default function Home() {
           <Unauthenticated>
             <SignInButton mode="modal">
               <Button>
-                <LogIn className="mr-2 h-4 w-4" />
+                <LogIn className="h-5 w-5" />
                 Sign In
               </Button>
             </SignInButton>
@@ -85,27 +99,27 @@ export default function Home() {
 
       <Authenticated>
         <div className="relative mb-6">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-            <Input 
-              placeholder="Search recipes..." 
-              className="pl-10"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+          <Input
+            placeholder="Search recipes..."
+            className="pl-10"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
         </div>
 
         {/* Tag Filters */}
         {allTags.length > 0 && (
           <div className="flex gap-2 mb-8 overflow-x-auto pb-2 scrollbar-hide">
-             <Badge 
-                variant={selectedTag === null ? "default" : "secondary"}
-                className="cursor-pointer whitespace-nowrap"
-                onClick={() => setSelectedTag(null)}
-              >
-                All
-              </Badge>
-            {allTags.map(tag => (
-              <Badge 
+            <Badge
+              variant={selectedTag === null ? "default" : "secondary"}
+              className="cursor-pointer whitespace-nowrap"
+              onClick={() => setSelectedTag(null)}
+            >
+              All
+            </Badge>
+            {allTags.map((tag) => (
+              <Badge
                 key={tag}
                 variant={selectedTag === tag ? "default" : "secondary"}
                 className="cursor-pointer whitespace-nowrap"
@@ -126,58 +140,68 @@ export default function Home() {
         ) : filteredRecipes?.length === 0 ? (
           <div className="text-center py-12">
             {search || selectedTag ? (
-                <div className="flex flex-col items-center gap-4">
-                   <SearchX className="h-16 w-16 text-muted-foreground" />
-                   <p className="text-xl text-muted-foreground">
-                    No recipes found matching your filters.
-                  </p>
-                </div>
+              <div className="flex flex-col items-center gap-4">
+                <SearchX className="h-16 w-16 text-muted-foreground" />
+                <p className="text-xl text-muted-foreground">
+                  No recipes found matching your filters.
+                </p>
+              </div>
             ) : (
-                <div className="flex flex-col items-center gap-4">
-                    <UtensilsCrossed className="h-16 w-16 text-muted-foreground" />
-                    <p className="text-xl text-muted-foreground">
-                    You haven&apos;t added any recipes yet.
-                    </p>
-                    <Link href="/create">
-                    <Button size="lg">
-                        <Plus className="mr-2 h-4 w-4" />
-                        Create Your First Recipe
-                    </Button>
-                    </Link>
-                </div>
+              <div className="flex flex-col items-center gap-4">
+                <UtensilsCrossed className="h-16 w-16 text-muted-foreground" />
+                <p className="text-xl text-muted-foreground">
+                  You haven&apos;t added any recipes yet.
+                </p>
+                <Link href="/create">
+                  <Button size="lg">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Create Your First Recipe
+                  </Button>
+                </Link>
+              </div>
             )}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredRecipes?.map((recipe) => (
               <div key={recipe._id} className="relative group">
-              <Link href={`/recipe/${recipe._id}`}>
-                <Card className="h-full hover:shadow-lg transition-shadow cursor-pointer">
-                  <CardHeader>
-                    <div className="flex justify-between items-start gap-2">
-                        <CardTitle className="line-clamp-1">{recipe.title}</CardTitle>
-                    </div>
-                    <CardDescription className="line-clamp-2">
-                      {recipe.description}
-                    </CardDescription>
-                     <div className="flex flex-wrap gap-1 mt-2">
-                      {recipe.tags?.slice(0, 3).map(tag => (
-                        <Badge key={tag} variant="outline" className="text-xs px-1 py-0">{tag}</Badge>
-                      ))}
-                      {recipe.tags && recipe.tags.length > 3 && (
-                         <span className="text-xs text-muted-foreground">+{recipe.tags.length - 3}</span>
-                      )}
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <RecipeImage
-                      imageUrl={recipe.imageUrl}
-                      title={recipe.title}
-                    />
-                  </CardContent>
-                </Card>
-              </Link>
-              <Button
+                <Link href={`/recipe/${recipe._id}`}>
+                  <Card className="h-full hover:shadow-lg transition-shadow cursor-pointer">
+                    <CardHeader>
+                      <div className="flex justify-between items-start gap-2">
+                        <CardTitle className="line-clamp-1">
+                          {recipe.title}
+                        </CardTitle>
+                      </div>
+                      <CardDescription className="line-clamp-2">
+                        {recipe.description}
+                      </CardDescription>
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {recipe.tags?.slice(0, 3).map((tag) => (
+                          <Badge
+                            key={tag}
+                            variant="outline"
+                            className="text-xs px-1 py-0"
+                          >
+                            {tag}
+                          </Badge>
+                        ))}
+                        {recipe.tags && recipe.tags.length > 3 && (
+                          <span className="text-xs text-muted-foreground">
+                            +{recipe.tags.length - 3}
+                          </span>
+                        )}
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <RecipeImage
+                        imageUrl={recipe.imageUrl}
+                        title={recipe.title}
+                      />
+                    </CardContent>
+                  </Card>
+                </Link>
+                <Button
                   variant="ghost"
                   size="icon"
                   className="absolute top-2 right-2 z-10 hover:bg-transparent text-muted-foreground hover:text-red-500"
@@ -186,7 +210,9 @@ export default function Home() {
                     toggleFavorite({ id: recipe._id });
                   }}
                 >
-                  <Heart className={`h-5 w-5 ${recipe.isFavorite ? "fill-red-500 text-red-500" : ""}`} />
+                  <Heart
+                    className={`h-5 w-5 ${recipe.isFavorite ? "fill-red-500 text-red-500" : ""}`}
+                  />
                 </Button>
               </div>
             ))}
@@ -195,7 +221,7 @@ export default function Home() {
       </Authenticated>
 
       <Unauthenticated>
-        <div className="text-center py-20 flex flex-col items-center">
+        <div className="text-center py-12 md:py-20 flex flex-col items-center">
           <ChefHat className="h-24 w-24 text-primary mb-6" />
           <h2 className="text-3xl font-semibold mb-4">
             Welcome to Your Personal Cookbook
@@ -205,8 +231,8 @@ export default function Home() {
           </p>
           <SignInButton mode="modal">
             <Button size="lg">
-                <LogIn className="mr-2 h-4 w-4" />
-                Get Started
+              <LogIn className="mr-2 h-4 w-4" />
+              Get Started
             </Button>
           </SignInButton>
         </div>
