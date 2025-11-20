@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Trash2, Calendar as CalendarIcon, ShoppingCart, ArrowLeft } from "lucide-react";
+import { Plus, Trash2, Calendar as CalendarIcon, ShoppingCart, ArrowLeft, CalendarDays } from "lucide-react";
 import { format, startOfWeek, addDays, endOfWeek } from "date-fns";
 import Link from "next/link";
 import Image from "next/image";
@@ -109,7 +109,10 @@ export default function MealPlannerPage() {
         </Link>
       </div>
       <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
-        <h1 className="text-3xl font-bold">Weekly Meal Planner</h1>
+        <div className="flex items-center gap-3">
+          <CalendarDays className="h-8 w-8" />
+          <h1 className="text-3xl font-bold">Weekly Meal Planner</h1>
+        </div>
         <div className="flex gap-2">
            <Button variant="outline" onClick={() => setCurrentWeekStart(addDays(currentWeekStart, -7))}>
              Previous Week

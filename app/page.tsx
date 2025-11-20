@@ -21,7 +21,7 @@ import Image from "next/image";
 import { RecipeCardSkeleton } from "@/components/RecipeCardSkeleton";
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
-import { Search, Heart, ShoppingCart } from "lucide-react";
+import { Search, Heart, ShoppingCart, ChefHat, Calendar, Plus, LogIn, SearchX, UtensilsCrossed } from "lucide-react";
 import { useMutation } from "convex/react";
 import { Badge } from "@/components/ui/badge";
 
@@ -44,14 +44,20 @@ export default function Home() {
   return (
     <main className="container mx-auto p-4">
       <header className="flex justify-between items-center mb-8">
-        <h1 className="text-4xl font-bold">CHEF</h1>
+        <div className="flex items-center gap-2">
+          <ChefHat className="h-8 w-8" />
+          <h1 className="text-4xl font-bold">CHEF</h1>
+        </div>
         <div className="flex items-center gap-4">
           <AuthLoading>
             <Button disabled>Loading...</Button>
           </AuthLoading>
           <Authenticated>
             <Link href="/meal-planner">
-              <Button variant="ghost">Meal Planner</Button>
+              <Button variant="ghost">
+                <Calendar className="mr-2 h-4 w-4" />
+                Meal Planner
+              </Button>
             </Link>
             <Link href="/shopping-list">
               <Button variant="ghost" size="icon">
@@ -59,13 +65,19 @@ export default function Home() {
               </Button>
             </Link>
             <Link href="/create">
-              <Button>Add Recipe</Button>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Add Recipe
+              </Button>
             </Link>
             <UserButton />
           </Authenticated>
           <Unauthenticated>
             <SignInButton mode="modal">
-              <Button>Sign In</Button>
+              <Button>
+                <LogIn className="mr-2 h-4 w-4" />
+                Sign In
+              </Button>
             </SignInButton>
           </Unauthenticated>
         </div>
@@ -114,18 +126,25 @@ export default function Home() {
         ) : filteredRecipes?.length === 0 ? (
           <div className="text-center py-12">
             {search || selectedTag ? (
-                 <p className="text-xl text-muted-foreground mb-4">
-                  No recipes found matching your filters.
-                </p>
+                <div className="flex flex-col items-center gap-4">
+                   <SearchX className="h-16 w-16 text-muted-foreground" />
+                   <p className="text-xl text-muted-foreground">
+                    No recipes found matching your filters.
+                  </p>
+                </div>
             ) : (
-                <>
-                    <p className="text-xl text-muted-foreground mb-4">
+                <div className="flex flex-col items-center gap-4">
+                    <UtensilsCrossed className="h-16 w-16 text-muted-foreground" />
+                    <p className="text-xl text-muted-foreground">
                     You haven&apos;t added any recipes yet.
                     </p>
                     <Link href="/create">
-                    <Button size="lg">Create Your First Recipe</Button>
+                    <Button size="lg">
+                        <Plus className="mr-2 h-4 w-4" />
+                        Create Your First Recipe
+                    </Button>
                     </Link>
-                </>
+                </div>
             )}
           </div>
         ) : (
@@ -176,7 +195,8 @@ export default function Home() {
       </Authenticated>
 
       <Unauthenticated>
-        <div className="text-center py-20">
+        <div className="text-center py-20 flex flex-col items-center">
+          <ChefHat className="h-24 w-24 text-primary mb-6" />
           <h2 className="text-3xl font-semibold mb-4">
             Welcome to Your Personal Cookbook
           </h2>
@@ -184,7 +204,10 @@ export default function Home() {
             Sign in to start storing your favorite recipes.
           </p>
           <SignInButton mode="modal">
-            <Button size="lg">Get Started</Button>
+            <Button size="lg">
+                <LogIn className="mr-2 h-4 w-4" />
+                Get Started
+            </Button>
           </SignInButton>
         </div>
       </Unauthenticated>

@@ -6,7 +6,7 @@ import { Id } from "../../../convex/_generated/dataModel";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Trash2, Heart, Edit, ShoppingCart, Share2, PlayCircle } from "lucide-react";
+import { ArrowLeft, Trash2, Heart, Edit, ShoppingCart, Share2, PlayCircle, Utensils, ListOrdered, User } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
@@ -99,7 +99,10 @@ export default function RecipeDetail() {
             <div className="space-y-2">
               <CardTitle className="text-3xl">{recipe.title}</CardTitle>
               {recipe.authorName && (
-                  <p className="text-sm text-muted-foreground">Recipe by {recipe.authorName}</p>
+                  <div className="flex items-center text-sm text-muted-foreground gap-1">
+                    <User className="h-4 w-4" />
+                    <p>Recipe by {recipe.authorName}</p>
+                  </div>
               )}
               <p className="text-muted-foreground">{recipe.description}</p>
             </div>
@@ -144,7 +147,10 @@ export default function RecipeDetail() {
           <div className="grid md:grid-cols-2 gap-8">
             <div>
               <div className="flex items-center justify-between mb-4">
-                 <h3 className="text-xl font-semibold">Ingredients</h3>
+                 <h3 className="text-xl font-semibold flex items-center gap-2">
+                   <Utensils className="h-5 w-5" />
+                   Ingredients
+                 </h3>
                  <Button 
                     variant="outline" 
                     size="sm" 
@@ -163,7 +169,10 @@ export default function RecipeDetail() {
             </div>
             
             <div>
-              <h3 className="text-xl font-semibold mb-4">Instructions</h3>
+              <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                <ListOrdered className="h-5 w-5" />
+                Instructions
+              </h3>
               <ol className="list-decimal pl-5 space-y-4">
                 {recipe.steps.map((step, i) => (
                   <li key={i} className="pl-2">{step}</li>

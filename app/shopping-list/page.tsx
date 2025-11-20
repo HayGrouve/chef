@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Trash2, Plus, Eraser, ArrowLeft } from "lucide-react";
+import { Trash2, Plus, Eraser, ArrowLeft, ShoppingBasket } from "lucide-react";
 import { useState } from "react";
 import Link from "next/link";
 import { Id } from "../../convex/_generated/dataModel";
@@ -109,9 +109,10 @@ export default function ShoppingListPage() {
 
           <div className="space-y-6">
             {items.length === 0 ? (
-              <p className="text-center text-muted-foreground py-8">
-                Your shopping list is empty.
-              </p>
+              <div className="text-center text-muted-foreground py-8 flex flex-col items-center gap-4">
+                <ShoppingBasket className="h-12 w-12 opacity-50" />
+                <p>Your shopping list is empty.</p>
+              </div>
             ) : (
               sortedGroups.map((group) => (
                 <div key={group.id} className="space-y-2">
