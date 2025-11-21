@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { PREDEFINED_TAGS } from "./constants";
 
 export const recipeSchema = z.object({
   title: z.string().min(2, { message: "Title must be at least 2 characters." }),
@@ -18,7 +19,9 @@ export const recipeSchema = z.object({
   steps: z.array(z.object({
     value: z.string().min(1, { message: "Step cannot be empty." })
   })).min(1, { message: "At least one step is required." }),
-  tags: z.array(z.string()).optional(),
+  tags: z.array(z.string()).refine((tags) => tags.every((tag) => (PREDEFINED_TAGS as unknown as string[]).includes(tag)), {
+    message: "Invalid tags provided.",
+  }).optional(),
   isPublic: z.boolean().default(true),
 });
 

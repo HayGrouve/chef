@@ -21,6 +21,8 @@ import {
   Trash2,
   CheckCircle2,
   ArrowLeft,
+  Check,
+  ChevronsUpDown,
 } from "lucide-react";
 import {
   Dialog,
@@ -37,6 +39,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 import Image from "next/image";
 import { useForm, useFieldArray, UseFormReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -52,30 +67,41 @@ import {
 } from "@/components/ui/form";
 
 import { compressImage } from "@/lib/image-utils";
+import { PREDEFINED_TAGS } from "@/lib/constants";
+import { cn } from "@/lib/utils";
 
 // --- Sub-Components for Wizard Steps ---
 
 function StepIndicator({
   currentStep,
-  totalSteps,
+  steps,
 }: {
   currentStep: number;
-  totalSteps: number;
+  steps: string[];
 }) {
   return (
-    <div className="flex items-center justify-center mb-8 space-x-2">
-      {Array.from({ length: totalSteps }).map((_, i) => (
+    <div className="flex items-center justify-center mb-12 space-x-2">
+      {steps.map((step, i) => (
         <div key={i} className="flex items-center">
-          <div
-            className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors ${
-              i + 1 <= currentStep
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted text-muted-foreground"
-            }`}
-          >
-            {i + 1}
+          <div className="flex flex-col items-center relative">
+            <div
+              className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors ${
+                i + 1 <= currentStep
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground"
+              }`}
+            >
+              {i + 1}
+            </div>
+            <span
+              className={`absolute top-10 text-xs font-medium whitespace-nowrap transition-colors ${
+                i + 1 <= currentStep ? "text-primary" : "text-muted-foreground"
+              }`}
+            >
+              {step}
+            </span>
           </div>
-          {i < totalSteps - 1 && (
+          {i < steps.length - 1 && (
             <div
               className={`w-8 h-1 mx-2 transition-colors ${
                 i + 1 < currentStep ? "bg-primary" : "bg-muted"
@@ -92,23 +118,15 @@ interface BasicDetailsStepProps {
   form: UseFormReturn<RecipeFormValues>;
   imagePreview: string | null;
   onImageChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  tagInput: string;
-  setTagInput: (value: string) => void;
-  handleAddTag: (e: React.KeyboardEvent) => void;
-  removeTag: (tag: string) => void;
 }
 
 function BasicDetailsStep({
   form,
   imagePreview,
   onImageChange,
-  tagInput,
-  setTagInput,
-  handleAddTag,
-  removeTag,
 }: BasicDetailsStepProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const tags = form.watch("tags") || [];
+  const [open, setOpen] = useState(false);
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
@@ -244,41 +262,85 @@ function BasicDetailsStep({
         </div>
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="tags">Tags (Press Enter to add)</Label>
-        <Input
-          id="tags"
-          value={tagInput}
-          onChange={(e) => setTagInput(e.target.value)}
-          onKeyDown={handleAddTag}
-          placeholder="Dinner, Italian, Healthy..."
-        />
-        <div className="flex flex-wrap gap-2 mt-2 min-h-8">
-          {tags.map((tag: string) => (
-            <Badge
-              key={tag}
-              variant="secondary"
-              className="px-3 py-1 flex items-center gap-2"
-            >
-              {tag}
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  removeTag(tag);
-                }}
-                className="h-auto w-auto p-0 ml-1 hover:text-destructive focus:text-destructive"
-                aria-label={`Remove ${tag}`}
-              >
-                <X className="w-3 h-3" />
-              </Button>
-            </Badge>
-          ))}
-        </div>
-      </div>
+      <FormField
+        control={form.control}
+        name="tags"
+        render={({ field }) => (
+          <FormItem className="flex flex-col">
+            <FormLabel>Tags</FormLabel>
+            <Popover open={open} onOpenChange={setOpen}>
+              <PopoverTrigger asChild>
+                <FormControl>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={open}
+                    className="w-full justify-between"
+                  >
+                    {field.value && field.value.length > 0
+                      ? `${field.value.length} tags selected`
+                      : "Select tags..."}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </FormControl>
+              </PopoverTrigger>
+              <PopoverContent className="w-[400px] p-0">
+                <Command>
+                  <CommandInput placeholder="Search tags..." />
+                  <CommandList>
+                    <CommandEmpty>No tag found.</CommandEmpty>
+                    <CommandGroup className="max-h-64 overflow-auto">
+                      {PREDEFINED_TAGS.map((tag) => (
+                        <CommandItem
+                          key={tag}
+                          value={tag}
+                          onSelect={() => {
+                            const currentTags = field.value || [];
+                            const newTags = currentTags.includes(tag)
+                              ? currentTags.filter((t) => t !== tag)
+                              : [...currentTags, tag];
+                            field.onChange(newTags);
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              field.value?.includes(tag)
+                                ? "opacity-100"
+                                : "opacity-0"
+                            )}
+                          />
+                          {tag}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+            <div className="flex flex-wrap gap-2 mt-2">
+              {field.value?.map((tag) => (
+                <Badge key={tag} variant="secondary">
+                  {tag}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-4 w-4 ml-1 p-0 hover:bg-transparent"
+                    onClick={(e) => {
+                      e.preventDefault(); // Prevent form submit
+                      const newTags = field.value?.filter((t) => t !== tag);
+                      field.onChange(newTags);
+                    }}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </Badge>
+              ))}
+            </div>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
 
       <FormField
         control={form.control}
@@ -507,7 +569,6 @@ function CreateRecipeContent() {
   const [currentStep, setCurrentStep] = useState(1);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [tagInput, setTagInput] = useState("");
 
   const [alertOpen, setAlertOpen] = useState(false);
   const [alertTitle, setAlertTitle] = useState("");
@@ -555,26 +616,6 @@ function CreateRecipeContent() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [existingRecipe, form]);
-
-  const handleAddTag = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" || e.key === ",") {
-      e.preventDefault();
-      const newTag = tagInput.trim();
-      const currentTags = form.getValues("tags") || [];
-      if (newTag && !currentTags.includes(newTag)) {
-        form.setValue("tags", [...currentTags, newTag]);
-        setTagInput("");
-      }
-    }
-  };
-
-  const removeTag = (tagToRemove: string) => {
-    const currentTags = form.getValues("tags") || [];
-    form.setValue(
-      "tags",
-      currentTags.filter((tag) => tag !== tagToRemove)
-    );
-  };
 
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -735,7 +776,10 @@ function CreateRecipeContent() {
           <CardTitle className="text-center text-2xl">
             {editId ? "Edit Recipe" : "Create New Recipe"}
           </CardTitle>
-          <StepIndicator currentStep={currentStep} totalSteps={4} />
+          <StepIndicator
+            currentStep={currentStep}
+            steps={["Details", "Ingredients", "Instructions", "Review"]}
+          />
         </CardHeader>
         <CardContent className="flex-1 overflow-y-auto px-4 md:px-8 py-2">
           <Form {...form}>
@@ -745,10 +789,6 @@ function CreateRecipeContent() {
                   form={form}
                   imagePreview={imagePreview}
                   onImageChange={handleImageChange}
-                  tagInput={tagInput}
-                  setTagInput={setTagInput}
-                  handleAddTag={handleAddTag}
-                  removeTag={removeTag}
                 />
               )}
               {currentStep === 2 && (

@@ -1,0 +1,22 @@
+export const PREDEFINED_TAGS = [
+  "Breakfast",
+  "Lunch",
+  "Dinner",
+  "Dessert",
+  "Snack",
+  "Vegetarian",
+  "Vegan",
+  "Gluten-Free",
+  "Keto",
+  "Paleo",
+  "Italian",
+  "Mexican",
+  "Asian",
+  "Mediterranean",
+  "American",
+  "Quick & Easy",
+  "Healthy",
+  "Comfort Food",
+  "Spicy",
+] as const;
+
