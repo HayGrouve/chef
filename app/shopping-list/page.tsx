@@ -20,19 +20,30 @@ type ShoppingListItem = {
   category?: string;
 };
 
+type AggregatedItem = {
+  id: string;
+  ids: Id<"shoppingList">[];
+  ingredient: string;
+  isChecked: boolean;
+  count: number;
+  recipeId?: Id<"recipes">;
+  recipeTitle?: string;
+  category?: string;
+};
+
 interface GroupedItems {
   [key: string]: {
     id: string;
     title: string;
-    items: ShoppingListItem[];
+    items: AggregatedItem[];
   };
 }
 
 export default function ShoppingListPage() {
   const items = useQuery(api.shoppingList.listWithDetails);
   const addItem = useMutation(api.shoppingList.add);
-  const toggleItem = useMutation(api.shoppingList.toggle);
-  const removeItem = useMutation(api.shoppingList.remove);
+  const toggleBatch = useMutation(api.shoppingList.toggleBatch);
+  const removeBatch = useMutation(api.shoppingList.removeBatch);
   const clearChecked = useMutation(api.shoppingList.clearChecked);
 
   const [newItem, setNewItem] = useState("");
@@ -71,7 +82,29 @@ export default function ShoppingListPage() {
           items: [],
         };
       }
-      groupedItems[groupKey].items.push(item);
+
+      const existingItemIndex = groupedItems[groupKey].items.findIndex(
+        (existing) =>
+          existing.ingredient.toLowerCase().trim() ===
+            item.ingredient.toLowerCase().trim() &&
+          existing.isChecked === item.isChecked
+      );
+
+      if (existingItemIndex >= 0) {
+        groupedItems[groupKey].items[existingItemIndex].ids.push(item._id);
+        groupedItems[groupKey].items[existingItemIndex].count++;
+      } else {
+        groupedItems[groupKey].items.push({
+          id: item._id,
+          ids: [item._id],
+          ingredient: item.ingredient,
+          isChecked: item.isChecked,
+          count: 1,
+          recipeId: item.recipeId,
+          recipeTitle: item.recipeTitle,
+          category: item.category,
+        });
+      }
     });
 
     return Object.values(groupedItems).sort((a, b) => {
@@ -169,17 +202,17 @@ export default function ShoppingListPage() {
                   </h3>
                   {group.items.map((item) => (
                     <div
-                      key={item._id}
+                      key={item.id}
                       className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
                     >
                       <div className="flex items-center gap-3 flex-1">
                         <Checkbox
                           checked={item.isChecked}
-                          onCheckedChange={() => toggleItem({ id: item._id })}
-                          id={item._id}
+                          onCheckedChange={() => toggleBatch({ ids: item.ids })}
+                          id={item.id}
                         />
                         <label
-                          htmlFor={item._id}
+                          htmlFor={item.id}
                           className={`flex-1 cursor-pointer ${
                             item.isChecked
                               ? "line-through text-muted-foreground"
@@ -187,13 +220,18 @@ export default function ShoppingListPage() {
                           }`}
                         >
                           {item.ingredient}
+                          {item.count > 1 && (
+                            <span className="ml-2 text-sm font-semibold text-muted-foreground">
+                              x{item.count}
+                            </span>
+                          )}
                         </label>
                       </div>
                       <Button
                         variant="ghost"
                         size="icon"
                         className="text-muted-foreground hover:text-destructive"
-                        onClick={() => removeItem({ id: item._id })}
+                        onClick={() => removeBatch({ ids: item.ids })}
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>

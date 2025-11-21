@@ -112,6 +112,27 @@ export const toggle = mutation({
   },
 });
 
+// Toggle checked status for multiple items
+export const toggleBatch = mutation({
+  args: { ids: v.array(v.id("shoppingList")) },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Unauthenticated");
+    }
+    
+    await Promise.all(
+      args.ids.map(async (id) => {
+        const item = await ctx.db.get(id);
+        if (!item || item.userId !== identity.subject) {
+          return; // Skip unauthorized or missing items
+        }
+        await ctx.db.patch(id, { isChecked: !item.isChecked });
+      })
+    );
+  },
+});
+
 // Remove an item
 export const remove = mutation({
   args: { id: v.id("shoppingList") },
@@ -125,6 +146,27 @@ export const remove = mutation({
       throw new Error("Unauthorized");
     }
     await ctx.db.delete(args.id);
+  },
+});
+
+// Remove multiple items
+export const removeBatch = mutation({
+  args: { ids: v.array(v.id("shoppingList")) },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Unauthenticated");
+    }
+    
+    await Promise.all(
+      args.ids.map(async (id) => {
+        const item = await ctx.db.get(id);
+        if (!item || item.userId !== identity.subject) {
+          return; // Skip unauthorized or missing items
+        }
+        await ctx.db.delete(id);
+      })
+    );
   },
 });
 
