@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { paginationOptsValidator } from "convex/server";
 
 // Generate an upload URL for storing recipe images
 export const generateUploadUrl = mutation(async (ctx) => {
@@ -21,6 +22,9 @@ export const create = mutation({
     format: v.optional(v.string()),
     tags: v.optional(v.array(v.string())),
     isPublic: v.optional(v.boolean()),
+    cookingTime: v.optional(v.number()),
+    difficulty: v.optional(v.string()),
+    calories: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -50,6 +54,9 @@ export const update = mutation({
     format: v.optional(v.string()),
     tags: v.optional(v.array(v.string())),
     isPublic: v.optional(v.boolean()),
+    cookingTime: v.optional(v.number()),
+    difficulty: v.optional(v.string()),
+    calories: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -74,6 +81,9 @@ export const update = mutation({
       steps: args.steps,
       tags: args.tags,
       isPublic: args.isPublic,
+      cookingTime: args.cookingTime,
+      difficulty: args.difficulty,
+      calories: args.calories,
     };
 
     // Only update storageId if a new one is provided
@@ -86,42 +96,85 @@ export const update = mutation({
   },
 });
 
-// List all recipes for the authenticated user
+// List all recipes for the authenticated user (paginated)
 export const list = query({
-  args: { search: v.optional(v.string()) },
+  args: {
+    search: v.optional(v.string()),
+    difficulty: v.optional(v.string()),
+    maxTime: v.optional(v.number()),
+    favoritesOnly: v.optional(v.boolean()),
+    paginationOpts: paginationOptsValidator,
+  },
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return { page: [], isDone: true, continueCursor: "" };
+    }
+
+    let queryBuilder;
+
+    if (args.search) {
+      queryBuilder = ctx.db
+        .query("recipes")
+        .withSearchIndex("search_recipes", (q) =>
+          q
+            .search("title", args.search!)
+            .eq("userId", identity.subject)
+        );
+    } else {
+      queryBuilder = ctx.db
+        .query("recipes")
+        .filter((q) => q.eq(q.field("userId"), identity.subject))
+        .order("desc");
+    }
+
+    if (args.difficulty) {
+        queryBuilder = queryBuilder.filter((q: any) => q.eq(q.field("difficulty"), args.difficulty));
+    }
+
+    if (args.maxTime) {
+        queryBuilder = queryBuilder.filter((q: any) => q.lte(q.field("cookingTime"), args.maxTime));
+    }
+
+    if (args.favoritesOnly) {
+        queryBuilder = queryBuilder.filter((q: any) => q.eq(q.field("isFavorite"), true));
+    }
+
+    const paginatedResult = await queryBuilder.paginate(args.paginationOpts);
+
+    const pageWithImages = await Promise.all(
+      paginatedResult.page.map(async (recipe) => {
+        let imageUrl = null;
+        if (recipe.storageId) {
+          imageUrl = await ctx.storage.getUrl(recipe.storageId);
+        }
+        return {
+          ...recipe,
+          imageUrl,
+        };
+      })
+    );
+
+    return {
+        ...paginatedResult,
+        page: pageWithImages
+    };
+  },
+});
+
+// List all recipes for the authenticated user (simple list for dropdowns etc)
+export const listAll = query({
+  handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
       return [];
     }
-    
-    let recipes;
 
-    if (args.search) {
-      // Note: This is a simple client-side filter simulation on the server
-      // For large datasets, use Convex's search index
-      const allRecipes = await ctx.db
-        .query("recipes")
-        .filter((q) => q.eq(q.field("userId"), identity.subject))
-        .collect();
-      
-      recipes = allRecipes.filter((r) => 
-        r.title.toLowerCase().includes(args.search!.toLowerCase())
-      );
-    } else {
-      recipes = await ctx.db
-        .query("recipes")
-        .filter((q) => q.eq(q.field("userId"), identity.subject))
-        .collect();
-    }
+    const recipes = await ctx.db
+      .query("recipes")
+      .filter((q) => q.eq(q.field("userId"), identity.subject))
+      .collect();
 
-    // Sort: Favorites first
-    recipes.sort((a, b) => {
-      if (a.isFavorite === b.isFavorite) return 0;
-      return a.isFavorite ? -1 : 1;
-    });
-
-    // Add image URLs to each recipe
     return await Promise.all(
       recipes.map(async (recipe) => {
         let imageUrl = null;
@@ -190,6 +243,96 @@ export const get = query({
       imageUrl,
       authorName: user?.name,
     };
+  },
+});
+
+// Search by ingredients
+export const searchByIngredients = query({
+  args: { ingredients: v.array(v.string()) },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return [];
+    }
+
+    if (args.ingredients.length === 0) {
+      return [];
+    }
+
+    const recipes = await ctx.db
+      .query("recipes")
+      .filter((q) => q.eq(q.field("userId"), identity.subject))
+      .collect();
+
+    const userIngredients = args.ingredients.map((i) => i.toLowerCase().trim());
+
+    const recipesWithScore = await Promise.all(
+      recipes.map(async (recipe) => {
+        let matchCount = 0;
+        const missingIngredients: string[] = [];
+        const matchingIngredients: string[] = [];
+
+        recipe.ingredients.forEach((ingredientLine) => {
+          const ingLower = ingredientLine.toLowerCase();
+          const isMatch = userIngredients.some((userIng) =>
+            ingLower.includes(userIng)
+          );
+
+          if (isMatch) {
+            matchCount++;
+            matchingIngredients.push(ingredientLine);
+          } else {
+            missingIngredients.push(ingredientLine);
+          }
+        });
+
+        if (matchCount === 0) return null;
+
+        let imageUrl = null;
+        if (recipe.storageId) {
+          imageUrl = await ctx.storage.getUrl(recipe.storageId);
+        }
+
+        return {
+          ...recipe,
+          imageUrl,
+          matchCount,
+          matchPercentage: (matchCount / recipe.ingredients.length) * 100,
+          missingIngredients,
+          matchingIngredients,
+        };
+      })
+    );
+
+    // Filter out nulls and sort by match percentage
+    return recipesWithScore
+      .filter((r): r is NonNullable<typeof r> => r !== null)
+      .sort((a, b) => b.matchPercentage - a.matchPercentage);
+  },
+});
+
+// List public recipes by user
+export const listPublic = query({
+  args: { userId: v.string() },
+  handler: async (ctx, args) => {
+    const recipes = await ctx.db
+      .query("recipes")
+      .filter((q) => q.eq(q.field("userId"), args.userId))
+      .filter((q) => q.eq(q.field("isPublic"), true))
+      .collect();
+
+    return await Promise.all(
+      recipes.map(async (recipe) => {
+        let imageUrl = null;
+        if (recipe.storageId) {
+          imageUrl = await ctx.storage.getUrl(recipe.storageId);
+        }
+        return {
+          ...recipe,
+          imageUrl,
+        };
+      })
+    );
   },
 });
 

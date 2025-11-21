@@ -21,7 +21,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import Image from "next/image";
+
+import { compressImage } from "@/lib/image-utils";
 
 // --- Sub-Components for Wizard Steps ---
 
@@ -51,7 +60,10 @@ function BasicDetailsStep({
     description, setDescription, 
     imagePreview, onImageChange, 
     tags, tagInput, setTagInput, handleAddTag, removeTag,
-    isPublic, setIsPublic 
+    isPublic, setIsPublic,
+    cookingTime, setCookingTime,
+    difficulty, setDifficulty,
+    calories, setCalories
 }: any) {
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -66,6 +78,42 @@ function BasicDetailsStep({
                     placeholder="e.g., Spaghetti Carbonara"
                     autoFocus
                 />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                    <Label htmlFor="cookingTime">Cooking Time (mins)</Label>
+                    <Input 
+                        id="cookingTime" 
+                        type="number"
+                        value={cookingTime} 
+                        onChange={e => setCookingTime(e.target.value)} 
+                        placeholder="e.g., 30"
+                    />
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="calories">Calories (kcal)</Label>
+                    <Input 
+                        id="calories" 
+                        type="number"
+                        value={calories} 
+                        onChange={e => setCalories(e.target.value)} 
+                        placeholder="e.g., 500"
+                    />
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="difficulty">Difficulty</Label>
+                    <Select value={difficulty} onValueChange={setDifficulty}>
+                        <SelectTrigger>
+                            <SelectValue placeholder="Select difficulty" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="Easy">Easy</SelectItem>
+                            <SelectItem value="Medium">Medium</SelectItem>
+                            <SelectItem value="Hard">Hard</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
             </div>
 
             <div className="space-y-2">
@@ -157,6 +205,13 @@ function DynamicListStep({ title, items, setItems, placeholder, label }: any) {
         setItems(items.filter((_: any, i: number) => i !== index));
     };
 
+    const handleKeyDown = (e: React.KeyboardEvent, index: number) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            addItem();
+        }
+    };
+
     return (
          <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
             <div className="flex justify-between items-center">
@@ -178,6 +233,7 @@ function DynamicListStep({ title, items, setItems, placeholder, label }: any) {
                         <Textarea 
                             value={item}
                             onChange={(e) => updateItem(index, e.target.value)}
+                            onKeyDown={(e) => handleKeyDown(e, index)}
                             placeholder={placeholder}
                             className="flex-1 min-h-[3rem] resize-y"
                             autoFocus={index === items.length - 1 && item === ""}
@@ -270,7 +326,10 @@ function CreateRecipeContent() {
   const [steps, setSteps] = useState<string[]>([""]);
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
-  const [isPublic, setIsPublic] = useState(false);
+  const [isPublic, setIsPublic] = useState(true);
+  const [cookingTime, setCookingTime] = useState("");
+  const [difficulty, setDifficulty] = useState("");
+  const [calories, setCalories] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -287,6 +346,9 @@ function CreateRecipeContent() {
       setSteps(existingRecipe.steps.length ? existingRecipe.steps : [""]);
       setTags(existingRecipe.tags || []);
       setIsPublic(existingRecipe.isPublic || false);
+      setCookingTime(existingRecipe.cookingTime?.toString() || "");
+      setDifficulty(existingRecipe.difficulty || "");
+      setCalories(existingRecipe.calories?.toString() || "");
       setImagePreview(existingRecipe.imageUrl);
     }
   }, [existingRecipe]);
@@ -306,15 +368,27 @@ function CreateRecipeContent() {
     setTags(tags.filter(tag => tag !== tagToRemove));
   };
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (file) {
-          setImageFile(file);
-          const reader = new FileReader();
-          reader.onloadend = () => {
-              setImagePreview(reader.result as string);
-          };
-          reader.readAsDataURL(file);
+          try {
+            const compressed = await compressImage(file);
+            setImageFile(compressed);
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setImagePreview(reader.result as string);
+            };
+            reader.readAsDataURL(compressed);
+          } catch (error) {
+            console.error("Image compression failed:", error);
+            // Fallback to original file
+            setImageFile(file);
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setImagePreview(reader.result as string);
+            };
+            reader.readAsDataURL(file);
+          }
       }
   };
 
@@ -381,6 +455,9 @@ function CreateRecipeContent() {
         format: "image",
         tags,
         isPublic,
+        cookingTime: cookingTime ? parseInt(cookingTime) : undefined,
+        difficulty: difficulty || undefined,
+        calories: calories ? parseInt(calories) : undefined,
       };
 
       if (editId) {
@@ -429,6 +506,9 @@ function CreateRecipeContent() {
                     imagePreview={imagePreview} onImageChange={handleImageChange}
                     tags={tags} tagInput={tagInput} setTagInput={setTagInput} handleAddTag={handleAddTag} removeTag={removeTag}
                     isPublic={isPublic} setIsPublic={setIsPublic}
+                    cookingTime={cookingTime} setCookingTime={setCookingTime}
+                    difficulty={difficulty} setDifficulty={setDifficulty}
+                    calories={calories} setCalories={setCalories}
                 />
             )}
             {currentStep === 2 && (

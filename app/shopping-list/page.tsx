@@ -17,11 +17,12 @@ type ShoppingListItem = {
   isChecked: boolean;
   recipeId?: Id<"recipes">;
   recipeTitle?: string;
+  category?: string;
 };
 
 interface GroupedItems {
   [key: string]: {
-    id: string; // Use string here to accommodate both "General Items" and recipeIds
+    id: string;
     title: string;
     items: ShoppingListItem[];
   };
@@ -35,6 +36,7 @@ export default function ShoppingListPage() {
   const clearChecked = useMutation(api.shoppingList.clearChecked);
 
   const [newItem, setNewItem] = useState("");
+  const [groupBy, setGroupBy] = useState<"category" | "recipe">("category");
 
   const handleAddItem = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,8 +56,16 @@ export default function ShoppingListPage() {
   const groupedItems: GroupedItems = {};
 
   items.forEach((item) => {
-    const groupKey = item.recipeId ? item.recipeId : "general";
-    const groupTitle = item.recipeTitle ? item.recipeTitle : "General Items";
+    let groupKey = "";
+    let groupTitle = "";
+
+    if (groupBy === "recipe") {
+      groupKey = item.recipeId ? item.recipeId : "general";
+      groupTitle = item.recipeTitle ? item.recipeTitle : "General Items";
+    } else {
+      groupKey = item.category || "Other";
+      groupTitle = item.category || "Other";
+    }
 
     if (!groupedItems[groupKey]) {
       groupedItems[groupKey] = {
@@ -67,11 +77,18 @@ export default function ShoppingListPage() {
     groupedItems[groupKey].items.push(item);
   });
 
-  // Convert to array and sort so General Items are first, or last? Let's put General Items first.
+  // Convert to array and sort
   const sortedGroups = Object.values(groupedItems).sort((a, b) => {
-    if (a.id === "general") return -1;
-    if (b.id === "general") return 1;
-    return a.title.localeCompare(b.title);
+    if (groupBy === "recipe") {
+        if (a.id === "general") return -1;
+        if (b.id === "general") return 1;
+        return a.title.localeCompare(b.title);
+    } else {
+        // Sort categories logically? For now just alphabetical
+        if (a.title === "Other") return 1;
+        if (b.title === "Other") return -1;
+        return a.title.localeCompare(b.title);
+    }
   });
 
   return (
@@ -106,6 +123,23 @@ export default function ShoppingListPage() {
               <Plus className="w-4 h-4 mr-2" /> Add
             </Button>
           </form>
+
+          <div className="flex justify-end mb-4">
+             <div className="text-sm flex gap-2 bg-muted p-1 rounded-md">
+                <button 
+                    className={`px-3 py-1 rounded-sm transition-colors ${groupBy === "category" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                    onClick={() => setGroupBy("category")}
+                >
+                    By Aisle
+                </button>
+                <button 
+                    className={`px-3 py-1 rounded-sm transition-colors ${groupBy === "recipe" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                    onClick={() => setGroupBy("recipe")}
+                >
+                    By Recipe
+                </button>
+             </div>
+          </div>
 
           <div className="space-y-6">
             {items.length === 0 ? (

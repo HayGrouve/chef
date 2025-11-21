@@ -45,6 +45,30 @@ export const listWithDetails = query({
   },
 });
 
+const categoryKeywords: Record<string, string[]> = {
+  "Produce": ["apple", "banana", "orange", "lettuce", "tomato", "onion", "garlic", "carrot", "pepper", "potato", "spinach", "fruit", "vegetable", "herb", "cilantro", "parsley", "basil", "lemon", "lime", "cucumber", "avocado"],
+  "Dairy": ["milk", "cheese", "yogurt", "butter", "cream", "egg", "cheddar", "mozzarella", "parmesan", "curd", "ghee"],
+  "Meat & Seafood": ["chicken", "beef", "pork", "fish", "salmon", "shrimp", "tuna", "steak", "bacon", "sausage", "ham", "lamb", "turkey"],
+  "Grains & Pasta": ["rice", "pasta", "noodle", "bread", "flour", "oat", "quinoa", "spaghetti", "macaroni", "tortilla", "cereal"],
+  "Canned & Jarred": ["can", "jar", "sauce", "bean", "soup", "broth", "stock", "paste", "tuna canned", "chickpea"],
+  "Baking & Spices": ["sugar", "salt", "pepper", "oil", "vinegar", "spice", "baking", "powder", "soda", "vanilla", "cinnamon", "honey", "syrup"],
+  "Frozen": ["frozen", "ice cream", "pizza frozen"],
+  "Beverages": ["water", "soda", "juice", "coffee", "tea", "wine", "beer", "drink"],
+  "Household": ["paper", "soap", "cleaner", "detergent", "foil", "wrap", "bag"],
+};
+
+function getCategory(item: string): string {
+  const lowerItem = item.toLowerCase();
+  
+  for (const [category, keywords] of Object.entries(categoryKeywords)) {
+    if (keywords.some(keyword => lowerItem.includes(keyword))) {
+      return category;
+    }
+  }
+  
+  return "Other";
+}
+
 // Add an item to the shopping list
 export const add = mutation({
   args: {
@@ -61,6 +85,7 @@ export const add = mutation({
       ingredient: args.ingredient,
       isChecked: false,
       recipeId: args.recipeId,
+      category: getCategory(args.ingredient),
     });
   },
 });
@@ -77,6 +102,9 @@ export const addBatch = mutation({
       throw new Error("Unauthenticated");
     }
     
+    // Note: For now we don't do complex merging on the server side to keep it simple
+    // We just insert new items. Complex merging requires more robust parsing logic.
+    
     await Promise.all(
       args.ingredients.map((ingredient) =>
         ctx.db.insert("shoppingList", {
@@ -84,6 +112,7 @@ export const addBatch = mutation({
           ingredient,
           isChecked: false,
           recipeId: args.recipeId,
+          category: getCategory(ingredient),
         })
       )
     );

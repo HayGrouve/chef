@@ -7,6 +7,10 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "hearty-kookabura-538.convex.cloud",
       },
+      {
+        protocol: "https",
+        hostname: "img.clerk.com",
+      },
     ],
   },
 };

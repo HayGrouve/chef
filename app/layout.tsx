@@ -3,6 +3,10 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import ConvexClientProvider from "./ConvexClientProvider";
 
+import { ThemeProvider } from "@/components/theme-provider";
+
+import { AuthenticatedMobileNav } from "@/components/authenticated-mobile-nav";
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -24,12 +28,22 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <ConvexClientProvider>
-          {children}
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+          >
+            <div className="pb-16 md:pb-0">
+              {children}
+            </div>
+            <AuthenticatedMobileNav />
+          </ThemeProvider>
         </ConvexClientProvider>
       </body>
     </html>
