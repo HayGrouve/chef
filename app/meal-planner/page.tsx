@@ -389,7 +389,7 @@ export default function MealPlannerPage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <DialogTitle>Shop This Week</DialogTitle>
+            <AlertDialogTitle>Shop This Week</AlertDialogTitle>
             <AlertDialogDescription>
               Add ingredients for all planned meals this week to your shopping
               list?

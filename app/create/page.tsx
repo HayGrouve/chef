@@ -255,12 +255,26 @@ function BasicDetailsStep({
         />
         <div className="flex flex-wrap gap-2 mt-2 min-h-8">
           {tags.map((tag: string) => (
-            <Badge key={tag} variant="secondary" className="px-2 py-1">
+            <Badge
+              key={tag}
+              variant="secondary"
+              className="px-3 py-1 flex items-center gap-2"
+            >
               {tag}
-              <X
-                className="w-3 h-3 ml-1 cursor-pointer hover:text-destructive"
-                onClick={() => removeTag(tag)}
-              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  removeTag(tag);
+                }}
+                className="h-auto w-auto p-0 ml-1 hover:text-destructive focus:text-destructive"
+                aria-label={`Remove ${tag}`}
+              >
+                <X className="w-3 h-3" />
+              </Button>
             </Badge>
           ))}
         </div>
