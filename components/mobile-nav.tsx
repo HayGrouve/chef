@@ -8,6 +8,11 @@ import { cn } from "@/lib/utils";
 export function MobileNav() {
   const pathname = usePathname();
 
+  // Hide nav on recipe cook page
+  if (/^\/recipe\/[^/]+\/cook$/.test(pathname)) {
+    return null;
+  }
+
   const links = [
     {
       href: "/",
