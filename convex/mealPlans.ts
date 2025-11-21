@@ -96,19 +96,20 @@ export const autoGenerate = mutation({
     }
 
     // 1. Get recipes (prefer favorites, but fallback to any)
+    // Note: We cannot filter by "isFavorite" directly because it's not in the recipe schema.
+    // It's a computed property or stored in a separate table.
+    // For now, we will just fetch user's recipes.
+    // If we want to prioritize favorites, we'd need to query the favorites table first.
     let recipes = await ctx.db
       .query("recipes")
       .filter((q) => q.eq(q.field("userId"), identity.subject))
-      .filter((q) => q.eq(q.field("isFavorite"), true))
       .collect();
 
-    if (recipes.length === 0) {
-      // Fallback to all user recipes
-      recipes = await ctx.db
-        .query("recipes")
-        .filter((q) => q.eq(q.field("userId"), identity.subject))
-        .collect();
-    }
+    // Filter for favorites in memory if needed, or just proceed with all recipes
+    // For this implementation, we'll use all user recipes to ensure we have enough variety
+    // or we could fetch favorites separately. Let's stick to all user recipes for simplicity
+    // as the "isFavorite" field doesn't exist on the recipe document.
+
 
     if (recipes.length === 0) return;
 

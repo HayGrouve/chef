@@ -34,10 +34,12 @@ export const create = mutation({
     }
 
     if (args.tags) {
-        const validTags = args.tags.every(tag => (PREDEFINED_TAGS as unknown as string[]).includes(tag));
-        if (!validTags) {
-            throw new Error("Invalid tags provided");
-        }
+      const validTags = args.tags.every((tag) =>
+        (PREDEFINED_TAGS as unknown as string[]).includes(tag)
+      );
+      if (!validTags) {
+        throw new Error("Invalid tags provided");
+      }
     }
 
     const recipe = {
@@ -82,10 +84,12 @@ export const update = mutation({
     }
 
     if (args.tags) {
-        const validTags = args.tags.every(tag => (PREDEFINED_TAGS as unknown as string[]).includes(tag));
-        if (!validTags) {
-            throw new Error("Invalid tags provided");
-        }
+      const validTags = args.tags.every((tag) =>
+        (PREDEFINED_TAGS as unknown as string[]).includes(tag)
+      );
+      if (!validTags) {
+        throw new Error("Invalid tags provided");
+      }
     }
 
     // Prepare update fields
@@ -112,13 +116,19 @@ export const update = mutation({
 });
 
 // Helper to check if a recipe is favorited by the current user
-async function isRecipeFavorite(ctx: any, recipeId: any, userId: string | undefined) {
-    if (!userId) return false;
-    const favorite = await ctx.db
-        .query("favorites")
-        .withIndex("by_user_recipe", (q: any) => q.eq("userId", userId).eq("recipeId", recipeId))
-        .unique();
-    return !!favorite;
+async function isRecipeFavorite(
+  ctx: any,
+  recipeId: any,
+  userId: string | undefined
+) {
+  if (!userId) return false;
+  const favorite = await ctx.db
+    .query("favorites")
+    .withIndex("by_user_recipe", (q: any) =>
+      q.eq("userId", userId).eq("recipeId", recipeId)
+    )
+    .unique();
+  return !!favorite;
 }
 
 // List all recipes for the authenticated user (paginated)
@@ -137,68 +147,76 @@ export const list = query({
 
     // If filtering by favorites only, we need to query the favorites table first
     if (args.favoritesOnly && userId) {
-        // Note: Pagination with this approach is tricky because we need to paginate the favorites table,
-        // then fetch the recipes.
-        // However, if we also have other filters (search, difficulty, etc.), it gets complicated.
-        // For simplicity in this iteration, we'll paginate the favorites query and then fetch recipes.
-        // If other filters are present, we might under-fetch a page, but that's a common tradeoff in NoSQL.
-        
-        const favorites = await ctx.db
-            .query("favorites")
-            .withIndex("by_user", (q) => q.eq("userId", userId))
-            .order("desc")
-            .paginate(args.paginationOpts);
+      // Note: Pagination with this approach is tricky because we need to paginate the favorites table,
+      // then fetch the recipes.
+      // However, if we also have other filters (search, difficulty, etc.), it gets complicated.
+      // For simplicity in this iteration, we'll paginate the favorites query and then fetch recipes.
+      // If other filters are present, we might under-fetch a page, but that's a common tradeoff in NoSQL.
 
-        const recipes = await Promise.all(
-            favorites.page.map(async (fav) => {
-                const recipe = await ctx.db.get(fav.recipeId);
-                return recipe;
-            })
+      const favorites = await ctx.db
+        .query("favorites")
+        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .order("desc")
+        .paginate(args.paginationOpts);
+
+      const recipes = await Promise.all(
+        favorites.page.map(async (fav) => {
+          const recipe = await ctx.db.get(fav.recipeId);
+          return recipe;
+        })
+      );
+
+      // Filter nulls (deleted recipes) and apply other filters in memory (since we can't easily combine index query)
+      let filteredRecipes = recipes.filter(
+        (r): r is NonNullable<typeof r> => r !== null
+      );
+
+      if (args.search) {
+        const searchLower = args.search.toLowerCase();
+        filteredRecipes = filteredRecipes.filter((r) =>
+          r.title.toLowerCase().includes(searchLower)
         );
-
-        // Filter nulls (deleted recipes) and apply other filters in memory (since we can't easily combine index query)
-        let filteredRecipes = recipes.filter((r): r is NonNullable<typeof r> => r !== null);
-
-        if (args.search) {
-            const searchLower = args.search.toLowerCase();
-            filteredRecipes = filteredRecipes.filter(r => r.title.toLowerCase().includes(searchLower));
-        }
-        if (args.difficulty && args.difficulty !== "all") {
-            filteredRecipes = filteredRecipes.filter(r => r.difficulty === args.difficulty);
-        }
-        if (args.maxTime && args.maxTime !== 180) {
-            filteredRecipes = filteredRecipes.filter(r => (r.cookingTime || 0) <= args.maxTime!);
-        }
-
-        const pageWithDetails = await Promise.all(
-            filteredRecipes.map(async (recipe) => {
-                let imageUrl = null;
-                if (recipe.storageId) {
-                    imageUrl = await ctx.storage.getUrl(recipe.storageId);
-                }
-                
-                let authorName = undefined;
-                if (recipe.userId !== userId) {
-                    const user = await ctx.db
-                        .query("users")
-                        .withIndex("by_userId", (q) => q.eq("userId", recipe.userId))
-                        .unique();
-                    authorName = user?.name;
-                }
-
-                return {
-                    ...recipe,
-                    imageUrl,
-                    authorName,
-                    isFavorite: true, // Since we queried from favorites table
-                };
-            })
+      }
+      if (args.difficulty && args.difficulty !== "all") {
+        filteredRecipes = filteredRecipes.filter(
+          (r) => r.difficulty === args.difficulty
         );
+      }
+      if (args.maxTime && args.maxTime !== 180) {
+        filteredRecipes = filteredRecipes.filter(
+          (r) => (r.cookingTime || 0) <= args.maxTime!
+        );
+      }
 
-        return {
-            ...favorites,
-            page: pageWithDetails,
-        };
+      const pageWithDetails = await Promise.all(
+        filteredRecipes.map(async (recipe) => {
+          let imageUrl = null;
+          if (recipe.storageId) {
+            imageUrl = await ctx.storage.getUrl(recipe.storageId);
+          }
+
+          let authorName = undefined;
+          if (recipe.userId !== userId) {
+            const user = await ctx.db
+              .query("users")
+              .withIndex("by_userId", (q) => q.eq("userId", recipe.userId))
+              .unique();
+            authorName = user?.name;
+          }
+
+          return {
+            ...recipe,
+            imageUrl,
+            authorName,
+            isFavorite: true, // Since we queried from favorites table
+          };
+        })
+      );
+
+      return {
+        ...favorites,
+        page: pageWithDetails,
+      };
     }
 
     // Normal listing logic
@@ -210,47 +228,46 @@ export const list = query({
         queryBuilder = ctx.db
           .query("recipes")
           .withSearchIndex("search_recipes", (q) =>
-            q
-              .search("title", args.search!)
-              .eq("userId", userId)
+            q.search("title", args.search!).eq("userId", userId)
           );
       } else {
         queryBuilder = ctx.db
           .query("recipes")
           .withSearchIndex("search_recipes", (q) =>
-            q
-              .search("title", args.search!)
-              .eq("isPublic", true)
+            q.search("title", args.search!).eq("isPublic", true)
           );
       }
     } else {
       queryBuilder = ctx.db.query("recipes");
-      
+
       if (myRecipesOnly && userId) {
-        queryBuilder = queryBuilder.filter((q) => 
+        queryBuilder = queryBuilder.filter((q) =>
           q.eq(q.field("userId"), userId)
         );
       } else if (userId) {
         queryBuilder = queryBuilder.filter((q) =>
-          q.or(
-            q.eq(q.field("isPublic"), true),
-            q.eq(q.field("userId"), userId)
-          )
+          q.or(q.eq(q.field("isPublic"), true), q.eq(q.field("userId"), userId))
         );
       } else {
-         // Unauthenticated user sees public recipes only
-         queryBuilder = queryBuilder.filter((q) => q.eq(q.field("isPublic"), true));
+        // Unauthenticated user sees public recipes only
+        queryBuilder = queryBuilder.filter((q) =>
+          q.eq(q.field("isPublic"), true)
+        );
       }
-      
+
       queryBuilder = queryBuilder.order("desc");
     }
 
     if (args.difficulty) {
-        queryBuilder = queryBuilder.filter((q: any) => q.eq(q.field("difficulty"), args.difficulty));
+      queryBuilder = queryBuilder.filter((q: any) =>
+        q.eq(q.field("difficulty"), args.difficulty)
+      );
     }
 
     if (args.maxTime) {
-        queryBuilder = queryBuilder.filter((q: any) => q.lte(q.field("cookingTime"), args.maxTime));
+      queryBuilder = queryBuilder.filter((q: any) =>
+        q.lte(q.field("cookingTime"), args.maxTime)
+      );
     }
 
     const paginatedResult = await queryBuilder.paginate(args.paginationOpts);
@@ -264,11 +281,11 @@ export const list = query({
 
         let authorName = undefined;
         if (recipe.userId !== userId) {
-            const user = await ctx.db
-              .query("users")
-              .withIndex("by_userId", (q) => q.eq("userId", recipe.userId))
-              .unique();
-            authorName = user?.name;
+          const user = await ctx.db
+            .query("users")
+            .withIndex("by_userId", (q) => q.eq("userId", recipe.userId))
+            .unique();
+          authorName = user?.name;
         }
 
         const isFavorite = await isRecipeFavorite(ctx, recipe._id, userId);
@@ -283,8 +300,8 @@ export const list = query({
     );
 
     return {
-        ...paginatedResult,
-        page: pageWithDetails
+      ...paginatedResult,
+      page: pageWithDetails,
     };
   },
 });
@@ -308,7 +325,11 @@ export const listAll = query({
         if (recipe.storageId) {
           imageUrl = await ctx.storage.getUrl(recipe.storageId);
         }
-        const isFavorite = await isRecipeFavorite(ctx, recipe._id, identity.subject);
+        const isFavorite = await isRecipeFavorite(
+          ctx,
+          recipe._id,
+          identity.subject
+        );
         return {
           ...recipe,
           imageUrl,
@@ -330,7 +351,7 @@ export const getPublic = query({
     if (!recipe || !recipe.isPublic) {
       return null;
     }
-    
+
     let imageUrl = null;
     if (recipe.storageId) {
       imageUrl = await ctx.storage.getUrl(recipe.storageId);
@@ -364,7 +385,7 @@ export const get = query({
     if (!recipe) {
       return null;
     }
-    
+
     let imageUrl = null;
     if (recipe.storageId) {
       imageUrl = await ctx.storage.getUrl(recipe.storageId);
@@ -434,7 +455,11 @@ export const searchByIngredients = query({
           imageUrl = await ctx.storage.getUrl(recipe.storageId);
         }
 
-        const isFavorite = await isRecipeFavorite(ctx, recipe._id, identity.subject);
+        const isFavorite = await isRecipeFavorite(
+          ctx,
+          recipe._id,
+          identity.subject
+        );
 
         return {
           ...recipe,
@@ -474,7 +499,11 @@ export const listPublic = query({
         if (recipe.storageId) {
           imageUrl = await ctx.storage.getUrl(recipe.storageId);
         }
-        const isFavorite = await isRecipeFavorite(ctx, recipe._id, currentUserId);
+        const isFavorite = await isRecipeFavorite(
+          ctx,
+          recipe._id,
+          currentUserId
+        );
         return {
           ...recipe,
           imageUrl,
@@ -493,7 +522,7 @@ export const toggleFavorite = mutation({
     if (!identity) {
       throw new Error("Unauthenticated");
     }
-    
+
     const recipe = await ctx.db.get(args.id);
     if (!recipe) {
       throw new Error("Recipe not found");
@@ -501,17 +530,19 @@ export const toggleFavorite = mutation({
 
     // Check if already favorited
     const existingFavorite = await ctx.db
-        .query("favorites")
-        .withIndex("by_user_recipe", (q) => q.eq("userId", identity.subject).eq("recipeId", args.id))
-        .unique();
+      .query("favorites")
+      .withIndex("by_user_recipe", (q) =>
+        q.eq("userId", identity.subject).eq("recipeId", args.id)
+      )
+      .unique();
 
     if (existingFavorite) {
-        await ctx.db.delete(existingFavorite._id);
+      await ctx.db.delete(existingFavorite._id);
     } else {
-        await ctx.db.insert("favorites", {
-            userId: identity.subject,
-            recipeId: args.id,
-        });
+      await ctx.db.insert("favorites", {
+        userId: identity.subject,
+        recipeId: args.id,
+      });
     }
   },
 });
@@ -524,7 +555,7 @@ export const remove = mutation({
     if (!identity) {
       throw new Error("Unauthenticated");
     }
-    
+
     const recipe = await ctx.db.get(args.id);
     if (!recipe) {
       throw new Error("Recipe not found");
@@ -536,17 +567,16 @@ export const remove = mutation({
 
     // Also delete associated favorites?
     // Ideally yes, to keep DB clean.
-    const favorites = await ctx.db
-        .query("favorites")
-        .withIndex("by_user_recipe", (q) => q.eq("recipeId", args.id)) // wait, index is by userId then recipeId.
-        // We need an index by recipeId or scan.
-        // Since we didn't add a separate index by recipeId in the plan, we can skip or scan if volume is low.
-        // Actually, leaving orphan favorites is not the end of the world, but nice to clean.
-        // Let's skip for now to avoid index requirement changes mid-flight or slow scans.
-        .collect(); // This would scan if we use the compound index partially.
-        // The compound index is "by_user_recipe": ["userId", "recipeId"].
-        // Querying by just "recipeId" is a full table scan.
-        // Let's just leave them for now.
+    // Note: The index is "by_user_recipe": ["userId", "recipeId"].
+    // Querying by just "recipeId" efficiently requires an index starting with "recipeId".
+    // Without it, we can't efficiently delete all favorites for this recipe.
+    // For now, we will skip deleting favorites to avoid full table scans.
+    // In a production app, we should add an index on "recipeId" to the favorites table.
+
+    // Delete the image from storage if it exists
+    if (recipe.storageId) {
+      await ctx.storage.delete(recipe.storageId);
+    }
 
     return await ctx.db.delete(args.id);
   },
