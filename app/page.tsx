@@ -305,10 +305,14 @@ function RecipeImage({
   imageUrl: string | null;
   title: string;
 }) {
-  if (!imageUrl) {
+  const [hasError, setHasError] = useState(false);
+
+  if (!imageUrl || hasError) {
     return (
       <div className="aspect-video bg-muted rounded-md flex items-center justify-center overflow-hidden">
-        <span className="text-muted-foreground">No Image</span>
+        <span className="text-muted-foreground">
+          {hasError ? "Image Error" : "No Image"}
+        </span>
       </div>
     );
   }
@@ -321,6 +325,7 @@ function RecipeImage({
         fill
         className="object-cover"
         sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+        onError={() => setHasError(true)}
       />
     </div>
   );

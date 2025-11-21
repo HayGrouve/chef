@@ -238,7 +238,7 @@ function BasicDetailsStep({
             ref={fileInputRef}
             type="file"
             className="hidden"
-            accept="image/*"
+            accept="image/png, image/jpeg, image/jpg, image/webp"
             onChange={onImageChange}
           />
         </div>
@@ -579,6 +579,21 @@ function CreateRecipeContent() {
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // Validate file type
+      const validTypes = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
+      if (!validTypes.includes(file.type)) {
+        showAlert("Invalid File Type", "Please upload a valid image file (PNG, JPEG, JPG, WEBP).");
+        e.target.value = ""; // Reset input
+        return;
+      }
+
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        showAlert("File Too Large", "Please upload an image smaller than 5MB.");
+        e.target.value = ""; // Reset input
+        return;
+      }
+
       try {
         const compressed = await compressImage(file);
         setImageFile(compressed);

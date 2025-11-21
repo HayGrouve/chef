@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Trash2, Plus, Eraser, ArrowLeft, ShoppingBasket } from "lucide-react";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
 import { Id } from "../../convex/_generated/dataModel";
 
@@ -52,44 +52,46 @@ export default function ShoppingListPage() {
     );
   }
 
-  // Group items
-  const groupedItems: GroupedItems = {};
+  // Grouping logic
+  const sortedGroups = useMemo(() => {
+    if (!items) return [];
 
-  items.forEach((item) => {
-    let groupKey = "";
-    let groupTitle = "";
+    const groupedItems: GroupedItems = {};
 
-    if (groupBy === "recipe") {
-      groupKey = item.recipeId ? item.recipeId : "general";
-      groupTitle = item.recipeTitle ? item.recipeTitle : "General Items";
-    } else {
-      groupKey = item.category || "Other";
-      groupTitle = item.category || "Other";
-    }
+    items.forEach((item) => {
+      let groupKey = "";
+      let groupTitle = "";
 
-    if (!groupedItems[groupKey]) {
-      groupedItems[groupKey] = {
-        id: groupKey,
-        title: groupTitle,
-        items: [],
-      };
-    }
-    groupedItems[groupKey].items.push(item);
-  });
+      if (groupBy === "recipe") {
+        groupKey = item.recipeId ? item.recipeId : "general";
+        groupTitle = item.recipeTitle ? item.recipeTitle : "General Items";
+      } else {
+        groupKey = item.category || "Other";
+        groupTitle = item.category || "Other";
+      }
 
-  // Convert to array and sort
-  const sortedGroups = Object.values(groupedItems).sort((a, b) => {
-    if (groupBy === "recipe") {
+      if (!groupedItems[groupKey]) {
+        groupedItems[groupKey] = {
+          id: groupKey,
+          title: groupTitle,
+          items: [],
+        };
+      }
+      groupedItems[groupKey].items.push(item);
+    });
+
+    return Object.values(groupedItems).sort((a, b) => {
+      if (groupBy === "recipe") {
         if (a.id === "general") return -1;
         if (b.id === "general") return 1;
         return a.title.localeCompare(b.title);
-    } else {
-        // Sort categories logically? For now just alphabetical
+      } else {
         if (a.title === "Other") return 1;
         if (b.title === "Other") return -1;
         return a.title.localeCompare(b.title);
-    }
-  });
+      }
+    });
+  }, [items, groupBy]);
 
   return (
     <div className="container mx-auto p-4 max-w-2xl">
