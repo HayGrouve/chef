@@ -99,7 +99,7 @@ export default function RecipeDetail() {
           <ArrowLeft className="mr-2 h-4 w-4" /> Back to Recipes
         </Button>
         <Link href={`/recipe/${recipeId}/cook`}>
-          <Button className="bg-green-600 hover:bg-green-700">
+          <Button>
             <PlayCircle className="mr-2 h-4 w-4" /> Start Cooking
           </Button>
         </Link>

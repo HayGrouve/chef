@@ -59,10 +59,10 @@ export default function Home() {
   const { results, status, loadMore, isLoading } = usePaginatedQuery(
     api.recipes.list,
     {
-        search: search === "" ? undefined : search,
-        difficulty: difficulty === "all" ? undefined : difficulty,
-        maxTime: maxTime === 180 ? undefined : maxTime,
-        favoritesOnly: favoritesOnly ? true : undefined,
+      search: search === "" ? undefined : search,
+      difficulty: difficulty === "all" ? undefined : difficulty,
+      maxTime: maxTime === 180 ? undefined : maxTime,
+      favoritesOnly: favoritesOnly ? true : undefined,
     },
     { initialNumItems: 9 }
   );
@@ -89,167 +89,175 @@ export default function Home() {
         <Authenticated>
           <div className="relative mb-6 space-y-4 mt-4">
             <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-            <Input
-              placeholder="Search recipes..."
-              className="pl-10"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-          
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+              <Input
+                placeholder="Search recipes..."
+                className="pl-10"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+
             <div className="flex flex-col md:flex-row gap-4 p-4 bg-muted/30 rounded-lg border">
               <div className="flex-1 space-y-2">
-                 <Label>Difficulty</Label>
-                 <Select value={difficulty} onValueChange={setDifficulty}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Any Difficulty" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Any Difficulty</SelectItem>
-                      <SelectItem value="Easy">Easy</SelectItem>
-                      <SelectItem value="Medium">Medium</SelectItem>
-                      <SelectItem value="Hard">Hard</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <Label>Difficulty</Label>
+                <Select value={difficulty} onValueChange={setDifficulty}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Any Difficulty" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Any Difficulty</SelectItem>
+                    <SelectItem value="Easy">Easy</SelectItem>
+                    <SelectItem value="Medium">Medium</SelectItem>
+                    <SelectItem value="Hard">Hard</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="flex-1 space-y-2">
-                 <Label>Max Cooking Time: {maxTime} mins</Label>
-                 <Slider 
-                   value={[maxTime]} 
-                   onValueChange={(val) => setMaxTime(val[0])} 
-                   max={180} 
-                   step={5} 
-                   className="py-4"
-                 />
+                <Label>Max Cooking Time: {maxTime} mins</Label>
+                <Slider
+                  value={[maxTime]}
+                  onValueChange={(val) => setMaxTime(val[0])}
+                  max={180}
+                  step={5}
+                  className="py-4"
+                />
               </div>
               <div className="flex-1 space-y-2 flex items-center pt-6">
-                  <div className="flex items-center space-x-2">
-                    <Switch id="favorites-only" checked={favoritesOnly} onCheckedChange={setFavoritesOnly} />
-                    <Label htmlFor="favorites-only">Favorites Only</Label>
-                  </div>
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="favorites-only"
+                    checked={favoritesOnly}
+                    onCheckedChange={setFavoritesOnly}
+                  />
+                  <Label htmlFor="favorites-only">Favorites Only</Label>
+                </div>
               </div>
             </div>
           </div>
 
-        {/* Tag Filters */}
-        {allTags.length > 0 && (
-          <div className="flex gap-2 mb-8 overflow-x-auto pb-2 scrollbar-hide">
-            <Badge
-              variant={selectedTag === null ? "default" : "secondary"}
-              className="cursor-pointer whitespace-nowrap"
-              onClick={() => setSelectedTag(null)}
-            >
-              All
-            </Badge>
-            {allTags.map((tag) => (
+          {/* Tag Filters */}
+          {allTags.length > 0 && (
+            <div className="flex gap-2 mb-8 overflow-x-auto pb-2 scrollbar-hide">
               <Badge
-                key={tag}
-                variant={selectedTag === tag ? "default" : "secondary"}
+                variant={selectedTag === null ? "default" : "secondary"}
                 className="cursor-pointer whitespace-nowrap"
-                onClick={() => setSelectedTag(selectedTag === tag ? null : tag)}
+                onClick={() => setSelectedTag(null)}
               >
-                {tag}
+                All
               </Badge>
-            ))}
-          </div>
-        )}
+              {allTags.map((tag) => (
+                <Badge
+                  key={tag}
+                  variant={selectedTag === tag ? "default" : "secondary"}
+                  className="cursor-pointer whitespace-nowrap"
+                  onClick={() =>
+                    setSelectedTag(selectedTag === tag ? null : tag)
+                  }
+                >
+                  {tag}
+                </Badge>
+              ))}
+            </div>
+          )}
 
-        {status === "LoadingFirstPage" ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[...Array(6)].map((_, i) => (
-              <RecipeCardSkeleton key={i} />
-            ))}
-          </div>
-        ) : filteredRecipes?.length === 0 ? (
-          <div className="text-center py-12">
-            {search || selectedTag ? (
-              <div className="flex flex-col items-center gap-4">
-                <SearchX className="h-16 w-16 text-muted-foreground" />
-                <p className="text-xl text-muted-foreground">
-                  No recipes found matching your filters.
-                </p>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center gap-4">
-                <UtensilsCrossed className="h-16 w-16 text-muted-foreground" />
-                <p className="text-xl text-muted-foreground">
-                  You haven&apos;t added any recipes yet.
-                </p>
-                <Link href="/create">
-                  <Button size="lg">
-                    <Plus className="mr-2 h-4 w-4" />
-                    Create Your First Recipe
-                  </Button>
-                </Link>
-              </div>
-            )}
-          </div>
-        ) : (
-          <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+          {status === "LoadingFirstPage" ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[...Array(6)].map((_, i) => (
+                <RecipeCardSkeleton key={i} />
+              ))}
+            </div>
+          ) : filteredRecipes?.length === 0 ? (
+            <div className="text-center py-12">
+              {search || selectedTag ? (
+                <div className="flex flex-col items-center gap-4">
+                  <SearchX className="h-16 w-16 text-muted-foreground" />
+                  <p className="text-xl text-muted-foreground">
+                    No recipes found matching your filters.
+                  </p>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center gap-4">
+                  <UtensilsCrossed className="h-16 w-16 text-muted-foreground" />
+                  <p className="text-xl text-muted-foreground">
+                    You haven&apos;t added any recipes yet.
+                  </p>
+                  <Link href="/create">
+                    <Button size="lg">
+                      <Plus className="mr-2 h-4 w-4" />
+                      Create Your First Recipe
+                    </Button>
+                  </Link>
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
                 {filteredRecipes?.map((recipe) => (
-                <div key={recipe._id} className="relative group">
+                  <div key={recipe._id} className="relative group">
                     <Link href={`/recipe/${recipe._id}`}>
-                    <Card className="h-full hover:shadow-lg transition-shadow cursor-pointer">
+                      <Card className="h-full hover:shadow-lg transition-shadow cursor-pointer">
                         <CardHeader>
-                        <div className="flex justify-between items-start gap-2">
+                          <div className="flex justify-between items-start gap-2">
                             <CardTitle className="line-clamp-1">
-                            {recipe.title}
+                              {recipe.title}
                             </CardTitle>
-                        </div>
-                        <CardDescription className="line-clamp-2">
+                          </div>
+                          <CardDescription className="line-clamp-2">
                             {recipe.description}
-                        </CardDescription>
-                        <div className="flex flex-wrap gap-1 mt-2">
+                          </CardDescription>
+                          <div className="flex flex-wrap gap-1 mt-2">
                             {recipe.tags?.slice(0, 3).map((tag) => (
-                            <Badge
+                              <Badge
                                 key={tag}
                                 variant="outline"
                                 className="text-xs px-1 py-0"
-                            >
+                              >
                                 {tag}
-                            </Badge>
+                              </Badge>
                             ))}
                             {recipe.tags && recipe.tags.length > 3 && (
-                            <span className="text-xs text-muted-foreground">
+                              <span className="text-xs text-muted-foreground">
                                 +{recipe.tags.length - 3}
-                            </span>
+                              </span>
                             )}
-                        </div>
+                          </div>
                         </CardHeader>
                         <CardContent>
-                        <RecipeImage
+                          <RecipeImage
                             imageUrl={recipe.imageUrl}
                             title={recipe.title}
-                        />
+                          />
                         </CardContent>
-                    </Card>
+                      </Card>
                     </Link>
                     <div className="absolute top-2 right-2 z-10">
-                    <LikeButton 
+                      <LikeButton
                         isFavorite={recipe.isFavorite || false}
                         onClick={(e) => {
-                            e.preventDefault();
-                            toggleFavorite({ id: recipe._id });
+                          e.preventDefault();
+                          toggleFavorite({ id: recipe._id });
                         }}
-                    />
+                      />
                     </div>
-                </div>
+                  </div>
                 ))}
-            </div>
-            
-            {status === "CanLoadMore" && (
+              </div>
+
+              {status === "CanLoadMore" && (
                 <div className="flex justify-center py-8">
-                    <Button onClick={() => loadMore(9)} disabled={isLoading}>
-                        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Load More
-                    </Button>
+                  <Button onClick={() => loadMore(9)} disabled={isLoading}>
+                    {isLoading && (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    )}
+                    Load More
+                  </Button>
                 </div>
-            )}
-          </>
-        )}
-      </Authenticated>
+              )}
+            </>
+          )}
+        </Authenticated>
 
         <Unauthenticated>
           <div className="text-center py-12 md:py-20 flex flex-col items-center">
