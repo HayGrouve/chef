@@ -46,12 +46,6 @@ export default function ShoppingListPage() {
     }
   };
 
-  if (items === undefined) {
-    return (
-      <div className="container mx-auto p-4">Loading shopping list...</div>
-    );
-  }
-
   // Grouping logic
   const sortedGroups = useMemo(() => {
     if (!items) return [];
@@ -93,6 +87,12 @@ export default function ShoppingListPage() {
     });
   }, [items, groupBy]);
 
+  if (items === undefined) {
+    return (
+      <div className="container mx-auto p-4">Loading shopping list...</div>
+    );
+  }
+
   return (
     <div className="container mx-auto p-4 max-w-2xl">
       <Link href="/">
@@ -127,20 +127,32 @@ export default function ShoppingListPage() {
           </form>
 
           <div className="flex justify-end mb-4">
-             <div className="text-sm flex gap-2 bg-muted p-1 rounded-md">
-                <button 
-                    className={`px-3 py-1 rounded-sm transition-colors ${groupBy === "category" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-                    onClick={() => setGroupBy("category")}
-                >
-                    By Aisle
-                </button>
-                <button 
-                    className={`px-3 py-1 rounded-sm transition-colors ${groupBy === "recipe" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-                    onClick={() => setGroupBy("recipe")}
-                >
-                    By Recipe
-                </button>
-             </div>
+            <div className="text-sm flex gap-2 bg-muted p-1 rounded-md">
+              <Button
+                variant={groupBy === "category" ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => setGroupBy("category")}
+                className={
+                  groupBy === "category"
+                    ? "bg-background shadow-sm hover:bg-background"
+                    : ""
+                }
+              >
+                By Aisle
+              </Button>
+              <Button
+                variant={groupBy === "recipe" ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => setGroupBy("recipe")}
+                className={
+                  groupBy === "recipe"
+                    ? "bg-background shadow-sm hover:bg-background"
+                    : ""
+                }
+              >
+                By Recipe
+              </Button>
+            </div>
           </div>
 
           <div className="space-y-6">

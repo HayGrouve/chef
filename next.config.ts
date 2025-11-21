@@ -5,6 +5,10 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       {
         protocol: "https",
+        hostname: "descriptive-snail-667.convex.cloud",
+      },
+      {
+        protocol: "https",
         hostname: "hearty-kookabura-538.convex.cloud",
       },
       {
