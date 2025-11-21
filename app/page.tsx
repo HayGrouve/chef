@@ -55,6 +55,7 @@ export default function Home() {
   const [difficulty, setDifficulty] = useState<string>("all");
   const [maxTime, setMaxTime] = useState<number>(180); // 3 hours max default
   const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [myRecipesOnly, setMyRecipesOnly] = useState(false);
 
   const { results, status, loadMore, isLoading } = usePaginatedQuery(
     api.recipes.list,
@@ -63,6 +64,7 @@ export default function Home() {
       difficulty: difficulty === "all" ? undefined : difficulty,
       maxTime: maxTime === 180 ? undefined : maxTime,
       favoritesOnly: favoritesOnly ? true : undefined,
+      myRecipesOnly: myRecipesOnly ? true : undefined,
     },
     { initialNumItems: 9 }
   );
@@ -123,7 +125,7 @@ export default function Home() {
                   className="py-4"
                 />
               </div>
-              <div className="flex-1 space-y-2 flex items-center pt-6">
+              <div className="flex-1 space-y-2 flex flex-col justify-center gap-2 pt-4">
                 <div className="flex items-center space-x-2">
                   <Switch
                     id="favorites-only"
@@ -131,6 +133,14 @@ export default function Home() {
                     onCheckedChange={setFavoritesOnly}
                   />
                   <Label htmlFor="favorites-only">Favorites Only</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="my-recipes-only"
+                    checked={myRecipesOnly}
+                    onCheckedChange={setMyRecipesOnly}
+                  />
+                  <Label htmlFor="my-recipes-only">My Recipes Only</Label>
                 </div>
               </div>
             </div>
@@ -180,7 +190,9 @@ export default function Home() {
                 <div className="flex flex-col items-center gap-4">
                   <UtensilsCrossed className="h-16 w-16 text-muted-foreground" />
                   <p className="text-xl text-muted-foreground">
-                    You haven&apos;t added any recipes yet.
+                    {myRecipesOnly
+                      ? "You haven't added any recipes yet."
+                      : "No recipes found. Be the first to share one!"}
                   </p>
                   <Link href="/create">
                     <Button size="lg">
@@ -207,6 +219,11 @@ export default function Home() {
                           <CardDescription className="line-clamp-2">
                             {recipe.description}
                           </CardDescription>
+                          {recipe.authorName && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              By {recipe.authorName}
+                            </p>
+                          )}
                           <div className="flex flex-wrap gap-1 mt-2">
                             {recipe.tags?.slice(0, 3).map((tag) => (
                               <Badge

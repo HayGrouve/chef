@@ -29,7 +29,7 @@ export default defineSchema({
   })
   .searchIndex("search_recipes", {
     searchField: "title",
-    filterFields: ["userId"],
+    filterFields: ["userId", "isPublic"],
   })
   .searchIndex("search_ingredients_description", {
     searchField: "description", // Note: convex can only search one field at a time per index query, or multiple if full text search over multiple fields is supported by creating a combined field or separate indices.

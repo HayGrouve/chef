@@ -103,6 +103,7 @@ export const list = query({
     difficulty: v.optional(v.string()),
     maxTime: v.optional(v.number()),
     favoritesOnly: v.optional(v.boolean()),
+    myRecipesOnly: v.optional(v.boolean()),
     paginationOpts: paginationOptsValidator,
   },
   handler: async (ctx, args) => {
@@ -112,20 +113,43 @@ export const list = query({
     }
 
     let queryBuilder;
+    const myRecipesOnly = args.myRecipesOnly ?? false;
 
     if (args.search) {
-      queryBuilder = ctx.db
-        .query("recipes")
-        .withSearchIndex("search_recipes", (q) =>
-          q
-            .search("title", args.search!)
-            .eq("userId", identity.subject)
-        );
+      if (myRecipesOnly) {
+        queryBuilder = ctx.db
+          .query("recipes")
+          .withSearchIndex("search_recipes", (q) =>
+            q
+              .search("title", args.search!)
+              .eq("userId", identity.subject)
+          );
+      } else {
+        queryBuilder = ctx.db
+          .query("recipes")
+          .withSearchIndex("search_recipes", (q) =>
+            q
+              .search("title", args.search!)
+              .eq("isPublic", true)
+          );
+      }
     } else {
-      queryBuilder = ctx.db
-        .query("recipes")
-        .filter((q) => q.eq(q.field("userId"), identity.subject))
-        .order("desc");
+      queryBuilder = ctx.db.query("recipes");
+      
+      if (myRecipesOnly) {
+        queryBuilder = queryBuilder.filter((q) => 
+          q.eq(q.field("userId"), identity.subject)
+        );
+      } else {
+        queryBuilder = queryBuilder.filter((q) =>
+          q.or(
+            q.eq(q.field("isPublic"), true),
+            q.eq(q.field("userId"), identity.subject)
+          )
+        );
+      }
+      
+      queryBuilder = queryBuilder.order("desc");
     }
 
     if (args.difficulty) {
@@ -142,22 +166,33 @@ export const list = query({
 
     const paginatedResult = await queryBuilder.paginate(args.paginationOpts);
 
-    const pageWithImages = await Promise.all(
+    const pageWithDetails = await Promise.all(
       paginatedResult.page.map(async (recipe) => {
         let imageUrl = null;
         if (recipe.storageId) {
           imageUrl = await ctx.storage.getUrl(recipe.storageId);
         }
+
+        let authorName = undefined;
+        if (recipe.userId !== identity.subject) {
+            const user = await ctx.db
+              .query("users")
+              .withIndex("by_userId", (q) => q.eq("userId", recipe.userId))
+              .unique();
+            authorName = user?.name;
+        }
+
         return {
           ...recipe,
           imageUrl,
+          authorName,
         };
       })
     );
 
     return {
         ...paginatedResult,
-        page: pageWithImages
+        page: pageWithDetails
     };
   },
 });
