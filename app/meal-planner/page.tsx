@@ -146,6 +146,8 @@ function DroppableDay({
   );
 }
 
+import { MealSelector } from "@/components/meal-planner/MealSelector";
+
 export default function MealPlannerPage() {
   const today = new Date();
   const [currentWeekStart, setCurrentWeekStart] = useState(
@@ -348,40 +350,13 @@ export default function MealPlannerPage() {
         </div>
       </DndContext>
 
-      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              Add Meal for {selectedMealType} on {selectedDate}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-2 gap-2 max-h-[300px] overflow-y-auto">
-              {recipes?.map((recipe) => (
-                <div
-                  key={recipe._id}
-                  className="border rounded-lg p-2 cursor-pointer hover:bg-accent flex items-center gap-2"
-                  onClick={() => handleAddMeal(recipe._id)}
-                >
-                  {recipe.imageUrl && (
-                    <div className="w-10 h-10 relative rounded overflow-hidden shrink-0">
-                      <Image
-                        src={recipe.imageUrl}
-                        alt={recipe.title}
-                        fill
-                        className="object-cover"
-                      />
-                    </div>
-                  )}
-                  <span className="text-sm font-medium line-clamp-2">
-                    {recipe.title}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <MealSelector
+        isOpen={isAddDialogOpen}
+        onClose={() => setIsAddDialogOpen(false)}
+        onSelect={handleAddMeal}
+        currentDate={selectedDate}
+        currentMealType={selectedMealType}
+      />
 
       <AlertDialog
         open={showShopConfirmDialog}
