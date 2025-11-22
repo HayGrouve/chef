@@ -250,6 +250,8 @@ export default function MealPlannerPage() {
 
   return (
     <div className="container mx-auto p-4">
+      <title>CHEF | Meal Planner</title>
+      <meta name="description" content="Plan your weekly meals with ease" />
       <div className="mb-4">
         <Link href="/">
           <Button variant="ghost" className="pl-0">

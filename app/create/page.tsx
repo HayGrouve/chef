@@ -46,12 +46,12 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from "@/components/ui/command"
+} from "@/components/ui/command";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover"
+} from "@/components/ui/popover";
 import Image from "next/image";
 import { useForm, useFieldArray, UseFormReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -81,6 +81,8 @@ function StepIndicator({
 }) {
   return (
     <div className="flex items-center justify-center mb-12 space-x-2">
+      <title>CHEF | Create Recipe</title>
+      <meta name="description" content="Create a new recipe with CHEF" />
       {steps.map((step, i) => (
         <div key={i} className="flex items-center">
           <div className="flex flex-col items-center relative">
@@ -623,7 +625,10 @@ function CreateRecipeContent() {
       // Validate file type
       const validTypes = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
       if (!validTypes.includes(file.type)) {
-        showAlert("Invalid File Type", "Please upload a valid image file (PNG, JPEG, JPG, WEBP).");
+        showAlert(
+          "Invalid File Type",
+          "Please upload a valid image file (PNG, JPEG, JPG, WEBP)."
+        );
         e.target.value = ""; // Reset input
         return;
       }

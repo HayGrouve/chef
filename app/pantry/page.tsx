@@ -54,6 +54,11 @@ export default function PantryPage() {
 
   return (
     <div className="container mx-auto p-4 max-w-4xl">
+      <title>CHEF | Pantry</title>
+      <meta
+        name="description"
+        content="Find recipes based on your pantry ingredients"
+      />
       <div className="mb-6">
         <Link href="/">
           <Button variant="ghost" className="pl-0">

@@ -128,6 +128,8 @@ export default function ShoppingListPage() {
 
   return (
     <div className="container mx-auto p-4 max-w-2xl">
+      <title>CHEF | Shopping List</title>
+      <meta name="description" content="Your shopping list for the week" />
       <Link href="/">
         <Button variant="ghost" className="mb-4 pl-0">
           <ArrowLeft className="w-4 h-4 mr-2" /> Back to Recipes

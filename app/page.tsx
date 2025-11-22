@@ -86,6 +86,8 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-background">
+      <title>CHEF | Home</title>
+      <meta name="description" content="Your personal digital cookbook" />
       <Navbar />
       <div className="container mx-auto p-4">
         <Authenticated>

@@ -18,8 +18,35 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "CHEF",
-  description: "A personal cookbook",
+  title: {
+    default: "CHEF | Your Personal Cookbook",
+    template: "%s | CHEF",
+  },
+  description:
+    "Organize your recipes, plan your weekly meals, and manage your shopping list with CHEF.",
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: "https://chef-black.vercel.app",
+    title: "CHEF | Your Personal Cookbook",
+    description:
+      "Organize your recipes, plan your weekly meals, and manage your shopping list with CHEF.",
+    siteName: "CHEF",
+    images: [
+      {
+        url: "/opengraph-image.png",
+        width: 1200,
+        height: 630,
+        alt: "CHEF App Preview",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "CHEF | Your Personal Cookbook",
+    description:
+      "Organize your recipes, plan your weekly meals, and manage your shopping list with CHEF.",
+  },
 };
 
 export default function RootLayout({
@@ -39,9 +66,7 @@ export default function RootLayout({
             enableSystem
             disableTransitionOnChange
           >
-            <div className="pb-16 md:pb-0">
-              {children}
-            </div>
+            <div className="pb-16 md:pb-0">{children}</div>
             <AuthenticatedMobileNav />
           </ThemeProvider>
         </ConvexClientProvider>

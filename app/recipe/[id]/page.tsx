@@ -94,6 +94,8 @@ export default function RecipeDetail() {
 
   return (
     <div className="container mx-auto p-4 max-w-4xl">
+      <title>{`CHEF | ${recipe.title}`}</title>
+      <meta name="description" content={recipe.description} />
       <div className="flex justify-between items-center mb-4">
         <Button variant="ghost" onClick={() => router.back()}>
           <ArrowLeft className="mr-2 h-4 w-4" /> Back to Recipes
