@@ -1,26 +1,20 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 
-// Get meal plans for a date range
+// Get the static weekly plan
 export const getWeek = query({
-  args: {
-    startDate: v.string(),
-    endDate: v.string(),
-  },
-  handler: async (ctx, args) => {
+  args: {},
+  handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
       return [];
     }
 
+    // Fetch all meal plans for the user
+    // We treat 'date' as the day name (e.g., "Monday")
     const meals = await ctx.db
       .query("mealPlans")
-      .withIndex("by_user_date", (q) =>
-        q
-          .eq("userId", identity.subject)
-          .gte("date", args.startDate)
-          .lte("date", args.endDate)
-      )
+      .withIndex("by_user_date", (q) => q.eq("userId", identity.subject))
       .collect();
 
     // Join with recipe details
@@ -39,10 +33,10 @@ export const getWeek = query({
   },
 });
 
-// Add a meal plan
+// Add a meal plan (date is now "Monday", "Tuesday", etc.)
 export const add = mutation({
   args: {
-    date: v.string(),
+    date: v.string(), // Day of week
     mealType: v.string(),
     recipeId: v.id("recipes"),
   },
@@ -60,11 +54,11 @@ export const add = mutation({
   },
 });
 
-// Move a meal plan to a new date/type
+// Move a meal plan
 export const move = mutation({
   args: {
     id: v.id("mealPlans"),
-    date: v.string(),
+    date: v.string(), // Day of week
     mealType: v.string(),
   },
   handler: async (ctx, args) => {
@@ -77,89 +71,67 @@ export const move = mutation({
       throw new Error("Unauthorized");
     }
 
-    // Check if there's already a meal in the target slot?
-    // For simplicity, we allow multiple meals per slot or just overwrite.
-    // Let's just move it.
     await ctx.db.patch(args.id, {
       date: args.date,
       mealType: args.mealType,
     });
   },
 });
-// Auto-generate meal plan for empty slots
+
+// Auto-generate for empty slots in the static week
 export const autoGenerate = mutation({
-  args: { startDate: v.string() },
-  handler: async (ctx, args) => {
+  args: {},
+  handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
       throw new Error("Unauthenticated");
     }
 
-    // 1. Get recipes (prefer favorites, but fallback to any)
-    // Note: We cannot filter by "isFavorite" directly because it's not in the recipe schema.
-    // It's a computed property or stored in a separate table.
-    // For now, we will just fetch user's recipes.
-    // If we want to prioritize favorites, we'd need to query the favorites table first.
-    let recipes = await ctx.db
+    const recipes = await ctx.db
       .query("recipes")
       .filter((q) => q.eq(q.field("userId"), identity.subject))
       .collect();
 
-    // Filter for favorites in memory if needed, or just proceed with all recipes
-    // For this implementation, we'll use all user recipes to ensure we have enough variety
-    // or we could fetch favorites separately. Let's stick to all user recipes for simplicity
-    // as the "isFavorite" field doesn't exist on the recipe document.
-
-
     if (recipes.length === 0) return;
-
-    // 2. Compute local week dates based on the provided startDate (yyyy-MM-dd)
-    const [yearStr, monthStr, dayStr] = args.startDate.split("-");
-    const year = Number(yearStr);
-    const month = Number(monthStr);
-    const day = Number(dayStr);
-
-    // Construct a local Date from the explicit year/month/day to avoid timezone shifts
-    const localStart = new Date(year, month - 1, day);
-
-    // Simple approach: Generate next 7 days from startDate, formatting as yyyy-MM-dd
-    const dates = Array.from({ length: 7 }).map((_, i) => {
-      const d = new Date(localStart);
-      d.setDate(d.getDate() + i);
-
-      const yyyy = d.getFullYear();
-      const mm = String(d.getMonth() + 1).padStart(2, "0");
-      const dd = String(d.getDate()).padStart(2, "0");
-
-      return `${yyyy}-${mm}-${dd}`;
-    });
 
     const existingPlans = await ctx.db
       .query("mealPlans")
-      .withIndex("by_user_date", (q) =>
-        q
-          .eq("userId", identity.subject)
-          .gte("date", dates[0])
-          .lte("date", dates[6])
-      )
+      .withIndex("by_user_date", (q) => q.eq("userId", identity.subject))
       .collect();
 
+    const days = [
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+      "Sunday",
+    ];
     const mealTypes = ["breakfast", "lunch", "dinner"];
-
     const newPlans = [];
 
-    for (const date of dates) {
+    for (const day of days) {
       for (const type of mealTypes) {
         const hasPlan = existingPlans.some(
-          (p) => p.date === date && p.mealType === type
+          (p) => p.date === day && p.mealType === type
         );
         if (!hasPlan) {
-          // Pick a random recipe
+          // Filter recipes by tag
+          const taggedRecipes = recipes.filter((recipe) =>
+            recipe.tags?.some((tag) => tag.toLowerCase() === type.toLowerCase())
+          );
+
+          // Use tagged recipes if available, otherwise fallback to all recipes
+          const candidates =
+            taggedRecipes.length > 0 ? taggedRecipes : recipes;
+
           const randomRecipe =
-            recipes[Math.floor(Math.random() * recipes.length)];
+            candidates[Math.floor(Math.random() * candidates.length)];
+            
           newPlans.push({
             userId: identity.subject,
-            date,
+            date: day,
             mealType: type,
             recipeId: randomRecipe._id,
           });
@@ -167,7 +139,6 @@ export const autoGenerate = mutation({
       }
     }
 
-    // 3. Insert new plans
     await Promise.all(newPlans.map((plan) => ctx.db.insert("mealPlans", plan)));
   },
 });

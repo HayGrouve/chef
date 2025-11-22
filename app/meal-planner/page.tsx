@@ -19,7 +19,6 @@ import {
   CalendarDays,
   Sparkles,
 } from "lucide-react";
-import { format, startOfWeek, addDays, endOfWeek } from "date-fns";
 import Link from "next/link";
 import Image from "next/image";
 import { Id, Doc } from "../../convex/_generated/dataModel";
@@ -149,21 +148,8 @@ function DroppableDay({
 import { MealSelector } from "@/components/meal-planner/MealSelector";
 
 export default function MealPlannerPage() {
-  const today = new Date();
-  const [currentWeekStart, setCurrentWeekStart] = useState(
-    startOfWeek(today, { weekStartsOn: 1 })
-  );
-
-  const weekStartStr = format(currentWeekStart, "yyyy-MM-dd");
-  const weekEndStr = format(
-    endOfWeek(currentWeekStart, { weekStartsOn: 1 }),
-    "yyyy-MM-dd"
-  );
-
-  const mealPlans = useQuery(api.mealPlans.getWeek, {
-    startDate: weekStartStr,
-    endDate: weekEndStr,
-  });
+  // CHANGED: No arguments needed for getWeek
+  const mealPlans = useQuery(api.mealPlans.getWeek, {});
 
   const recipes = useQuery(api.recipes.listAll, {});
   const addMeal = useMutation(api.mealPlans.add);
@@ -180,14 +166,20 @@ export default function MealPlannerPage() {
   const [alertTitle, setAlertTitle] = useState("");
   const [alertMessage, setAlertMessage] = useState("");
 
-  const weekDays = Array.from({ length: 7 }).map((_, i) => {
-    const date = addDays(currentWeekStart, i);
-    return {
-      date,
-      dateStr: format(date, "yyyy-MM-dd"),
-      dayName: format(date, "EEEE"),
-    };
-  });
+  // NEW: Static week days
+  const weekDays = [
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+    "Sunday",
+  ].map((day) => ({
+    dateStr: day, // We use the day name as the ID/key
+    dayName: day,
+    date: null, // No real date object needed
+  }));
 
   const mealTypes = ["Breakfast", "Lunch", "Dinner"];
 
@@ -222,7 +214,8 @@ export default function MealPlannerPage() {
   };
 
   const confirmAutoGenerate = async () => {
-    await autoGenerate({ startDate: weekStartStr });
+    // CHANGED: No startDate needed
+    await autoGenerate({});
     setShowAutoGenerateConfirm(false);
     showAlert("Success", "Meal plan generated!");
   };
@@ -269,24 +262,7 @@ export default function MealPlannerPage() {
           <CalendarDays className="h-8 w-8" />
           <h1 className="text-3xl font-bold">Weekly Meal Planner</h1>
         </div>
-        <div className="flex gap-2 flex-wrap justify-center">
-          <Button
-            variant="outline"
-            onClick={() => setCurrentWeekStart(addDays(currentWeekStart, -7))}
-          >
-            Previous Week
-          </Button>
-          <span className="flex items-center font-medium min-w-[140px] justify-center">
-            {format(currentWeekStart, "MMM d")} -{" "}
-            {format(endOfWeek(currentWeekStart, { weekStartsOn: 1 }), "MMM d")}
-          </span>
-          <Button
-            variant="outline"
-            onClick={() => setCurrentWeekStart(addDays(currentWeekStart, 7))}
-          >
-            Next Week
-          </Button>
-        </div>
+        
         <div className="flex gap-2">
           <Button variant="secondary" onClick={handleAutoGenerate}>
             <Sparkles className="mr-2 h-4 w-4 text-yellow-500" /> Magic Fill
@@ -303,9 +279,6 @@ export default function MealPlannerPage() {
             <div key={day.dateStr} className="flex flex-col gap-2">
               <div className="text-center p-2 bg-muted rounded-lg">
                 <div className="font-bold">{day.dayName}</div>
-                <div className="text-sm text-muted-foreground">
-                  {format(day.date, "MMM d")}
-                </div>
               </div>
 
               <div className="space-y-2 flex-1">
