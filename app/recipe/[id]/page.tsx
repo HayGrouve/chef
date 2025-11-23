@@ -149,18 +149,22 @@ export default function RecipeDetail() {
                   <Share2 className="h-5 w-5 text-blue-500" />
                 </Button>
               )}
-              <Link href={`/create?edit=${recipeId}`}>
-                <Button variant="outline" size="icon">
-                  <Edit className="h-4 w-4" />
-                </Button>
-              </Link>
-              <Button
-                variant="destructive"
-                size="icon"
-                onClick={() => setShowDeleteDialog(true)}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
+              {recipe.isOwner && (
+                <>
+                  <Link href={`/create?edit=${recipeId}`}>
+                    <Button variant="outline" size="icon">
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                  </Link>
+                  <Button
+                    variant="destructive"
+                    size="icon"
+                    onClick={() => setShowDeleteDialog(true)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         </CardHeader>

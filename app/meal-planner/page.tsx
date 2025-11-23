@@ -268,27 +268,37 @@ export default function MealPlannerPage() {
           </Button>
         </Link>
       </div>
-      <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <div className="flex items-center gap-3">
           <CalendarDays className="h-8 w-8" />
           <h1 className="text-3xl font-bold">Weekly Meal Planner</h1>
         </div>
-        
-        <div className="flex gap-2">
+
+        <div className="flex flex-wrap gap-2 w-full md:w-auto justify-start md:justify-end">
           {mealPlans && mealPlans.length > 0 && (
             <Button
               variant="ghost"
-              className="text-destructive hover:bg-destructive/10"
+              className="text-destructive hover:bg-destructive/10 flex-1 md:flex-none order-3 md:order-1"
               onClick={() => setShowClearConfirmDialog(true)}
             >
-              <Trash2 className="mr-2 h-4 w-4" /> Delete All
+              <Trash2 className="mr-2 h-4 w-4" />
+              <span className="md:inline">Delete All</span>
             </Button>
           )}
-          <Button variant="secondary" onClick={handleAutoGenerate}>
-            <Sparkles className="mr-2 h-4 w-4 text-yellow-500" /> Magic Fill
+          <Button
+            variant="secondary"
+            onClick={handleAutoGenerate}
+            className="flex-1 md:flex-none order-1 md:order-2"
+          >
+            <Sparkles className="mr-2 h-4 w-4 text-yellow-500" />
+            <span className="whitespace-nowrap">Magic Fill</span>
           </Button>
-          <Button onClick={() => setShowShopConfirmDialog(true)}>
-            <ShoppingCart className="mr-2 h-4 w-4" /> Shop This Week
+          <Button
+            onClick={() => setShowShopConfirmDialog(true)}
+            className="flex-1 md:flex-none order-2 md:order-3"
+          >
+            <ShoppingCart className="mr-2 h-4 w-4" />
+            <span className="whitespace-nowrap">Shop Week</span>
           </Button>
         </div>
       </div>

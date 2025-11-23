@@ -310,13 +310,17 @@ export const list = query({
 export const listAll = query({
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
+    const userId = identity?.subject;
+
+    if (!userId) {
       return [];
     }
 
     const recipes = await ctx.db
       .query("recipes")
-      .filter((q) => q.eq(q.field("userId"), identity.subject))
+      .filter((q) =>
+        q.or(q.eq(q.field("userId"), userId), q.eq(q.field("isPublic"), true))
+      )
       .collect();
 
     return await Promise.all(
@@ -328,7 +332,7 @@ export const listAll = query({
         const isFavorite = await isRecipeFavorite(
           ctx,
           recipe._id,
-          identity.subject
+          userId
         );
         return {
           ...recipe,
@@ -364,12 +368,14 @@ export const getPublic = query({
       .unique();
 
     const isFavorite = await isRecipeFavorite(ctx, recipe._id, userId);
+    const isOwner = userId === recipe.userId;
 
     return {
       ...recipe,
       imageUrl,
       authorName: user?.name,
       isFavorite,
+      isOwner,
     };
   },
 });
@@ -398,12 +404,14 @@ export const get = query({
       .unique();
 
     const isFavorite = await isRecipeFavorite(ctx, recipe._id, userId);
+    const isOwner = userId === recipe.userId;
 
     return {
       ...recipe,
       imageUrl,
       authorName: user?.name,
       isFavorite,
+      isOwner,
     };
   },
 });
@@ -416,6 +424,7 @@ export const searchByIngredients = query({
     if (!identity) {
       return [];
     }
+    const userId = identity.subject;
 
     if (args.ingredients.length === 0) {
       return [];
@@ -423,7 +432,9 @@ export const searchByIngredients = query({
 
     const recipes = await ctx.db
       .query("recipes")
-      .filter((q) => q.eq(q.field("userId"), identity.subject))
+      .filter((q) =>
+        q.or(q.eq(q.field("userId"), userId), q.eq(q.field("isPublic"), true))
+      )
       .collect();
 
     const userIngredients = args.ingredients.map((i) => i.toLowerCase().trim());
