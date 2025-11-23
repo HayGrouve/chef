@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Search, PlusSquare, ShoppingCart, Calendar } from "lucide-react";
+import { Home, Search, PlusSquare, ShoppingCart, Calendar, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { InstallPwaButton } from "@/components/install-pwa-button";
 
 export function MobileNav() {
   const pathname = usePathname();
@@ -69,6 +70,16 @@ export function MobileNav() {
             </Link>
           );
         })}
+        
+        {/* PWA Install Button - integrated into nav */}
+        <div className="flex flex-col items-center justify-center w-full h-full gap-1">
+            <InstallPwaButton variant="ghost" size="icon" className="h-auto p-0 hover:bg-transparent">
+                 <div className="flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-foreground">
+                    <Download className="h-5 w-5" />
+                    <span className="text-[10px] font-medium">Install</span>
+                 </div>
+            </InstallPwaButton>
+        </div>
       </div>
     </div>
   );
