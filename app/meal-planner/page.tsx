@@ -98,7 +98,7 @@ function DraggableMeal({
       <Button
         variant="ghost"
         size="icon"
-        className="h-6 w-6 absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity text-destructive"
+        className="h-6 w-6 absolute top-1 right-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity text-destructive"
         onClick={(e) => {
           e.stopPropagation();
           onRemove(meal._id);
@@ -218,9 +218,14 @@ export default function MealPlannerPage() {
 
   const confirmAutoGenerate = async () => {
     // CHANGED: No startDate needed
-    await autoGenerate({});
+    const result = await autoGenerate({});
     setShowAutoGenerateConfirm(false);
-    showAlert("Success", "Meal plan generated!");
+
+    if (result && result.count === 0) {
+      showAlert("Info", result.message);
+    } else if (result) {
+      showAlert("Success", result.message);
+    }
   };
 
   const showAlert = (title: string, message: string) => {

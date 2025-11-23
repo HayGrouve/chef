@@ -97,7 +97,12 @@ export const autoGenerate = mutation({
       )
       .collect();
 
-    if (recipes.length === 0) return;
+    if (recipes.length === 0) {
+      return {
+        count: 0,
+        message: "No recipes found. Create one or wait for public recipes!",
+      };
+    }
 
     const existingPlans = await ctx.db
       .query("mealPlans")
@@ -144,6 +149,11 @@ export const autoGenerate = mutation({
     }
 
     await Promise.all(newPlans.map((plan) => ctx.db.insert("mealPlans", plan)));
+
+    return {
+      count: newPlans.length,
+      message: `Generated ${newPlans.length} meals!`,
+    };
   },
 });
 
