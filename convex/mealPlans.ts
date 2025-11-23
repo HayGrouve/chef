@@ -89,7 +89,12 @@ export const autoGenerate = mutation({
 
     const recipes = await ctx.db
       .query("recipes")
-      .filter((q) => q.eq(q.field("userId"), identity.subject))
+      .filter((q) =>
+        q.or(
+          q.eq(q.field("userId"), identity.subject),
+          q.eq(q.field("isPublic"), true)
+        )
+      )
       .collect();
 
     if (recipes.length === 0) return;
