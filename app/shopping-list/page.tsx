@@ -6,6 +6,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Trash2, Plus, Eraser, ArrowLeft, ShoppingBasket } from "lucide-react";
 import { useState, useMemo } from "react";
 import Link from "next/link";
@@ -45,6 +56,7 @@ export default function ShoppingListPage() {
   const toggleBatch = useMutation(api.shoppingList.toggleBatch);
   const removeBatch = useMutation(api.shoppingList.removeBatch);
   const clearChecked = useMutation(api.shoppingList.clearChecked);
+  const clearAll = useMutation(api.shoppingList.clearAll);
 
   const [newItem, setNewItem] = useState("");
   const [groupBy, setGroupBy] = useState<"category" | "recipe">("category");
@@ -138,16 +150,49 @@ export default function ShoppingListPage() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-2xl">Shopping List</CardTitle>
-          {items.some((i) => i.isChecked) && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => clearChecked()}
-              className="text-destructive"
-            >
-              <Eraser className="w-4 h-4 mr-2" /> Clear Checked
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            {items.some((i) => i.isChecked) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => clearChecked()}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <Eraser className="w-4 h-4 mr-2" /> Clear Checked
+              </Button>
+            )}
+            {items.length > 0 && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-destructive hover:bg-destructive/10"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" /> Delete All
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete all items?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will permanently remove all items from your shopping
+                      list.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => clearAll()}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      Delete All
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleAddItem} className="flex gap-2 mb-6">

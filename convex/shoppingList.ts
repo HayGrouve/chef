@@ -186,3 +186,19 @@ export const clearChecked = mutation({
     await Promise.all(items.map((item) => ctx.db.delete(item._id)));
   },
 });
+
+// Remove all items for the user
+export const clearAll = mutation({
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Unauthenticated");
+    }
+    const items = await ctx.db
+      .query("shoppingList")
+      .withIndex("by_user", (q) => q.eq("userId", identity.subject))
+      .collect();
+    
+    await Promise.all(items.map((item) => ctx.db.delete(item._id)));
+  },
+});
