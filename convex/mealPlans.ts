@@ -123,12 +123,11 @@ export const autoGenerate = mutation({
           );
 
           // Use tagged recipes if available, otherwise fallback to all recipes
-          const candidates =
-            taggedRecipes.length > 0 ? taggedRecipes : recipes;
+          const candidates = taggedRecipes.length > 0 ? taggedRecipes : recipes;
 
           const randomRecipe =
             candidates[Math.floor(Math.random() * candidates.length)];
-            
+
           newPlans.push({
             userId: identity.subject,
             date: day,
@@ -155,5 +154,21 @@ export const remove = mutation({
       throw new Error("Unauthorized");
     }
     await ctx.db.delete(args.id);
+  },
+});
+
+export const clearAll = mutation({
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Unauthenticated");
+    }
+
+    const meals = await ctx.db
+      .query("mealPlans")
+      .withIndex("by_user_date", (q) => q.eq("userId", identity.subject))
+      .collect();
+
+    await Promise.all(meals.map((meal) => ctx.db.delete(meal._id)));
   },
 });

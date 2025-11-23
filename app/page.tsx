@@ -40,7 +40,6 @@ import {
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
-import { Navbar } from "@/components/navbar";
 import { Switch } from "@/components/ui/switch";
 import { LikeButton } from "@/components/ui/like-button";
 import { InstallDialog } from "@/components/install-dialog";
@@ -332,7 +331,6 @@ export default function Home() {
     <main className="min-h-screen bg-background">
       <title>CHEF | Home</title>
       <meta name="description" content="Your personal digital cookbook" />
-      <Navbar />
       <Suspense fallback={<div className="container mx-auto p-4">Loading...</div>}>
         <HomeContent />
       </Suspense>

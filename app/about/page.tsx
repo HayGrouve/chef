@@ -1,6 +1,7 @@
 import { ChefHat, Heart, Users, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import Image from "next/image";
 
 export default function AboutPage() {
   return (
@@ -14,8 +15,8 @@ export default function AboutPage() {
         </div>
         <h1 className="text-4xl font-bold mb-4">About CHEF</h1>
         <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-          Your personal digital cookbook designed to make cooking simpler, 
-          more organized, and more enjoyable.
+          Your personal digital cookbook designed to make cooking simpler, more
+          organized, and more enjoyable.
         </p>
       </div>
 
@@ -24,25 +25,31 @@ export default function AboutPage() {
         <div>
           <h2 className="text-3xl font-bold mb-4">Our Mission</h2>
           <p className="text-muted-foreground leading-relaxed mb-6">
-            We believe that cooking should be a joy, not a chore. In a world of 
-            endless recipe blogs and cluttered screenshots, CHEF provides a clean, 
-            distraction-free space for your culinary creativity.
+            We believe that cooking should be a joy, not a chore. In a world of
+            endless recipe blogs and cluttered screenshots, CHEF provides a
+            clean, distraction-free space for your culinary creativity.
           </p>
           <p className="text-muted-foreground leading-relaxed">
-            Whether you're a meal prep pro or just learning to boil water, 
-            our goal is to help you organize your kitchen life so you can focus on 
-            what matters most: the food and the people you share it with.
+            Whether you&apos;re a meal prep pro or just learning to boil water,
+            our goal is to help you organize your kitchen life so you can focus
+            on what matters most: the food and the people you share it with.
           </p>
         </div>
-        <div className="bg-muted rounded-2xl p-8 flex items-center justify-center aspect-video md:aspect-square">
-           {/* Placeholder for an image or illustration */}
-           <ChefHat className="h-32 w-32 text-muted-foreground/20" />
+        <div className="relative bg-muted rounded-2xl overflow-hidden aspect-video md:aspect-square shadow-lg">
+          <Image
+            src="/mission.png"
+            alt="Cooking with CHEF"
+            fill
+            className="object-cover"
+          />
         </div>
       </div>
 
       {/* Features Grid */}
       <div className="mb-20">
-        <h2 className="text-3xl font-bold text-center mb-12">Why Choose CHEF?</h2>
+        <h2 className="text-3xl font-bold text-center mb-12">
+          Why Choose CHEF?
+        </h2>
         <div className="grid md:grid-cols-3 gap-8">
           <div className="bg-card border rounded-xl p-6 text-center hover:shadow-lg transition-shadow">
             <div className="bg-primary/10 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -50,7 +57,8 @@ export default function AboutPage() {
             </div>
             <h3 className="text-xl font-semibold mb-2">Smart Organization</h3>
             <p className="text-muted-foreground">
-              Tag, filter, and search your recipes instantly. No more digging through old bookmarks.
+              Tag, filter, and search your recipes instantly. No more digging
+              through old bookmarks.
             </p>
           </div>
           <div className="bg-primary/10 border border-primary/20 rounded-xl p-6 text-center hover:shadow-lg transition-shadow">
@@ -59,7 +67,8 @@ export default function AboutPage() {
             </div>
             <h3 className="text-xl font-semibold mb-2">Built for You</h3>
             <p className="text-muted-foreground">
-              Private by default. Your recipes are yours alone until you decide to share them with the world.
+              Private by default. Your recipes are yours alone until you decide
+              to share them with the world.
             </p>
           </div>
           <div className="bg-card border rounded-xl p-6 text-center hover:shadow-lg transition-shadow">
@@ -68,7 +77,8 @@ export default function AboutPage() {
             </div>
             <h3 className="text-xl font-semibold mb-2">Community Sharing</h3>
             <p className="text-muted-foreground">
-              Share your masterpieces with friends and family via simple, public links.
+              Share your masterpieces with friends and family via simple, public
+              links.
             </p>
           </div>
         </div>
@@ -89,4 +99,3 @@ export default function AboutPage() {
     </div>
   );
 }
-

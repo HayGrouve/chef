@@ -7,6 +7,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 
 import { AuthenticatedMobileNav } from "@/components/authenticated-mobile-nav";
 import { Footer } from "@/components/footer";
+import { Navbar } from "@/components/navbar";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -68,6 +69,7 @@ export default function RootLayout({
             enableSystem
             disableTransitionOnChange
           >
+            <Navbar />
             <div className="pb-16 md:pb-0 min-h-screen flex flex-col">
               <div className="flex-1">{children}</div>
               <Footer />

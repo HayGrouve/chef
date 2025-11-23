@@ -19,6 +19,8 @@ import { cn } from "@/lib/utils";
 export function Navbar() {
   const pathname = usePathname();
 
+  if (pathname?.endsWith("/cook")) return null;
+
   const navItems = [
     { href: "/", label: "Recipes", icon: ChefHat },
     { href: "/meal-planner", label: "Meal Planner", icon: Calendar },

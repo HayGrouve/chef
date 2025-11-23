@@ -157,12 +157,15 @@ export default function MealPlannerPage() {
   const moveMeal = useMutation(api.mealPlans.move);
   const addBatchToShoppingList = useMutation(api.shoppingList.addBatch);
   const autoGenerate = useMutation(api.mealPlans.autoGenerate);
+  const clearAll = useMutation(api.mealPlans.clearAll);
 
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedMealType, setSelectedMealType] = useState<string>("dinner");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [showShopConfirmDialog, setShowShopConfirmDialog] = useState(false);
+  const [showClearConfirmDialog, setShowClearConfirmDialog] = useState(false);
   const [alertOpen, setAlertOpen] = useState(false);
+
   const [alertTitle, setAlertTitle] = useState("");
   const [alertMessage, setAlertMessage] = useState("");
 
@@ -248,6 +251,12 @@ export default function MealPlannerPage() {
     }
   };
 
+  const handleClearAll = async () => {
+    await clearAll();
+    setShowClearConfirmDialog(false);
+    showAlert("Success", "All meal plans cleared!");
+  };
+
   return (
     <div className="container mx-auto p-4">
       <title>CHEF | Meal Planner</title>
@@ -266,6 +275,15 @@ export default function MealPlannerPage() {
         </div>
         
         <div className="flex gap-2">
+          {mealPlans && mealPlans.length > 0 && (
+            <Button
+              variant="ghost"
+              className="text-destructive hover:bg-destructive/10"
+              onClick={() => setShowClearConfirmDialog(true)}
+            >
+              <Trash2 className="mr-2 h-4 w-4" /> Delete All
+            </Button>
+          )}
           <Button variant="secondary" onClick={handleAutoGenerate}>
             <Sparkles className="mr-2 h-4 w-4 text-yellow-500" /> Magic Fill
           </Button>
@@ -349,6 +367,30 @@ export default function MealPlannerPage() {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleAddToShoppingList}>
               Add Ingredients
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={showClearConfirmDialog}
+        onOpenChange={setShowClearConfirmDialog}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Clear Meal Plan?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove all meals from your weekly plan. This action
+              cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleClearAll}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete All
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
