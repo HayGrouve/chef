@@ -419,8 +419,8 @@ export default function MealPlannerPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Auto-Generate Meal Plan</AlertDialogTitle>
             <AlertDialogDescription>
-              This will fill empty slots with random recipes from your
-              favorites. Continue?
+              This will fill empty slots with random recipes from your recipes
+              and public recipes. Continue?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

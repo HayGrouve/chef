@@ -11,20 +11,32 @@ import {
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ModeToggle } from "@/components/ui/mode-toggle";
-import { Authenticated, Unauthenticated, AuthLoading } from "convex/react";
+import {
+  Authenticated,
+  Unauthenticated,
+  AuthLoading,
+  useQuery,
+} from "convex/react";
 import { UserButton } from "@clerk/nextjs";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { api } from "../convex/_generated/api";
 
 export function Navbar() {
   const pathname = usePathname();
+  const shoppingListCount = useQuery(api.shoppingList.getBadgeCount);
 
   if (pathname?.endsWith("/cook")) return null;
 
   const navItems = [
     { href: "/", label: "Recipes", icon: ChefHat },
     { href: "/meal-planner", label: "Meal Planner", icon: Calendar },
-    { href: "/shopping-list", label: "Shopping List", icon: ShoppingCart },
+    {
+      href: "/shopping-list",
+      label: "Shopping List",
+      icon: ShoppingCart,
+      badge: shoppingListCount,
+    },
     { href: "/pantry", label: "Pantry", icon: Search },
   ];
 
@@ -42,18 +54,25 @@ export function Navbar() {
         {/* Center: Navigation */}
         <Authenticated>
           <nav className="hidden md:flex items-center gap-6 absolute left-1/2 -translate-x-1/2">
-            {navItems.map(({ href, label, icon: Icon }) => (
+            {navItems.map(({ href, label, icon: Icon, badge }) => (
               <Link
                 key={href}
                 href={href}
                 className={cn(
-                  "flex items-center gap-2 text-sm font-medium transition-colors hover:text-primary",
+                  "flex items-center gap-2 text-sm font-medium transition-colors hover:text-primary relative",
                   pathname === href
                     ? "text-foreground font-bold"
                     : "text-muted-foreground"
                 )}
               >
-                <Icon className="h-4 w-4" />
+                <div className="relative">
+                  <Icon className="h-4 w-4" />
+                  {badge !== undefined && badge > 0 && (
+                    <span className="absolute -top-2 -right-2 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground">
+                      {badge > 99 ? "99+" : badge}
+                    </span>
+                  )}
+                </div>
                 {label}
               </Link>
             ))}

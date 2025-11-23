@@ -16,6 +16,22 @@ export const list = query({
   },
 });
 
+// Get the count of unchecked items for the badge
+export const getBadgeCount = query({
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      return 0;
+    }
+    const items = await ctx.db
+      .query("shoppingList")
+      .withIndex("by_user", (q) => q.eq("userId", identity.subject))
+      .filter((q) => q.eq(q.field("isChecked"), false))
+      .collect();
+    return items.length;
+  },
+});
+
 // List all shopping list items with recipe details
 export const listWithDetails = query({
   handler: async (ctx) => {
