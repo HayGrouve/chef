@@ -6,7 +6,6 @@ import {
   AuthLoading,
   usePaginatedQuery,
 } from "convex/react";
-import { SignInButton, UserButton } from "@clerk/nextjs";
 import { api } from "../convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import {
@@ -287,12 +286,12 @@ export default function Home() {
             <p className="text-lg text-muted-foreground mb-8">
               Sign in to start storing your favorite recipes.
             </p>
-            <SignInButton mode="modal">
+            <Link href="/sign-up">
               <Button size="lg">
                 <LogIn className="mr-2 h-4 w-4" />
                 Get Started
               </Button>
-            </SignInButton>
+            </Link>
           </div>
         </Unauthenticated>
       </div>

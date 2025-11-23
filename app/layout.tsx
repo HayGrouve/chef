@@ -18,6 +18,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://chef-black.vercel.app"),
   title: {
     default: "CHEF | Your Personal Cookbook",
     template: "%s | CHEF",

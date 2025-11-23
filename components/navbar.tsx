@@ -12,7 +12,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ModeToggle } from "@/components/ui/mode-toggle";
 import { Authenticated, Unauthenticated, AuthLoading } from "convex/react";
-import { SignInButton, UserButton } from "@clerk/nextjs";
+import { UserButton } from "@clerk/nextjs";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
@@ -80,12 +80,12 @@ export function Navbar() {
           </Authenticated>
 
           <Unauthenticated>
-            <SignInButton mode="modal">
+            <Link href="/sign-in">
               <Button size="sm">
                 <LogIn className="h-4 w-4 mr-2" />
                 Sign In
               </Button>
-            </SignInButton>
+            </Link>
           </Unauthenticated>
         </div>
       </div>
