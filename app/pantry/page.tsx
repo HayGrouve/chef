@@ -175,7 +175,7 @@ export default function PantryPage() {
                     )}
                     <CardHeader>
                       <div className="flex justify-between items-start pt-4">
-                        <CardTitle className="line-clamp-1">
+                        <CardTitle className="line-clamp-1 py-1">
                           {recipe.title}
                         </CardTitle>
                         <Badge

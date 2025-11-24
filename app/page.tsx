@@ -233,7 +233,7 @@ function HomeContent() {
                     <Card className="h-full hover:shadow-lg transition-shadow cursor-pointer">
                       <CardHeader>
                         <div className="flex justify-between items-start gap-2">
-                          <CardTitle className="line-clamp-1">
+                          <CardTitle className="line-clamp-1 py-1">
                             {recipe.title}
                           </CardTitle>
                         </div>
