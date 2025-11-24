@@ -52,7 +52,7 @@ function HomeContent() {
   const [maxTime, setMaxTime] = useState<number>(180); // 3 hours max default
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [myRecipesOnly, setMyRecipesOnly] = useState(false);
-  
+
   // PWA Install Prompt Logic
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -62,21 +62,27 @@ function HomeContent() {
   useEffect(() => {
     const welcome = searchParams.get("welcome");
     if (welcome) {
-        const userAgent = window.navigator.userAgent.toLowerCase();
-        const isIosDevice = /iphone|ipad|ipod/.test(userAgent);
+      const userAgent = window.navigator.userAgent.toLowerCase();
+      const isIosDevice = /iphone|ipad|ipod/.test(userAgent);
+
+      // Defer state updates to avoid synchronous setState in effect
+      const timer = setTimeout(() => {
         setIsIOS(isIosDevice);
-        
+
         // Check local storage to ensure we don't spam (optional, but good UX)
         const hasSeenPrompt = localStorage.getItem("hasSeenInstallPrompt");
         if (!hasSeenPrompt) {
-            setShowInstallDialog(true);
-            localStorage.setItem("hasSeenInstallPrompt", "true");
+          setShowInstallDialog(true);
+          localStorage.setItem("hasSeenInstallPrompt", "true");
         }
+      }, 0);
 
-        // Clean up URL
-        const newParams = new URLSearchParams(searchParams.toString());
-        newParams.delete("welcome");
-        router.replace(`/?${newParams.toString()}`, { scroll: false });
+      // Clean up URL
+      const newParams = new URLSearchParams(searchParams.toString());
+      newParams.delete("welcome");
+      router.replace(`/?${newParams.toString()}`, { scroll: false });
+
+      return () => clearTimeout(timer);
     }
   }, [searchParams, router]);
 
@@ -182,9 +188,7 @@ function HomeContent() {
                 key={tag}
                 variant={selectedTag === tag ? "default" : "secondary"}
                 className="cursor-pointer whitespace-nowrap"
-                onClick={() =>
-                  setSelectedTag(selectedTag === tag ? null : tag)
-                }
+                onClick={() => setSelectedTag(selectedTag === tag ? null : tag)}
               >
                 {tag}
               </Badge>
@@ -314,12 +318,12 @@ function HomeContent() {
           </Link>
         </div>
       </Unauthenticated>
-      <InstallDialog 
-        open={showInstallDialog} 
+      <InstallDialog
+        open={showInstallDialog}
         onOpenChange={setShowInstallDialog}
         isIOS={isIOS}
         onInstall={() => {
-            setShowInstallDialog(false);
+          setShowInstallDialog(false);
         }}
       />
     </div>
@@ -331,7 +335,9 @@ export default function Home() {
     <main className="min-h-screen bg-background">
       <title>CHEF | Home</title>
       <meta name="description" content="Your personal digital cookbook" />
-      <Suspense fallback={<div className="container mx-auto p-4">Loading...</div>}>
+      <Suspense
+        fallback={<div className="container mx-auto p-4">Loading...</div>}
+      >
         <HomeContent />
       </Suspense>
     </main>
