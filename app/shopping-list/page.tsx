@@ -18,18 +18,9 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Trash2, Plus, Eraser, ArrowLeft, ShoppingBasket } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { Id } from "../../convex/_generated/dataModel";
-
-type ShoppingListItem = {
-  _id: Id<"shoppingList">;
-  ingredient: string;
-  isChecked: boolean;
-  recipeId?: Id<"recipes">;
-  recipeTitle?: string;
-  category?: string;
-};
 
 type AggregatedItem = {
   id: string;
@@ -60,6 +51,25 @@ export default function ShoppingListPage() {
 
   const [newItem, setNewItem] = useState("");
   const [groupBy, setGroupBy] = useState<"category" | "recipe">("category");
+
+  // Load preference from local storage
+  useEffect(() => {
+    const saved = localStorage.getItem("shoppingListGroupBy");
+    if (
+      saved &&
+      saved !== groupBy &&
+      (saved === "category" || saved === "recipe")
+    ) {
+      // Use setTimeout to avoid synchronous state update warning
+      const timer = setTimeout(() => setGroupBy(saved), 0);
+      return () => clearTimeout(timer);
+    }
+  }, [groupBy]);
+
+  const handleSetGroupBy = (value: "category" | "recipe") => {
+    setGroupBy(value);
+    localStorage.setItem("shoppingListGroupBy", value);
+  };
 
   const handleAddItem = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -211,7 +221,7 @@ export default function ShoppingListPage() {
               <Button
                 variant={groupBy === "category" ? "secondary" : "ghost"}
                 size="sm"
-                onClick={() => setGroupBy("category")}
+                onClick={() => handleSetGroupBy("category")}
                 className={
                   groupBy === "category"
                     ? "bg-background shadow-sm hover:bg-background"
@@ -223,7 +233,7 @@ export default function ShoppingListPage() {
               <Button
                 variant={groupBy === "recipe" ? "secondary" : "ghost"}
                 size="sm"
-                onClick={() => setGroupBy("recipe")}
+                onClick={() => handleSetGroupBy("recipe")}
                 className={
                   groupBy === "recipe"
                     ? "bg-background shadow-sm hover:bg-background"

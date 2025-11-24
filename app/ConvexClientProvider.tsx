@@ -3,7 +3,7 @@
 import { ReactNode, useMemo } from "react";
 import { Authenticated, ConvexReactClient } from "convex/react";
 import { ConvexProviderWithClerk } from "convex/react-clerk";
-import { ClerkProvider, useAuth } from "@clerk/clerk-react";
+import { ClerkProvider, useAuth } from "@clerk/nextjs";
 import { UserSync } from "@/components/UserSync";
 import { shadcn } from "@clerk/themes";
 
