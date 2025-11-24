@@ -273,8 +273,8 @@ export default function CookingMode() {
                         </p>
                         
                         <div className="flex gap-4 w-full max-w-sm">
-                            <Button size="lg" className="flex-1 h-14 text-lg" onClick={() => router.back()}>
-                                <ArrowLeft className="mr-2 h-5 w-5" /> Back to Recipe
+                            <Button size="lg" className="flex-1 h-14 text-lg" onClick={() => router.push("/")}>
+                                <ArrowLeft className="mr-2 h-5 w-5" /> Back to Recipes
                             </Button>
                         </div>
                     </CardContent>
