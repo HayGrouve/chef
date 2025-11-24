@@ -62,6 +62,12 @@ dependencies:
   '@radix-ui/react-switch':
     specifier: ^1.2.6
     version: 1.2.6(@types/react-dom@19.2.3)(@types/react@19.2.6)(react-dom@19.2.0)(react@19.2.0)
+  '@types/canvas-confetti':
+    specifier: ^1.9.0
+    version: 1.9.0
+  canvas-confetti:
+    specifier: ^1.9.4
+    version: 1.9.4
   class-variance-authority:
     specifier: ^0.7.1
     version: 0.7.1
@@ -134,7 +140,7 @@ devDependencies:
     specifier: ^1.4.0
     version: 1.4.0
   typescript:
-    specifier: ^5.9.3
+    specifier: ^5
     version: 5.9.3
 
 packages:
@@ -2501,6 +2507,10 @@ packages:
     dev: true
     optional: true
 
+  /@types/canvas-confetti@1.9.0:
+    resolution: {integrity: sha512-aBGj/dULrimR1XDZLtG9JwxX1b4HPRF6CX9Yfwh3NvstZEm1ZL7RBnel4keCPSqs1ANRu1u2Aoz9R+VmtjYuTg==}
+    dev: false
+
   /@types/estree@1.0.8:
     resolution: {integrity: sha512-dWHzHa2WqEXI/O1E9OjrocMTKJl2mSrEolh1Iomrv6U+JuNwaHXsXx9bLu5gG7BUWFIN0skIQJQ/L1rIex4X6w==}
     dev: true
@@ -3143,6 +3153,10 @@ packages:
 
   /caniuse-lite@1.0.30001756:
     resolution: {integrity: sha512-4HnCNKbMLkLdhJz3TToeVWHSnfJvPaq6vu/eRP0Ahub/07n484XHhBF5AJoSGHdVrS8tKFauUQz8Bp9P7LVx7A==}
+
+  /canvas-confetti@1.9.4:
+    resolution: {integrity: sha512-yxQbJkAVrFXWNbTUjPqjF7G+g6pDotOUHGbkZq2NELZUMDpiJ85rIEazVb8GTaAptNW2miJAXbs1BtioA251Pw==}
+    dev: false
 
   /chalk@4.1.2:
     resolution: {integrity: sha512-oKnbhFyRIXpUuez8iBMmyEa4nbj4IOQyuhc/wy9kY7/WVPcwIO9VA668Pu8RkO7+0G76SLROeyw9CpQ061i4mA==}
