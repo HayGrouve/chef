@@ -9,9 +9,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, ArrowRight, CheckCircle2, X, Timer, Play, Pause, RotateCcw } from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCircle2, X, Timer, Play, Pause, RotateCcw, PartyPopper } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { Input } from "@/components/ui/input";
+import Image from "next/image";
+import confetti from "canvas-confetti";
 
 function CookingTimer() {
     const [timeLeft, setTimeLeft] = useState(0);
@@ -129,6 +131,18 @@ export default function CookingMode() {
     }
   }, [activeStepIndex, cookingPhase]);
 
+  // Handle completion (scroll to top + confetti)
+  useEffect(() => {
+    if (isFinished) {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 },
+      });
+    }
+  }, [isFinished]);
+
   if (recipe === undefined) {
     return <div className="flex h-screen items-center justify-center">Loading...</div>;
   }
@@ -228,18 +242,41 @@ export default function CookingMode() {
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-3xl w-full mx-auto p-6 space-y-8">
             {isFinished ? (
-                <Card className="border-none shadow-none bg-transparent text-center mt-12">
-                    <CardContent>
-                        <div className="mb-6 flex justify-center">
-                            <CheckCircle2 className="h-24 w-24 text-green-500" />
+                <Card className="border-none shadow-none bg-transparent text-center mt-4 animate-in fade-in zoom-in duration-500">
+                    <CardContent className="flex flex-col items-center">
+                        <div className="relative mb-8 w-full max-w-md aspect-video rounded-xl overflow-hidden shadow-2xl ring-4 ring-primary/20">
+                            {recipe.imageUrl ? (
+                                <Image
+                                    src={recipe.imageUrl}
+                                    alt={recipe.title}
+                                    fill
+                                    className="object-cover"
+                                />
+                            ) : (
+                                <div className="w-full h-full bg-muted flex items-center justify-center">
+                                    <CheckCircle2 className="h-24 w-24 text-green-500 opacity-50" />
+                                </div>
+                            )}
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end justify-center pb-6">
+                                <div className="text-white flex items-center gap-2">
+                                    <PartyPopper className="h-6 w-6 text-yellow-400" />
+                                    <span className="font-bold text-lg">Completed!</span>
+                                </div>
+                            </div>
                         </div>
-                        <h2 className="text-4xl font-bold mb-4">Bon Appétit!</h2>
-                        <p className="text-xl text-muted-foreground mb-8">
-                            You've completed this recipe. Time to dig in!
+                        
+                        <h2 className="text-4xl md:text-5xl font-bold mb-4 text-primary bg-clip-text bg-gradient-to-r from-primary to-orange-600">
+                            Bon Appétit!
+                        </h2>
+                        <p className="text-xl md:text-2xl text-muted-foreground mb-10 max-w-lg leading-relaxed">
+                            You've successfully cooked <span className="font-semibold text-foreground">{recipe.title}</span>. Time to enjoy your masterpiece!
                         </p>
-                        <Button size="lg" onClick={() => router.back()}>
-                            Back to Recipe
-                        </Button>
+                        
+                        <div className="flex gap-4 w-full max-w-sm">
+                            <Button size="lg" className="flex-1 h-14 text-lg" onClick={() => router.back()}>
+                                <ArrowLeft className="mr-2 h-5 w-5" /> Back to Recipe
+                            </Button>
+                        </div>
                     </CardContent>
                 </Card>
             ) : cookingPhase === 0 ? (
