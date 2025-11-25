@@ -8,9 +8,17 @@ const isPublicRoute = createRouteMatcher([
   "/about",
   "/terms",
   "/privacy",
+  "/recipe(.*)",
 ]);
 
 export default clerkMiddleware(async (auth, request) => {
+  // Exclude /cook routes from public access
+  const pathname = request.nextUrl.pathname;
+  if (pathname.includes("/cook")) {
+    await auth.protect();
+    return;
+  }
+  
   if (!isPublicRoute(request)) {
     await auth.protect();
   }

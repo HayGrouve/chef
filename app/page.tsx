@@ -115,43 +115,62 @@ function HomeContent() {
 
   return (
     <div className="container mx-auto p-4">
-      <Authenticated>
-        <div className="relative mb-6 space-y-4 mt-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-            <Input
-              placeholder="Search recipes..."
-              className="pl-10"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+      {/* Sign-in CTA for unauthenticated users */}
+      <Unauthenticated>
+        <div className="mb-6 mt-4 p-4 bg-primary/10 border border-primary/20 rounded-lg flex items-center justify-between">
+          <div>
+            <h3 className="font-semibold mb-1">Browse recipes for free!</h3>
+            <p className="text-sm text-muted-foreground">
+              Sign up to save favorites, create recipes, and more.
+            </p>
+          </div>
+          <Link href="/sign-up">
+            <Button size="sm">
+              <LogIn className="mr-2 h-4 w-4" />
+              Sign Up
+            </Button>
+          </Link>
+        </div>
+      </Unauthenticated>
+
+      {/* Search and Filters */}
+      <div className="relative mb-6 space-y-4 mt-4">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+          <Input
+            placeholder="Search recipes..."
+            className="pl-10"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+
+        <div className="flex flex-col md:flex-row gap-4 p-4 bg-muted/30 rounded-lg border">
+          <div className="flex-1 space-y-2">
+            <Label>Difficulty</Label>
+            <Select value={difficulty} onValueChange={setDifficulty}>
+              <SelectTrigger>
+                <SelectValue placeholder="Any Difficulty" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Any Difficulty</SelectItem>
+                <SelectItem value="Easy">Easy</SelectItem>
+                <SelectItem value="Medium">Medium</SelectItem>
+                <SelectItem value="Hard">Hard</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex-1 space-y-2">
+            <Label>Max Cooking Time: {maxTime} mins</Label>
+            <Slider
+              value={[maxTime]}
+              onValueChange={(val) => setMaxTime(val[0])}
+              max={180}
+              step={5}
+              className="py-4"
             />
           </div>
-
-          <div className="flex flex-col md:flex-row gap-4 p-4 bg-muted/30 rounded-lg border">
-            <div className="flex-1 space-y-2">
-              <Label>Difficulty</Label>
-              <Select value={difficulty} onValueChange={setDifficulty}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Any Difficulty" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Any Difficulty</SelectItem>
-                  <SelectItem value="Easy">Easy</SelectItem>
-                  <SelectItem value="Medium">Medium</SelectItem>
-                  <SelectItem value="Hard">Hard</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex-1 space-y-2">
-              <Label>Max Cooking Time: {maxTime} mins</Label>
-              <Slider
-                value={[maxTime]}
-                onValueChange={(val) => setMaxTime(val[0])}
-                max={180}
-                step={5}
-                className="py-4"
-              />
-            </div>
+          <Authenticated>
             <div className="flex-1 space-y-2 flex flex-col justify-center gap-2 pt-4">
               <div className="flex items-center space-x-2">
                 <Switch
@@ -170,50 +189,53 @@ function HomeContent() {
                 <Label htmlFor="my-recipes-only">My Recipes Only</Label>
               </div>
             </div>
-          </div>
+          </Authenticated>
         </div>
+      </div>
 
-        {/* Tag Filters */}
-        {allTags.length > 0 && (
-          <div className="flex gap-2 mb-8 overflow-x-auto pb-2 scrollbar-hide">
+      {/* Tag Filters */}
+      {allTags.length > 0 && (
+        <div className="flex gap-2 mb-8 overflow-x-auto pb-2 scrollbar-hide">
+          <Badge
+            variant={selectedTag === null ? "default" : "secondary"}
+            className="cursor-pointer whitespace-nowrap"
+            onClick={() => setSelectedTag(null)}
+          >
+            All
+          </Badge>
+          {allTags.map((tag) => (
             <Badge
-              variant={selectedTag === null ? "default" : "secondary"}
+              key={tag}
+              variant={selectedTag === tag ? "default" : "secondary"}
               className="cursor-pointer whitespace-nowrap"
-              onClick={() => setSelectedTag(null)}
+              onClick={() => setSelectedTag(selectedTag === tag ? null : tag)}
             >
-              All
+              {tag}
             </Badge>
-            {allTags.map((tag) => (
-              <Badge
-                key={tag}
-                variant={selectedTag === tag ? "default" : "secondary"}
-                className="cursor-pointer whitespace-nowrap"
-                onClick={() => setSelectedTag(selectedTag === tag ? null : tag)}
-              >
-                {tag}
-              </Badge>
-            ))}
-          </div>
-        )}
+          ))}
+        </div>
+      )}
 
-        {status === "LoadingFirstPage" ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[...Array(6)].map((_, i) => (
-              <RecipeCardSkeleton key={i} />
-            ))}
-          </div>
-        ) : filteredRecipes?.length === 0 ? (
-          <div className="text-center py-12">
-            {search || selectedTag ? (
-              <div className="flex flex-col items-center gap-4">
-                <SearchX className="h-16 w-16 text-muted-foreground" />
-                <p className="text-xl text-muted-foreground">
-                  No recipes found matching your filters.
-                </p>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center gap-4">
-                <UtensilsCrossed className="h-16 w-16 text-muted-foreground" />
+      {/* Recipe Listings */}
+      {status === "LoadingFirstPage" ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {[...Array(6)].map((_, i) => (
+            <RecipeCardSkeleton key={i} />
+          ))}
+        </div>
+      ) : filteredRecipes?.length === 0 ? (
+        <div className="text-center py-12">
+          {search || selectedTag ? (
+            <div className="flex flex-col items-center gap-4">
+              <SearchX className="h-16 w-16 text-muted-foreground" />
+              <p className="text-xl text-muted-foreground">
+                No recipes found matching your filters.
+              </p>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-4">
+              <UtensilsCrossed className="h-16 w-16 text-muted-foreground" />
+              <Authenticated>
                 <p className="text-xl text-muted-foreground">
                   {myRecipesOnly
                     ? "You haven't added any recipes yet."
@@ -225,55 +247,62 @@ function HomeContent() {
                     Create Your First Recipe
                   </Button>
                 </Link>
-              </div>
-            )}
-          </div>
-        ) : (
-          <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-              {filteredRecipes?.map((recipe) => (
-                <div key={recipe._id} className="relative group">
-                  <Link href={`/recipe/${recipe._id}`}>
-                    <Card className="h-full hover:shadow-lg transition-shadow cursor-pointer">
-                      <CardHeader>
-                        <div className="flex justify-between items-start gap-2">
-                          <CardTitle className="line-clamp-1 py-1">
-                            {recipe.title}
-                          </CardTitle>
-                        </div>
-                        <CardDescription className="line-clamp-2">
-                          {recipe.description}
-                        </CardDescription>
-                        {recipe.authorName && (
-                          <p className="text-xs text-muted-foreground mt-1">
-                            By {recipe.authorName}
-                          </p>
+              </Authenticated>
+              <Unauthenticated>
+                <p className="text-xl text-muted-foreground">
+                  No public recipes found yet.
+                </p>
+              </Unauthenticated>
+            </div>
+          )}
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+            {filteredRecipes?.map((recipe) => (
+              <div key={recipe._id} className="relative group">
+                <Link href={`/recipe/${recipe._id}`}>
+                  <Card className="h-full hover:shadow-lg transition-shadow cursor-pointer">
+                    <CardHeader>
+                      <div className="flex justify-between items-start gap-2">
+                        <CardTitle className="line-clamp-1 py-1">
+                          {recipe.title}
+                        </CardTitle>
+                      </div>
+                      <CardDescription className="line-clamp-2">
+                        {recipe.description}
+                      </CardDescription>
+                      {recipe.authorName && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          By {recipe.authorName}
+                        </p>
+                      )}
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {recipe.tags?.slice(0, 3).map((tag) => (
+                          <Badge
+                            key={tag}
+                            variant="outline"
+                            className="text-xs px-1 py-0"
+                          >
+                            {tag}
+                          </Badge>
+                        ))}
+                        {recipe.tags && recipe.tags.length > 3 && (
+                          <span className="text-xs text-muted-foreground">
+                            +{recipe.tags.length - 3}
+                          </span>
                         )}
-                        <div className="flex flex-wrap gap-1 mt-2">
-                          {recipe.tags?.slice(0, 3).map((tag) => (
-                            <Badge
-                              key={tag}
-                              variant="outline"
-                              className="text-xs px-1 py-0"
-                            >
-                              {tag}
-                            </Badge>
-                          ))}
-                          {recipe.tags && recipe.tags.length > 3 && (
-                            <span className="text-xs text-muted-foreground">
-                              +{recipe.tags.length - 3}
-                            </span>
-                          )}
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <RecipeImage
-                          imageUrl={recipe.imageUrl}
-                          title={recipe.title}
-                        />
-                      </CardContent>
-                    </Card>
-                  </Link>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <RecipeImage
+                        imageUrl={recipe.imageUrl}
+                        title={recipe.title}
+                      />
+                    </CardContent>
+                  </Card>
+                </Link>
+                <Authenticated>
                   <div className="absolute top-2 right-2 z-10">
                     <LikeButton
                       isFavorite={recipe.isFavorite || false}
@@ -283,41 +312,23 @@ function HomeContent() {
                       }}
                     />
                   </div>
-                </div>
-              ))}
-            </div>
-
-            {status === "CanLoadMore" && (
-              <div className="flex justify-center py-8">
-                <Button onClick={() => loadMore(9)} disabled={isLoading}>
-                  {isLoading && (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  )}
-                  Load More
-                </Button>
+                </Authenticated>
               </div>
-            )}
-          </>
-        )}
-      </Authenticated>
+            ))}
+          </div>
 
-      <Unauthenticated>
-        <div className="text-center py-12 md:py-20 flex flex-col items-center">
-          <ChefHat className="h-24 w-24 text-primary mb-6" />
-          <h2 className="text-3xl font-semibold mb-4">
-            Welcome to Your Personal Cookbook
-          </h2>
-          <p className="text-lg text-muted-foreground mb-8">
-            Sign in to start storing your favorite recipes.
-          </p>
-          <Link href="/sign-up">
-            <Button size="lg">
-              <LogIn className="mr-2 h-4 w-4" />
-              Get Started
-            </Button>
-          </Link>
-        </div>
-      </Unauthenticated>
+          {status === "CanLoadMore" && (
+            <div className="flex justify-center py-8">
+              <Button onClick={() => loadMore(9)} disabled={isLoading}>
+                {isLoading && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
+                Load More
+              </Button>
+            </div>
+          )}
+        </>
+      )}
       <InstallDialog
         open={showInstallDialog}
         onOpenChange={setShowInstallDialog}

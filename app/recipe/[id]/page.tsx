@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation, Authenticated, Unauthenticated } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Id } from "../../../convex/_generated/dataModel";
 import { useParams, useRouter } from "next/navigation";
@@ -40,12 +40,18 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-export default function RecipeDetail() {
+function RecipeDetailContent() {
   const params = useParams();
   const router = useRouter();
   const recipeId = params.id as Id<"recipes">;
 
-  const recipe = useQuery(api.recipes.get, { id: recipeId });
+  // Use getPublic for unauthenticated users, get for authenticated users
+  const publicRecipe = useQuery(api.recipes.getPublic, { id: recipeId });
+  const authenticatedRecipe = useQuery(api.recipes.get, { id: recipeId });
+  
+  // Use the appropriate recipe based on auth status
+  const recipe = authenticatedRecipe ?? publicRecipe;
+  
   const deleteRecipe = useMutation(api.recipes.remove);
   const toggleFavorite = useMutation(api.recipes.toggleFavorite);
   const addBatchToShoppingList = useMutation(api.shoppingList.addBatch);
@@ -60,7 +66,19 @@ export default function RecipeDetail() {
   }
 
   if (recipe === null) {
-    return <div className="container mx-auto p-4">Recipe not found</div>;
+    return (
+      <div className="container mx-auto p-4 max-w-4xl">
+        <div className="text-center py-12">
+          <p className="text-xl text-muted-foreground">Recipe not found</p>
+          <p className="text-sm text-muted-foreground mt-2">
+            This recipe may be private or doesn't exist.
+          </p>
+          <Button variant="outline" className="mt-4" onClick={() => router.push("/")}>
+            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Recipes
+          </Button>
+        </div>
+      </div>
+    );
   }
 
   const handleDelete = async () => {
@@ -100,11 +118,20 @@ export default function RecipeDetail() {
         <Button variant="ghost" onClick={() => router.back()}>
           <ArrowLeft className="mr-2 h-4 w-4" /> Back to Recipes
         </Button>
-        <Link href={`/recipe/${recipeId}/cook`}>
-          <Button>
-            <PlayCircle className="mr-2 h-4 w-4" /> Start Cooking
-          </Button>
-        </Link>
+        <Authenticated>
+          <Link href={`/recipe/${recipeId}/cook`}>
+            <Button>
+              <PlayCircle className="mr-2 h-4 w-4" /> Start Cooking
+            </Button>
+          </Link>
+        </Authenticated>
+        <Unauthenticated>
+          <Link href="/sign-in">
+            <Button>
+              <PlayCircle className="mr-2 h-4 w-4" /> Sign In to Cook
+            </Button>
+          </Link>
+        </Unauthenticated>
       </div>
 
       <Card>
@@ -124,21 +151,23 @@ export default function RecipeDetail() {
               <p className="text-muted-foreground">{recipe.description}</p>
             </div>
             <div className="flex gap-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="text-muted-foreground hover:text-red-500"
-                onClick={() => toggleFavorite({ id: recipeId })}
-                title={
-                  recipe.isFavorite
-                    ? "Remove from favorites"
-                    : "Add to favorites"
-                }
-              >
-                <Heart
-                  className={`h-6 w-6 ${recipe.isFavorite ? "fill-red-500 text-red-500" : ""}`}
-                />
-              </Button>
+              <Authenticated>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-muted-foreground hover:text-red-500"
+                  onClick={() => toggleFavorite({ id: recipeId })}
+                  title={
+                    recipe.isFavorite
+                      ? "Remove from favorites"
+                      : "Add to favorites"
+                  }
+                >
+                  <Heart
+                    className={`h-6 w-6 ${recipe.isFavorite ? "fill-red-500 text-red-500" : ""}`}
+                  />
+                </Button>
+              </Authenticated>
               {recipe.isPublic && (
                 <Button
                   variant="ghost"
@@ -149,22 +178,24 @@ export default function RecipeDetail() {
                   <Share2 className="h-5 w-5 text-blue-500" />
                 </Button>
               )}
-              {recipe.isOwner && (
-                <>
-                  <Link href={`/create?edit=${recipeId}`}>
-                    <Button variant="outline" size="icon">
-                      <Edit className="h-4 w-4" />
+              <Authenticated>
+                {recipe.isOwner && (
+                  <>
+                    <Link href={`/create?edit=${recipeId}`}>
+                      <Button variant="outline" size="icon">
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    </Link>
+                    <Button
+                      variant="destructive"
+                      size="icon"
+                      onClick={() => setShowDeleteDialog(true)}
+                    >
+                      <Trash2 className="h-4 w-4" />
                     </Button>
-                  </Link>
-                  <Button
-                    variant="destructive"
-                    size="icon"
-                    onClick={() => setShowDeleteDialog(true)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </>
-              )}
+                  </>
+                )}
+              </Authenticated>
             </div>
           </div>
         </CardHeader>
@@ -187,15 +218,17 @@ export default function RecipeDetail() {
                   <Utensils className="h-5 w-5" />
                   Ingredients
                 </h3>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowCartDialog(true)}
-                  disabled={addedToCart}
-                >
-                  <ShoppingCart className="mr-2 h-4 w-4" />
-                  {addedToCart ? "Added!" : "Add to List"}
-                </Button>
+                <Authenticated>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowCartDialog(true)}
+                    disabled={addedToCart}
+                  >
+                    <ShoppingCart className="mr-2 h-4 w-4" />
+                    {addedToCart ? "Added!" : "Add to List"}
+                  </Button>
+                </Authenticated>
               </div>
               <ul className="list-disc pl-5 space-y-2">
                 {recipe.ingredients.map((ingredient, i) => (
@@ -273,4 +306,8 @@ export default function RecipeDetail() {
       </Dialog>
     </div>
   );
+}
+
+export default function RecipeDetail() {
+  return <RecipeDetailContent />;
 }
