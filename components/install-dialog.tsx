@@ -66,10 +66,10 @@ export function InstallDialog({
             </div>
           )}
         </div>
-        <DrawerFooter>
+        <DrawerFooter className="flex flex-col items-center">
           {!isIOS && (
             <DrawerClose asChild>
-              <Button variant="outline">Not Now</Button>
+              <Button variant="outline" className="w-full max-w-sm">Not Now</Button>
             </DrawerClose>
           )}
           {isIOS && (
