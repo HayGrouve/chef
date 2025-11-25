@@ -158,7 +158,7 @@ export default function ShoppingListPage() {
         </Button>
       </Link>
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-wrap gap-y-2 items-center justify-between">
           <CardTitle className="text-2xl">Shopping List</CardTitle>
           <div className="flex items-center gap-2">
             {items.some((i) => i.isChecked) && (
@@ -168,7 +168,8 @@ export default function ShoppingListPage() {
                 onClick={() => clearChecked()}
                 className="text-muted-foreground hover:text-foreground"
               >
-                <Eraser className="w-4 h-4 mr-2" /> Clear Checked
+                <Eraser className="w-4 h-4 sm:mr-2" />
+                <span className="hidden sm:inline">Clear Checked</span>
               </Button>
             )}
             {items.length > 0 && (
@@ -179,7 +180,8 @@ export default function ShoppingListPage() {
                     size="sm"
                     className="text-destructive hover:bg-destructive/10"
                   >
-                    <Trash2 className="w-4 h-4 mr-2" /> Delete All
+                    <Trash2 className="w-4 h-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Delete All</span>
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>

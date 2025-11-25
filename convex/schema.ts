@@ -10,8 +10,8 @@ export default defineSchema({
     bio: v.optional(v.string()),
     avatarUrl: v.optional(v.string()),
   })
-  .index("by_token", ["tokenIdentifier"])
-  .index("by_userId", ["userId"]), // Index to look up author by recipe.userId
+    .index("by_token", ["tokenIdentifier"])
+    .index("by_userId", ["userId"]), // Index to look up author by recipe.userId
   recipes: defineTable({
     userId: v.string(),
     title: v.string(),
@@ -26,19 +26,19 @@ export default defineSchema({
     difficulty: v.optional(v.string()), // "Easy" | "Medium" | "Hard"
     calories: v.optional(v.number()),
   })
-  .searchIndex("search_recipes", {
-    searchField: "title",
-    filterFields: ["userId", "isPublic"],
-  })
-  .searchIndex("search_ingredients_description", {
-    searchField: "description",
-  }),
+    .searchIndex("search_recipes", {
+      searchField: "title",
+      filterFields: ["userId", "isPublic", "difficulty"],
+    })
+    .searchIndex("search_ingredients_description", {
+      searchField: "description",
+    }),
   favorites: defineTable({
     userId: v.string(),
     recipeId: v.id("recipes"),
   })
-  .index("by_user_recipe", ["userId", "recipeId"])
-  .index("by_user", ["userId"]),
+    .index("by_user_recipe", ["userId", "recipeId"])
+    .index("by_user", ["userId"]),
   shoppingList: defineTable({
     userId: v.string(),
     ingredient: v.string(),

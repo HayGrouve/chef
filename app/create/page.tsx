@@ -23,7 +23,25 @@ import {
   ArrowLeft,
   Check,
   ChevronsUpDown,
+  GripVertical,
 } from "lucide-react";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import {
   Dialog,
   DialogContent,
@@ -365,6 +383,46 @@ function BasicDetailsStep({
   );
 }
 
+interface SortableRowProps {
+  id: string;
+  children: React.ReactNode;
+}
+
+function SortableRow({ id, children }: SortableRowProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 10 : 1,
+    position: isDragging ? ("relative" as const) : undefined,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn("flex items-start gap-2", isDragging && "opacity-50")}
+    >
+      <div
+        {...attributes}
+        {...listeners}
+        className="mt-4 text-muted-foreground cursor-grab hover:text-foreground active:cursor-grabbing touch-none"
+      >
+        <GripVertical className="w-4 h-4" />
+      </div>
+      {children}
+    </div>
+  );
+}
+
 interface DynamicListStepProps {
   form: UseFormReturn<RecipeFormValues>;
   name: "ingredients" | "steps";
@@ -380,10 +438,30 @@ function DynamicListStep({
   placeholder,
   label,
 }: DynamicListStepProps) {
-  const { fields, append, remove } = useFieldArray({
+  const { fields, append, remove, move } = useFieldArray({
     control: form.control,
     name: name,
   });
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const oldIndex = fields.findIndex((field) => field.id === active.id);
+      const newIndex = fields.findIndex((field) => field.id === over.id);
+
+      if (oldIndex !== -1 && newIndex !== -1) {
+        move(oldIndex, newIndex);
+      }
+    }
+  };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -406,47 +484,57 @@ function DynamicListStep({
         </Button>
       </div>
 
-      <div className="space-y-3">
-        {fields.length === 0 && (
-          <div className="text-center py-8 text-muted-foreground bg-muted/30 rounded-lg border-2 border-dashed">
-            No {label.toLowerCase()}s added yet.
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext items={fields} strategy={verticalListSortingStrategy}>
+          <div className="space-y-3">
+            {fields.length === 0 && (
+              <div className="text-center py-8 text-muted-foreground bg-muted/30 rounded-lg border-2 border-dashed">
+                No {label.toLowerCase()}s added yet.
+              </div>
+            )}
+            {fields.map((field, index) => (
+              <SortableRow key={field.id} id={field.id}>
+                <span className="mt-3 text-sm font-medium text-muted-foreground w-6 text-center">
+                  {index + 1}.
+                </span>
+                <FormField
+                  control={form.control}
+                  name={`${name}.${index}.value`}
+                  render={({ field }) => (
+                    <FormItem className="flex-1">
+                      <FormControl>
+                        <Textarea
+                          {...field}
+                          placeholder={placeholder}
+                          className="min-h-12 resize-y"
+                          onKeyDown={handleKeyDown}
+                          autoFocus={
+                            index === fields.length - 1 && !field.value
+                          }
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => remove(index)}
+                  className="mt-1 text-muted-foreground hover:text-destructive"
+                  type="button"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </SortableRow>
+            ))}
           </div>
-        )}
-        {fields.map((field, index) => (
-          <div key={field.id} className="flex gap-2 items-start">
-            <span className="mt-3 text-sm font-medium text-muted-foreground w-6 text-center">
-              {index + 1}.
-            </span>
-            <FormField
-              control={form.control}
-              name={`${name}.${index}.value`}
-              render={({ field }) => (
-                <FormItem className="flex-1">
-                  <FormControl>
-                    <Textarea
-                      {...field}
-                      placeholder={placeholder}
-                      className="min-h-12 resize-y"
-                      onKeyDown={handleKeyDown}
-                      autoFocus={index === fields.length - 1 && !field.value}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => remove(index)}
-              className="mt-1 text-muted-foreground hover:text-destructive"
-              type="button"
-            >
-              <Trash2 className="w-4 h-4" />
-            </Button>
-          </div>
-        ))}
-      </div>
+        </SortableContext>
+      </DndContext>
       <FormMessage>{form.formState.errors[name]?.message}</FormMessage>
       {fields.length > 0 && (
         <Button

@@ -224,19 +224,71 @@ export const list = query({
     const myRecipesOnly = args.myRecipesOnly ?? false;
 
     if (args.search) {
+      let searchResults;
+
       if (myRecipesOnly && userId) {
-        queryBuilder = ctx.db
+        // Filter by userId for my recipes
+        searchResults = await ctx.db
           .query("recipes")
           .withSearchIndex("search_recipes", (q) =>
             q.search("title", args.search!).eq("userId", userId)
-          );
+          )
+          .collect();
       } else {
-        queryBuilder = ctx.db
+        // Filter by isPublic for all recipes
+        searchResults = await ctx.db
           .query("recipes")
           .withSearchIndex("search_recipes", (q) =>
             q.search("title", args.search!).eq("isPublic", true)
-          );
+          )
+          .collect();
       }
+
+      // Apply other filters in memory (Convex search queries don't support inequality filters like lte)
+      let filtered = searchResults;
+
+      if (args.difficulty && args.difficulty !== "all") {
+        filtered = filtered.filter((r) => r.difficulty === args.difficulty);
+      }
+
+      if (args.maxTime) {
+        // Include items with NO cooking time (undefined/null) or items <= maxTime
+        filtered = filtered.filter(
+          (r) => !r.cookingTime || r.cookingTime <= args.maxTime!
+        );
+      }
+
+      // Manual pagination for search results
+      const start = args.paginationOpts.cursor
+        ? parseInt(args.paginationOpts.cursor, 10)
+        : 0;
+      const end = start + args.paginationOpts.numItems;
+      const page = filtered.slice(start, end);
+
+      const pageWithDetails = await Promise.all(
+        page.map(async (recipe) => {
+          let imageUrl = null;
+          if (recipe.storageId) {
+            imageUrl = await ctx.storage.getUrl(recipe.storageId);
+          }
+          let authorName = undefined;
+          if (recipe.userId !== userId) {
+            const user = await ctx.db
+              .query("users")
+              .withIndex("by_userId", (q) => q.eq("userId", recipe.userId))
+              .unique();
+            authorName = user?.name;
+          }
+          const isFavorite = await isRecipeFavorite(ctx, recipe._id, userId);
+          return { ...recipe, imageUrl, authorName, isFavorite };
+        })
+      );
+
+      return {
+        page: pageWithDetails,
+        isDone: end >= filtered.length,
+        continueCursor: end < filtered.length ? end.toString() : "",
+      };
     } else {
       queryBuilder = ctx.db.query("recipes");
 
@@ -256,53 +308,56 @@ export const list = query({
       }
 
       queryBuilder = queryBuilder.order("desc");
-    }
 
-    if (args.difficulty) {
-      queryBuilder = queryBuilder.filter((q: any) =>
-        q.eq(q.field("difficulty"), args.difficulty)
+      if (args.difficulty) {
+        queryBuilder = queryBuilder.filter((q: any) =>
+          q.eq(q.field("difficulty"), args.difficulty)
+        );
+      }
+
+      if (args.maxTime) {
+        queryBuilder = queryBuilder.filter((q: any) =>
+          q.or(
+            q.eq(q.field("cookingTime"), undefined),
+            q.lte(q.field("cookingTime"), args.maxTime)
+          )
+        );
+      }
+
+      const paginatedResult = await queryBuilder.paginate(args.paginationOpts);
+
+      const pageWithDetails = await Promise.all(
+        paginatedResult.page.map(async (recipe) => {
+          let imageUrl = null;
+          if (recipe.storageId) {
+            imageUrl = await ctx.storage.getUrl(recipe.storageId);
+          }
+
+          let authorName = undefined;
+          if (recipe.userId !== userId) {
+            const user = await ctx.db
+              .query("users")
+              .withIndex("by_userId", (q) => q.eq("userId", recipe.userId))
+              .unique();
+            authorName = user?.name;
+          }
+
+          const isFavorite = await isRecipeFavorite(ctx, recipe._id, userId);
+
+          return {
+            ...recipe,
+            imageUrl,
+            authorName,
+            isFavorite,
+          };
+        })
       );
+
+      return {
+        ...paginatedResult,
+        page: pageWithDetails,
+      };
     }
-
-    if (args.maxTime) {
-      queryBuilder = queryBuilder.filter((q: any) =>
-        q.lte(q.field("cookingTime"), args.maxTime)
-      );
-    }
-
-    const paginatedResult = await queryBuilder.paginate(args.paginationOpts);
-
-    const pageWithDetails = await Promise.all(
-      paginatedResult.page.map(async (recipe) => {
-        let imageUrl = null;
-        if (recipe.storageId) {
-          imageUrl = await ctx.storage.getUrl(recipe.storageId);
-        }
-
-        let authorName = undefined;
-        if (recipe.userId !== userId) {
-          const user = await ctx.db
-            .query("users")
-            .withIndex("by_userId", (q) => q.eq("userId", recipe.userId))
-            .unique();
-          authorName = user?.name;
-        }
-
-        const isFavorite = await isRecipeFavorite(ctx, recipe._id, userId);
-
-        return {
-          ...recipe,
-          imageUrl,
-          authorName,
-          isFavorite,
-        };
-      })
-    );
-
-    return {
-      ...paginatedResult,
-      page: pageWithDetails,
-    };
   },
 });
 
