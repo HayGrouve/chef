@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -60,6 +60,10 @@ function RecipeDetailContent() {
   const [showCartDialog, setShowCartDialog] = useState(false);
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [shareMessage, setShareMessage] = useState("");
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }, []);
 
   if (recipe === undefined) {
     return <div className="container mx-auto p-4">Loading...</div>;
