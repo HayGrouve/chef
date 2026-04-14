@@ -146,6 +146,8 @@ function DroppableDay({
 }
 
 import { MealSelector } from "@/components/meal-planner/MealSelector";
+import { useAction } from "convex/react";
+import { Loader2 } from "lucide-react";
 
 export default function MealPlannerPage() {
   // CHANGED: No arguments needed for getWeek
@@ -157,6 +159,7 @@ export default function MealPlannerPage() {
   const moveMeal = useMutation(api.mealPlans.move);
   const addBatchToShoppingList = useMutation(api.shoppingList.addBatch);
   const autoGenerate = useMutation(api.mealPlans.autoGenerate);
+  const generateMealPlanWithAI = useAction(api.ai.generateMealPlanWithAI);
   const clearAll = useMutation(api.mealPlans.clearAll);
 
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -165,6 +168,7 @@ export default function MealPlannerPage() {
   const [showShopConfirmDialog, setShowShopConfirmDialog] = useState(false);
   const [showClearConfirmDialog, setShowClearConfirmDialog] = useState(false);
   const [alertOpen, setAlertOpen] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const [alertTitle, setAlertTitle] = useState("");
   const [alertMessage, setAlertMessage] = useState("");
@@ -217,14 +221,36 @@ export default function MealPlannerPage() {
   };
 
   const confirmAutoGenerate = async () => {
-    // CHANGED: No startDate needed
-    const result = await autoGenerate({});
     setShowAutoGenerateConfirm(false);
+    setIsGenerating(true);
 
-    if (result && result.count === 0) {
-      showAlert("Info", result.message);
-    } else if (result) {
-      showAlert("Success", result.message);
+    try {
+      // 1. Try AI Generation
+      const result = await generateMealPlanWithAI();
+
+      if (result && result.count > 0) {
+        showAlert("Success", result.message);
+      } else {
+        // 2. AI succeeded but returned 0 meals (hallucination/confusion) -> Fallback
+        console.warn("AI returned 0 meals, falling back to random generation.");
+        const fallbackResult = await autoGenerate({});
+        if (fallbackResult) {
+          showAlert("Info", `AI returned empty. Fallback used: ${fallbackResult.message}`);
+        }
+      }
+    } catch (error: any) {
+      // 3. AI failed (timeout, rate limit, invalid JSON) -> Fallback
+      console.error("AI Generation Failed:", error);
+      try {
+        const fallbackResult = await autoGenerate({});
+        if (fallbackResult) {
+          showAlert("Info", `AI unavailable. Fallback used: ${fallbackResult.message}`);
+        }
+      } catch (fallbackError) {
+        showAlert("Error", "Both AI and fallback generation failed.");
+      }
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -293,10 +319,17 @@ export default function MealPlannerPage() {
           <Button
             variant="secondary"
             onClick={handleAutoGenerate}
+            disabled={isGenerating}
             className="flex-1 md:flex-none order-1 md:order-2"
           >
-            <Sparkles className="mr-2 h-4 w-4 text-yellow-500" />
-            <span className="whitespace-nowrap">Magic Fill</span>
+            {isGenerating ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Sparkles className="mr-2 h-4 w-4 text-yellow-500" />
+            )}
+            <span className="whitespace-nowrap">
+              {isGenerating ? "Generating..." : "Magic Fill"}
+            </span>
           </Button>
           <Button
             onClick={() => setShowShopConfirmDialog(true)}
@@ -419,13 +452,12 @@ export default function MealPlannerPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Auto-Generate Meal Plan</AlertDialogTitle>
             <AlertDialogDescription>
-              This will fill empty slots with random recipes from your recipes
-              and public recipes. Continue?
+              This will use AI to intelligently fill empty slots with varied recipes from your collection and public recipes. Continue?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmAutoGenerate}>
+            <AlertDialogCancel disabled={isGenerating}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmAutoGenerate} disabled={isGenerating}>
               Generate
             </AlertDialogAction>
           </AlertDialogFooter>

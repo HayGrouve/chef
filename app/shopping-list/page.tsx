@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,7 +17,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Trash2, Plus, Eraser, ArrowLeft, ShoppingBasket } from "lucide-react";
+import { Trash2, Plus, Eraser, ArrowLeft, ShoppingBasket, Sparkles, Loader2 } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { Id } from "../../convex/_generated/dataModel";
@@ -48,9 +48,43 @@ export default function ShoppingListPage() {
   const removeBatch = useMutation(api.shoppingList.removeBatch);
   const clearChecked = useMutation(api.shoppingList.clearChecked);
   const clearAll = useMutation(api.shoppingList.clearAll);
+  const organizeShoppingList = useAction(api.ai.organizeShoppingList);
 
   const [newItem, setNewItem] = useState("");
   const [groupBy, setGroupBy] = useState<"category" | "recipe">("category");
+  const [isOrganizing, setIsOrganizing] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Handle cooldown timer
+  useEffect(() => {
+    if (cooldown > 0) {
+      const timer = setTimeout(() => setCooldown(cooldown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [cooldown]);
+
+  const handleOrganize = async () => {
+    if (!items || items.length === 0) return;
+    
+    setIsOrganizing(true);
+    setErrorMsg(null);
+    
+    try {
+      const itemsToOrganize = items.map(item => ({
+        id: item._id,
+        ingredient: item.ingredient,
+      }));
+      
+      await organizeShoppingList({ items: itemsToOrganize });
+      setCooldown(30);
+    } catch (error: any) {
+      console.error("Failed to organize:", error);
+      setErrorMsg(error.data || error.message || "Failed to organize shopping list.");
+    } finally {
+      setIsOrganizing(false);
+    }
+  };
 
   // Load preference from local storage
   useEffect(() => {
@@ -218,8 +252,30 @@ export default function ShoppingListPage() {
             </Button>
           </form>
 
-          <div className="flex justify-end mb-4">
-            <div className="text-sm flex gap-2 bg-muted p-1 rounded-md">
+          <div className="flex flex-col sm:flex-row justify-between gap-4 mb-4">
+            <div className="flex items-center">
+              {groupBy === "category" && items.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleOrganize}
+                  disabled={isOrganizing || cooldown > 0}
+                  className="bg-primary/5 hover:bg-primary/10 text-primary border-primary/20"
+                >
+                  {isOrganizing ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-4 h-4 mr-2" />
+                  )}
+                  {isOrganizing
+                    ? "Organizing..."
+                    : cooldown > 0
+                    ? `Wait ${cooldown}s`
+                    : "Magic Organizer"}
+                </Button>
+              )}
+            </div>
+            <div className="text-sm flex gap-2 bg-muted p-1 rounded-md self-end sm:self-auto">
               <Button
                 variant={groupBy === "category" ? "secondary" : "ghost"}
                 size="sm"
@@ -246,6 +302,12 @@ export default function ShoppingListPage() {
               </Button>
             </div>
           </div>
+
+          {errorMsg && (
+            <div className="text-sm text-destructive mb-4 p-2 bg-destructive/10 rounded-md">
+              {errorMsg}
+            </div>
+          )}
 
           <div className="space-y-6">
             {items.length === 0 ? (

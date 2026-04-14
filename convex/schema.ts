@@ -52,4 +52,9 @@ export default defineSchema({
     mealType: v.string(), // breakfast, lunch, dinner
     recipeId: v.id("recipes"),
   }).index("by_user_date", ["userId", "date"]),
+  rateLimits: defineTable({
+    userId: v.string(),
+    action: v.string(),
+    lastCalledAt: v.number(),
+  }).index("by_user_action", ["userId", "action"]),
 });
