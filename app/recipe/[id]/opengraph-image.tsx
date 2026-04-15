@@ -9,8 +9,8 @@ export const runtime = "edge";
 // Image metadata
 export const alt = "Recipe Preview";
 export const size = {
-  width: 1200,
-  height: 630,
+  width: 800,
+  height: 420,
 };
 export const contentType = "image/png";
 
@@ -29,7 +29,7 @@ export default async function Image({
     if (!recipe) {
       return new ImageResponse(
         (
-          <div tw="flex h-full w-full items-center justify-center bg-zinc-900 text-white text-6xl font-bold">
+          <div tw="flex h-full w-full items-center justify-center bg-zinc-900 text-white text-4xl font-bold">
             Recipe Not Found
           </div>
         ),
@@ -52,47 +52,47 @@ export default async function Image({
                 style={{ objectFit: "cover" }}
               />
             ) : (
-              <div tw="flex w-full h-full items-center justify-center text-zinc-400 text-6xl font-bold bg-zinc-200">
+              <div tw="flex w-full h-full items-center justify-center text-zinc-400 text-5xl font-bold bg-zinc-200">
                 CHEF
               </div>
             )}
             {/* Overlay gradient for text readability if needed, or just a clean cut */}
-            <div tw="absolute inset-0 border-r-8 border-orange-500"></div>
+            <div tw="absolute inset-0 border-r-4 border-orange-500"></div>
           </div>
 
           {/* Right Side: Content */}
-          <div tw="flex flex-col w-1/2 h-full p-12 justify-between bg-zinc-900 text-white">
+          <div tw="flex flex-col w-1/2 h-full p-8 justify-between bg-zinc-900 text-white">
             <div tw="flex flex-col">
-              <div tw="flex items-center mb-6">
-                <span tw="text-orange-500 font-bold text-2xl tracking-widest uppercase">
+              <div tw="flex items-center mb-4">
+                <span tw="text-orange-500 font-bold text-lg tracking-widest uppercase">
                   CHEF RECIPE
                 </span>
                 {recipe.difficulty && (
-                  <span tw="ml-4 px-3 py-1 rounded-full border border-zinc-700 text-zinc-300 text-lg">
+                  <span tw="ml-3 px-2 py-1 rounded-full border border-zinc-700 text-zinc-300 text-sm">
                     {recipe.difficulty}
                   </span>
                 )}
                 {recipe.cookingTime && (
-                  <span tw="ml-4 px-3 py-1 rounded-full border border-zinc-700 text-zinc-300 text-lg">
+                  <span tw="ml-3 px-2 py-1 rounded-full border border-zinc-700 text-zinc-300 text-sm">
                     {recipe.cookingTime}m
                   </span>
                 )}
               </div>
-              <h1 tw="text-6xl font-bold leading-tight mb-6 tracking-tight text-white">
+              <h1 tw="text-5xl font-bold leading-tight mb-4 tracking-tight text-white">
                 {recipe.title}
               </h1>
-              <p tw="text-3xl text-zinc-400 leading-snug" style={{ overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 4, WebkitBoxOrient: "vertical" }}>
+              <p tw="text-2xl text-zinc-400 leading-snug" style={{ overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 4, WebkitBoxOrient: "vertical" }}>
                 {recipe.description}
               </p>
             </div>
 
             <div tw="flex items-center justify-between mt-auto">
               <div tw="flex items-center">
-                <span tw="text-2xl text-zinc-300 font-medium">
+                <span tw="text-lg text-zinc-300 font-medium">
                   {recipe.authorName ? `By ${recipe.authorName}` : "Community Recipe"}
                 </span>
               </div>
-              <div tw="flex items-center px-6 py-3 bg-orange-500 text-white rounded-full text-2xl font-bold">
+              <div tw="flex items-center px-4 py-2 bg-orange-500 text-white rounded-full text-lg font-bold">
                 View Recipe
               </div>
             </div>
@@ -104,7 +104,7 @@ export default async function Image({
   } catch (e) {
     return new ImageResponse(
       (
-        <div tw="flex h-full w-full items-center justify-center bg-zinc-900 text-white text-6xl">
+        <div tw="flex h-full w-full items-center justify-center bg-zinc-900 text-white text-4xl">
           CHEF
         </div>
       ),
