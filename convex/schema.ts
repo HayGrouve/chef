@@ -11,7 +11,10 @@ export default defineSchema({
     avatarUrl: v.optional(v.string()),
   })
     .index("by_token", ["tokenIdentifier"])
-    .index("by_userId", ["userId"]), // Index to look up author by recipe.userId
+    .index("by_userId", ["userId"])
+    .searchIndex("search_users", {
+      searchField: "name",
+    }),
   recipes: defineTable({
     userId: v.string(),
     title: v.string(),
@@ -25,9 +28,12 @@ export default defineSchema({
     cookingTime: v.optional(v.number()),
     difficulty: v.optional(v.string()), // "Easy" | "Medium" | "Hard"
     calories: v.optional(v.number()),
+    authorName: v.optional(v.string()),
+    searchText: v.optional(v.string()),
   })
+    .index("by_userId", ["userId"])
     .searchIndex("search_recipes", {
-      searchField: "title",
+      searchField: "searchText",
       filterFields: ["userId", "isPublic", "difficulty"],
     })
     .searchIndex("search_ingredients_description", {

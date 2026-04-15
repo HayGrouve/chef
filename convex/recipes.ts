@@ -42,11 +42,21 @@ export const create = mutation({
       }
     }
 
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_userId", (q) => q.eq("userId", identity.subject))
+      .unique();
+      
+    const authorName = user?.name || "";
+    const searchText = `${args.title} ${authorName}`.toLowerCase();
+
     const recipe = {
       ...args,
       userId: identity.subject,
       isPublic: args.isPublic ?? false,
       tags: args.tags ?? [],
+      authorName,
+      searchText,
     };
     return await ctx.db.insert("recipes", recipe);
   },
@@ -92,6 +102,14 @@ export const update = mutation({
       }
     }
 
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_userId", (q) => q.eq("userId", identity.subject))
+      .unique();
+      
+    const authorName = user?.name || "";
+    const searchText = `${args.title} ${authorName}`.toLowerCase();
+
     // Prepare update fields
     const updates: any = {
       title: args.title,
@@ -103,6 +121,8 @@ export const update = mutation({
       cookingTime: args.cookingTime,
       difficulty: args.difficulty,
       calories: args.calories,
+      authorName,
+      searchText,
     };
 
     // Only update storageId if a new one is provided
@@ -174,6 +194,7 @@ export const list = query({
       if (args.search) {
         const searchLower = args.search.toLowerCase();
         filteredRecipes = filteredRecipes.filter((r) =>
+          r.searchText?.toLowerCase().includes(searchLower) ||
           r.title.toLowerCase().includes(searchLower)
         );
       }
@@ -230,40 +251,36 @@ export const list = query({
         // Filter by userId for my recipes
         searchResults = await ctx.db
           .query("recipes")
-          .withSearchIndex("search_recipes", (q) =>
-            q.search("title", args.search!).eq("userId", userId)
-          )
-          .collect();
+          .withSearchIndex("search_recipes", (q) => {
+            let sq = q.search("searchText", args.search!).eq("userId", userId);
+            if (args.difficulty && args.difficulty !== "all") {
+              sq = sq.eq("difficulty", args.difficulty);
+            }
+            return sq;
+          })
+          .paginate(args.paginationOpts);
       } else {
         // Filter by isPublic for all recipes
         searchResults = await ctx.db
           .query("recipes")
-          .withSearchIndex("search_recipes", (q) =>
-            q.search("title", args.search!).eq("isPublic", true)
-          )
-          .collect();
+          .withSearchIndex("search_recipes", (q) => {
+            let sq = q.search("searchText", args.search!).eq("isPublic", true);
+            if (args.difficulty && args.difficulty !== "all") {
+              sq = sq.eq("difficulty", args.difficulty);
+            }
+            return sq;
+          })
+          .paginate(args.paginationOpts);
       }
 
-      // Apply other filters in memory (Convex search queries don't support inequality filters like lte)
-      let filtered = searchResults;
-
-      if (args.difficulty && args.difficulty !== "all") {
-        filtered = filtered.filter((r) => r.difficulty === args.difficulty);
-      }
-
+      // Apply maxTime filter in memory (Convex search queries don't support inequality filters)
+      // Note: This might result in slightly fewer items than requested on this specific page
+      let page = searchResults.page;
       if (args.maxTime) {
-        // Include items with NO cooking time (undefined/null) or items <= maxTime
-        filtered = filtered.filter(
+        page = page.filter(
           (r) => !r.cookingTime || r.cookingTime <= args.maxTime!
         );
       }
-
-      // Manual pagination for search results
-      const start = args.paginationOpts.cursor
-        ? parseInt(args.paginationOpts.cursor, 10)
-        : 0;
-      const end = start + args.paginationOpts.numItems;
-      const page = filtered.slice(start, end);
 
       const pageWithDetails = await Promise.all(
         page.map(async (recipe) => {
@@ -285,9 +302,8 @@ export const list = query({
       );
 
       return {
+        ...searchResults,
         page: pageWithDetails,
-        isDone: end >= filtered.length,
-        continueCursor: end < filtered.length ? end.toString() : "",
       };
     } else {
       queryBuilder = ctx.db.query("recipes");

@@ -18,18 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Search, Loader2, Clock, ChefHat, Heart } from "lucide-react";
 import Image from "next/image";
 
-function useDebounce<T>(value: T, delay: number): T {
-  const [debouncedValue, setDebouncedValue] = useState(value);
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedValue(value);
-    }, delay);
-    return () => {
-      clearTimeout(handler);
-    };
-  }, [value, delay]);
-  return debouncedValue;
-}
+import { useDebounce } from "@/hooks/use-debounce";
 
 export function MealSelector({
   isOpen,
