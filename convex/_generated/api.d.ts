@@ -13,6 +13,7 @@ import type * as categories from "../categories.js";
 import type * as mealPlans from "../mealPlans.js";
 import type * as migrations from "../migrations.js";
 import type * as recipes from "../recipes.js";
+import type * as seed from "../seed.js";
 import type * as shoppingList from "../shoppingList.js";
 import type * as users from "../users.js";
 
@@ -28,6 +29,7 @@ declare const fullApi: ApiFromModules<{
   mealPlans: typeof mealPlans;
   migrations: typeof migrations;
   recipes: typeof recipes;
+  seed: typeof seed;
   shoppingList: typeof shoppingList;
   users: typeof users;
 }>;

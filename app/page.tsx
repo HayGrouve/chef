@@ -73,7 +73,8 @@ function HomeContent() {
 
   // Sync state to URL
   const updateUrl = useCallback(() => {
-    const params = new URLSearchParams(searchParams.toString());
+    const currentQueryString = searchParams.toString();
+    const params = new URLSearchParams(currentQueryString);
     
     if (debouncedSearch) params.set("q", debouncedSearch);
     else params.delete("q");
@@ -93,7 +94,10 @@ function HomeContent() {
     if (myRecipesOnly) params.set("myRecipes", "true");
     else params.delete("myRecipes");
 
-    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    const newQueryString = params.toString();
+    if (currentQueryString !== newQueryString) {
+      router.replace(`${pathname}?${newQueryString}`, { scroll: false });
+    }
   }, [
     debouncedSearch,
     selectedTags,
@@ -213,7 +217,7 @@ function HomeContent() {
 
       <div className="flex flex-col md:flex-row gap-6 mt-4">
         {/* Desktop Sidebar */}
-        <aside className="hidden md:block w-64 shrink-0 sticky top-24 h-[calc(100vh-6rem)] overflow-y-auto pr-6">
+        <aside className="hidden md:block w-64 shrink-0 sticky px-4 top-24 h-[calc(100vh-6rem)] overflow-y-auto pr-6">
           <RecipeFilters {...filterProps} />
         </aside>
 
@@ -234,7 +238,7 @@ function HomeContent() {
                 </Button>
               </SheetTrigger>
               <SheetContent side="left" className="w-full sm:max-w-md overflow-y-auto">
-                <SheetHeader className="mb-4">
+                <SheetHeader className="sr-only">
                   <SheetTitle>Filter Recipes</SheetTitle>
                 </SheetHeader>
                 <MobileFilterSheet
