@@ -101,17 +101,40 @@ function RecipeDetailContent() {
     setTimeout(() => setAddedToCart(false), 2000);
   };
 
-  const handleShare = () => {
-    if (recipe.isPublic) {
-      const url = `${window.location.origin}/share/${recipe._id}`;
-      navigator.clipboard.writeText(url);
-      setShareMessage("Public link copied to clipboard!");
-    } else {
+  const handleShare = async () => {
+    if (!recipe.isPublic) {
       setShareMessage(
         "This recipe is private. Edit it to make it public first."
       );
+      setShowShareDialog(true);
+      return;
     }
-    setShowShareDialog(true);
+
+    const url = `${window.location.origin}/recipe/${recipe._id}`;
+    const shareData = {
+      title: `CHEF | ${recipe.title}`,
+      text: recipe.description,
+      url: url,
+    };
+
+    if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+      try {
+        await navigator.share(shareData);
+        // Native share sheet opened, no need for our dialog
+      } catch (err) {
+        // User cancelled or it failed, fallback to clipboard
+        if ((err as Error).name !== "AbortError") {
+          navigator.clipboard.writeText(url);
+          setShareMessage("Public link copied to clipboard!");
+          setShowShareDialog(true);
+        }
+      }
+    } else {
+      // Fallback for desktop/unsupported browsers
+      navigator.clipboard.writeText(url);
+      setShareMessage("Public link copied to clipboard!");
+      setShowShareDialog(true);
+    }
   };
 
   return (
