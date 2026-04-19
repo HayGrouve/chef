@@ -5,6 +5,7 @@ import { api } from "../../../convex/_generated/api";
 import { Id } from "../../../convex/_generated/dataModel";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   ArrowLeft,
@@ -174,6 +175,19 @@ function RecipeDetailContent() {
                 </Link>
               )}
               <p className="text-muted-foreground">{recipe.description}</p>
+              {recipe.tags && recipe.tags.length > 0 && (
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {recipe.tags.map((tag) => (
+                    <Badge
+                      key={tag}
+                      variant="outline"
+                      className="text-xs px-2 py-0.5"
+                    >
+                      {tag}
+                    </Badge>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="flex gap-2">
               <Authenticated>
