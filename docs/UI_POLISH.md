@@ -97,6 +97,14 @@ Feedback: the single-page form felt like "a lot of controls in a vertical stack"
 | **Pantry matching, AI-assisted at save time.** When a recipe is created, or its ingredients change, a background action asks Gemini for canonical names per ingredient line ("200g spaghetti" → `spaghetti, pasta`) and stores them in `recipes.ingredientKeys`. Pantry search matches against these too, so "pasta" finds spaghetti recipes. Search itself never calls AI, so it stays instant and free. Output is validated (same number of lines, strings only, at most 5 keys per line), and stale keys are cleared when ingredients are edited. If Gemini fails, the word matcher still works. | ✅ | `convex/ai.ts` (`tagRecipeIngredients`, `saveIngredientKeys`), `convex/schema.ts`, `convex/recipes.ts`, `convex/seed.ts` |
 | Backfill for existing recipes: `npx convex run ai:backfillIngredientKeys` | ⏳ run after deploying Convex functions | `convex/ai.ts` |
 
+## Round 5 — 2026-09-24 (combine duplicate shopping items)
+
+| Change | Status | Files |
+|--------|--------|-------|
+| **Organize now combines duplicates.** Gemini returns groups (`ids`, combined `ingredient`, `category`) instead of one row per item, adding up quantities ("1 egg" ×3 + "4 eggs" ×2 + "6 eggs" ×2 + "3 eggs" → "26 eggs"), converting compatible units, and keeping incompatible ones side by side ("2 cups + 200 g flour"). Each group keeps one item and deletes the rest. | ✅ | `convex/ai.ts` (`organizeShoppingList`, `applyOrganizedShoppingList`) |
+| Safety checks: the list is read on the server (the client no longer sends it); unknown or made-up ids are dropped; each item is used at most once; only the user's own items are touched; checked and unchecked items are never merged; items Gemini leaves out stay unchanged. A combined item from several recipes shows under "General Items" in the By recipe view. | ✅ | same |
+| **Undo** in the result toast restores names/aisles and recreates any items that were merged away. | ✅ | `convex/ai.ts` (`restoreShoppingListItems`), `app/shopping-list/page.tsx` |
+
 ## Backlog
 
 All items from the original audit are done. Ideas for a future round:
