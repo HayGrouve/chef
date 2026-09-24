@@ -4,7 +4,7 @@ import {
   ChefHat,
   ShoppingCart,
   Calendar,
-  Search,
+  Refrigerator,
   Plus,
   LogIn,
 } from "lucide-react";
@@ -37,7 +37,7 @@ export function Navbar() {
       icon: ShoppingCart,
       badge: shoppingListCount,
     },
-    { href: "/pantry", label: "Pantry", icon: Search },
+    { href: "/pantry", label: "Pantry", icon: Refrigerator },
   ];
 
   return (

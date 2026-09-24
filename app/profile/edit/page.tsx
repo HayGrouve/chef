@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import { UserCircle, ArrowLeft, Save } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -44,7 +45,14 @@ export default function EditProfilePage() {
     }
   };
 
-  if (user === undefined) return <div className="p-4">Loading...</div>;
+  if (user === undefined) {
+    return (
+      <div className="container mx-auto p-4 max-w-2xl space-y-4">
+        <Skeleton className="h-9 w-20" />
+        <Skeleton className="h-[420px] w-full rounded-xl" />
+      </div>
+    );
+  }
   if (user === null) return <div className="p-4">Unauthenticated</div>;
 
   return (

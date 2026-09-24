@@ -18,13 +18,13 @@ export async function generateMetadata({
 
     if (!recipe) {
       return {
-        title: "Recipe Not Found | CHEF",
+        title: "Recipe Not Found",
         description: "This recipe may be private or doesn't exist.",
       };
     }
 
     return {
-      title: `${recipe.title} | CHEF`,
+      title: recipe.title,
       description: recipe.description,
       openGraph: {
         title: recipe.title,
@@ -40,7 +40,7 @@ export async function generateMetadata({
     };
   } catch (error) {
     return {
-      title: "Recipe | CHEF",
+      title: "Recipe",
     };
   }
 }

@@ -7,6 +7,7 @@ import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   ArrowLeft,
   Trash2,
@@ -18,10 +19,15 @@ import {
   Utensils,
   ListOrdered,
   User,
+  MoreHorizontal,
+  Clock,
+  Gauge,
+  Flame,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useState, useEffect } from "react";
+import { toast } from "sonner";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,13 +39,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 function RecipeDetailContent() {
   const params = useParams();
@@ -56,18 +61,22 @@ function RecipeDetailContent() {
   const deleteRecipe = useMutation(api.recipes.remove);
   const toggleFavorite = useMutation(api.recipes.toggleFavorite);
   const addBatchToShoppingList = useMutation(api.shoppingList.addBatch);
-  const [addedToCart, setAddedToCart] = useState(false);
+  const removeBatchFromShoppingList = useMutation(api.shoppingList.removeBatch);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [showCartDialog, setShowCartDialog] = useState(false);
-  const [showShareDialog, setShowShareDialog] = useState(false);
-  const [shareMessage, setShareMessage] = useState("");
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" });
   }, []);
 
   if (recipe === undefined) {
-    return <div className="container mx-auto p-4">Loading...</div>;
+    return (
+      <div className="container mx-auto p-4 max-w-4xl space-y-4">
+        <Skeleton className="h-9 w-40" />
+        <Skeleton className="h-10 w-2/3" />
+        <Skeleton className="h-5 w-full" />
+        <Skeleton className="aspect-video w-full rounded-lg" />
+      </div>
+    );
   }
 
   if (recipe === null) {
@@ -93,24 +102,24 @@ function RecipeDetailContent() {
   };
 
   const handleAddToCart = async () => {
-    await addBatchToShoppingList({
+    const ids = await addBatchToShoppingList({
       ingredients: recipe.ingredients,
       recipeId: recipe._id,
     });
-    setAddedToCart(true);
-    setShowCartDialog(false);
-    setTimeout(() => setAddedToCart(false), 2000);
+    toast.success(
+      `Added ${recipe.ingredients.length} ingredients to your shopping list`,
+      {
+        action: ids?.length
+          ? {
+              label: "Undo",
+              onClick: () => removeBatchFromShoppingList({ ids }),
+            }
+          : undefined,
+      }
+    );
   };
 
   const handleShare = async () => {
-    if (!recipe.isPublic) {
-      setShareMessage(
-        "This recipe is private. Edit it to make it public first."
-      );
-      setShowShareDialog(true);
-      return;
-    }
-
     const url = `${window.location.origin}/recipe/${recipe._id}`;
     const shareData = {
       title: `CHEF | ${recipe.title}`,
@@ -121,28 +130,26 @@ function RecipeDetailContent() {
     if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
       try {
         await navigator.share(shareData);
-        // Native share sheet opened, no need for our dialog
+        // Native share sheet opened, no need for feedback
       } catch (err) {
         // User cancelled or it failed, fallback to clipboard
         if ((err as Error).name !== "AbortError") {
           navigator.clipboard.writeText(url);
-          setShareMessage("Public link copied to clipboard!");
-          setShowShareDialog(true);
+          toast.success("Link copied to clipboard");
         }
       }
     } else {
       // Fallback for desktop/unsupported browsers
       navigator.clipboard.writeText(url);
-      setShareMessage("Public link copied to clipboard!");
-      setShowShareDialog(true);
+      toast.success("Link copied to clipboard");
     }
   };
 
   return (
     <div className="container mx-auto p-4 max-w-4xl">
       <div className="flex justify-between items-center mb-4">
-        <Button variant="ghost" onClick={() => router.back()}>
-          <ArrowLeft className="mr-2 h-4 w-4" /> Back to Recipes
+        <Button variant="ghost" className="pl-0" onClick={() => router.back()}>
+          <ArrowLeft className="mr-2 h-4 w-4" /> Back
         </Button>
         <Authenticated>
           <Link href={`/recipe/${recipeId}/cook`}>
@@ -162,7 +169,7 @@ function RecipeDetailContent() {
 
       <Card>
         <CardHeader className="space-y-4">
-          <div className="flex justify-between items-start">
+          <div className="flex justify-between items-start gap-4">
             <div className="space-y-2">
               <CardTitle className="text-3xl">{recipe.title}</CardTitle>
               {recipe.authorName && (
@@ -175,6 +182,28 @@ function RecipeDetailContent() {
                 </Link>
               )}
               <p className="text-muted-foreground">{recipe.description}</p>
+              {(recipe.cookingTime || recipe.difficulty || recipe.calories) && (
+                <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+                  {recipe.cookingTime ? (
+                    <span className="flex items-center gap-1.5">
+                      <Clock className="h-4 w-4" />
+                      {recipe.cookingTime} min
+                    </span>
+                  ) : null}
+                  {recipe.difficulty && (
+                    <span className="flex items-center gap-1.5">
+                      <Gauge className="h-4 w-4" />
+                      {recipe.difficulty}
+                    </span>
+                  )}
+                  {recipe.calories ? (
+                    <span className="flex items-center gap-1.5">
+                      <Flame className="h-4 w-4" />
+                      {recipe.calories} kcal
+                    </span>
+                  ) : null}
+                </div>
+              )}
               {recipe.tags && recipe.tags.length > 0 && (
                 <div className="flex flex-wrap gap-2 pt-1">
                   {recipe.tags.map((tag) => (
@@ -189,7 +218,7 @@ function RecipeDetailContent() {
                 </div>
               )}
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-1 shrink-0">
               <Authenticated>
                 <Button
                   variant="ghost"
@@ -203,7 +232,7 @@ function RecipeDetailContent() {
                   }
                 >
                   <Heart
-                    className={`h-6 w-6 ${recipe.isFavorite ? "fill-red-500 text-red-500" : ""}`}
+                    className={`h-5 w-5 ${recipe.isFavorite ? "fill-red-500 text-red-500" : ""}`}
                   />
                 </Button>
               </Authenticated>
@@ -211,28 +240,43 @@ function RecipeDetailContent() {
                 <Button
                   variant="ghost"
                   size="icon"
+                  className="text-muted-foreground"
                   onClick={handleShare}
-                  title="Copy Public Link"
+                  title="Share"
                 >
-                  <Share2 className="h-5 w-5 text-blue-500" />
+                  <Share2 className="h-5 w-5" />
                 </Button>
               )}
               <Authenticated>
                 {recipe.isOwner && (
-                  <>
-                    <Link href={`/create?edit=${recipeId}`}>
-                      <Button variant="outline" size="icon">
-                        <Edit className="h-4 w-4" />
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-muted-foreground"
+                        aria-label="More actions"
+                      >
+                        <MoreHorizontal className="h-5 w-5" />
                       </Button>
-                    </Link>
-                    <Button
-                      variant="destructive"
-                      size="icon"
-                      onClick={() => setShowDeleteDialog(true)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem asChild>
+                        <Link href={`/create?edit=${recipeId}`}>
+                          <Edit className="h-4 w-4" />
+                          Edit recipe
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        variant="destructive"
+                        onSelect={() => setShowDeleteDialog(true)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Delete recipe
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 )}
               </Authenticated>
             </div>
@@ -258,14 +302,9 @@ function RecipeDetailContent() {
                   Ingredients
                 </h3>
                 <Authenticated>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowCartDialog(true)}
-                    disabled={addedToCart}
-                  >
+                  <Button variant="outline" size="sm" onClick={handleAddToCart}>
                     <ShoppingCart className="mr-2 h-4 w-4" />
-                    {addedToCart ? "Added!" : "Add to List"}
+                    Add to list
                   </Button>
                 </Authenticated>
               </div>
@@ -297,7 +336,7 @@ function RecipeDetailContent() {
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogTitle>Delete this recipe?</AlertDialogTitle>
             <AlertDialogDescription>
               This action cannot be undone. This will permanently delete your
               recipe.
@@ -315,34 +354,6 @@ function RecipeDetailContent() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={showCartDialog} onOpenChange={setShowCartDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Add to Shopping List</AlertDialogTitle>
-            <AlertDialogDescription>
-              Add all ingredients from this recipe to your shopping list?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleAddToCart}>
-              Add Ingredients
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Share Recipe</DialogTitle>
-            <DialogDescription>{shareMessage}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button onClick={() => setShowShareDialog(false)}>Close</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

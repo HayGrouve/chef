@@ -1,27 +1,25 @@
 "use client";
 
-import { useState, useRef, useEffect, Suspense } from "react";
+import { useState, useRef, useEffect, useId, Suspense } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Id } from "../../convex/_generated/dataModel";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import {
   X,
-  ChevronLeft,
-  ChevronRight,
   Upload,
   Plus,
   Trash2,
   CheckCircle2,
-  ArrowLeft,
   Check,
+  Loader2,
+  ChevronDown,
   ChevronsUpDown,
   GripVertical,
 } from "lucide-react";
@@ -43,14 +41,6 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -71,7 +61,8 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import Image from "next/image";
-import { useForm, useFieldArray, UseFormReturn } from "react-hook-form";
+import { toast } from "sonner";
+import { useForm, useFieldArray, useWatch, UseFormReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { recipeSchema, RecipeFormValues } from "@/lib/validations";
 import {
@@ -87,75 +78,25 @@ import {
 import { compressImage } from "@/lib/image-utils";
 import { PREDEFINED_TAGS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
-// --- Sub-Components for Wizard Steps ---
+// --- Form Sections ---
 
-function StepIndicator({
-  currentStep,
-  steps,
-}: {
-  currentStep: number;
-  steps: string[];
-}) {
+type SectionFormProps = { form: UseFormReturn<RecipeFormValues> };
+
+function BasicsFields({ form }: SectionFormProps) {
   return (
-    <div className="flex items-center justify-center mb-12 space-x-2">
-      <title>CHEF | Create Recipe</title>
-      <meta name="description" content="Create a new recipe with CHEF" />
-      {steps.map((step, i) => (
-        <div key={i} className="flex items-center">
-          <div className="flex flex-col items-center relative">
-            <div
-              className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors ${
-                i + 1 <= currentStep
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground"
-              }`}
-            >
-              {i + 1}
-            </div>
-            <span
-              className={`absolute top-10 text-xs font-medium whitespace-nowrap transition-colors ${
-                i + 1 <= currentStep ? "text-primary" : "text-muted-foreground"
-              }`}
-            >
-              {step}
-            </span>
-          </div>
-          {i < steps.length - 1 && (
-            <div
-              className={`w-8 h-1 mx-2 transition-colors ${
-                i + 1 < currentStep ? "bg-primary" : "bg-muted"
-              }`}
-            />
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-interface BasicDetailsStepProps {
-  form: UseFormReturn<RecipeFormValues>;
-  imagePreview: string | null;
-  onImageChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-}
-
-function BasicDetailsStep({
-  form,
-  imagePreview,
-  onImageChange,
-}: BasicDetailsStepProps) {
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [open, setOpen] = useState(false);
-
-  return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+    <div className="space-y-6">
       <FormField
         control={form.control}
         name="title"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>Recipe Title *</FormLabel>
+            <FormLabel>Title</FormLabel>
             <FormControl>
               <Input
                 placeholder="e.g., Spaghetti Carbonara"
@@ -168,6 +109,78 @@ function BasicDetailsStep({
         )}
       />
 
+      <FormField
+        control={form.control}
+        name="description"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Description</FormLabel>
+            <FormControl>
+              <Textarea
+                placeholder="A brief description of your dish..."
+                {...field}
+              />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+
+    </div>
+  );
+}
+
+function PhotoField({
+  imagePreview,
+  onImageChange,
+}: {
+  imagePreview: string | null;
+  onImageChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+}) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  return (
+    <div>
+      <div
+        className="border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center cursor-pointer hover:bg-accent/50 transition-colors"
+        onClick={() => fileInputRef.current?.click()}
+      >
+        {imagePreview ? (
+          <div className="relative w-full max-w-sm aspect-video rounded-md overflow-hidden">
+            <Image
+              src={imagePreview}
+              alt="Preview"
+              fill
+              className="object-cover"
+            />
+            <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+              <span className="text-white font-medium">Change Image</span>
+            </div>
+          </div>
+        ) : (
+          <div className="text-center space-y-2 text-muted-foreground">
+            <Upload className="w-10 h-10 mx-auto" />
+            <p>Click to upload an image</p>
+            <p className="text-xs">PNG, JPG or WEBP, up to 5MB</p>
+          </div>
+        )}
+        <Input
+          ref={fileInputRef}
+          type="file"
+          className="hidden"
+          accept="image/png, image/jpeg, image/jpg, image/webp"
+          onChange={onImageChange}
+        />
+      </div>
+    </div>
+  );
+}
+
+function ExtrasFields({ form }: SectionFormProps) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <FormField
           control={form.control}
@@ -229,57 +242,6 @@ function BasicDetailsStep({
             </FormItem>
           )}
         />
-      </div>
-
-      <FormField
-        control={form.control}
-        name="description"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>Description *</FormLabel>
-            <FormControl>
-              <Textarea
-                placeholder="A brief description of your dish..."
-                {...field}
-              />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-
-      <div className="space-y-2">
-        <Label>Recipe Image *</Label>
-        <div
-          className="border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center cursor-pointer hover:bg-accent/50 transition-colors"
-          onClick={() => fileInputRef.current?.click()}
-        >
-          {imagePreview ? (
-            <div className="relative w-full max-w-sm aspect-video rounded-md overflow-hidden">
-              <Image
-                src={imagePreview}
-                alt="Preview"
-                fill
-                className="object-cover"
-              />
-              <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-                <span className="text-white font-medium">Change Image</span>
-              </div>
-            </div>
-          ) : (
-            <div className="text-center space-y-2 text-muted-foreground">
-              <Upload className="w-10 h-10 mx-auto" />
-              <p>Click to upload an image</p>
-            </div>
-          )}
-          <Input
-            ref={fileInputRef}
-            type="file"
-            className="hidden"
-            accept="image/png, image/jpeg, image/jpg, image/webp"
-            onChange={onImageChange}
-          />
-        </div>
       </div>
 
       <FormField
@@ -368,7 +330,7 @@ function BasicDetailsStep({
         render={({ field }) => (
           <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
             <div className="space-y-0.5">
-              <FormLabel className="text-base">Make Public</FormLabel>
+              <FormLabel>Make public</FormLabel>
               <FormDescription>
                 Anyone with the link can view this recipe.
               </FormDescription>
@@ -423,21 +385,21 @@ function SortableRow({ id, children }: SortableRowProps) {
   );
 }
 
-interface DynamicListStepProps {
+interface ListSectionProps {
   form: UseFormReturn<RecipeFormValues>;
   name: "ingredients" | "steps";
-  title: string;
   placeholder: string;
   label: string;
 }
 
-function DynamicListStep({
+function ListSection({
   form,
   name,
-  title,
   placeholder,
   label,
-}: DynamicListStepProps) {
+}: ListSectionProps) {
+  // Stable id so dnd-kit's aria ids match between server and client render
+  const dndId = useId();
   const { fields, append, remove, move } = useFieldArray({
     control: form.control,
     name: name,
@@ -471,20 +433,9 @@ function DynamicListStep({
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
-      <div className="flex justify-between items-center">
-        <Label className="text-lg font-semibold">{title} *</Label>
-        <Button
-          size="sm"
-          onClick={() => append({ value: "" })}
-          variant="outline"
-          type="button"
-        >
-          <Plus className="w-4 h-4 mr-2" /> Add {label}
-        </Button>
-      </div>
-
+    <div className="space-y-3">
       <DndContext
+        id={dndId}
         sensors={sensors}
         collisionDetection={closestCenter}
         onDragEnd={handleDragEnd}
@@ -512,9 +463,6 @@ function DynamicListStep({
                           placeholder={placeholder}
                           className="min-h-12 resize-y"
                           onKeyDown={handleKeyDown}
-                          autoFocus={
-                            index === fields.length - 1 && !field.value
-                          }
                         />
                       </FormControl>
                       <FormMessage />
@@ -536,107 +484,160 @@ function DynamicListStep({
         </SortableContext>
       </DndContext>
       <FormMessage>{form.formState.errors[name]?.message}</FormMessage>
-      {fields.length > 0 && (
-        <Button
-          size="sm"
-          variant="ghost"
-          className="w-full border-2 border-dashed"
-          onClick={() => append({ value: "" })}
-          type="button"
-        >
-          <Plus className="w-4 h-4 mr-2" /> Add Another {label}
-        </Button>
-      )}
+      <Button
+        size="sm"
+        variant="ghost"
+        className="w-full border border-dashed text-muted-foreground"
+        onClick={() => append({ value: "" })}
+        type="button"
+      >
+        <Plus className="w-4 h-4 mr-2" /> Add {label.toLowerCase()}
+      </Button>
+      <p className="text-xs text-muted-foreground">
+        Press Enter to add the next {label.toLowerCase()}. Drag the handle to reorder.
+      </p>
     </div>
   );
 }
 
-function ReviewStep({
-  form,
-  imagePreview,
+// --- Section shell & progress nav ---
+
+type SectionStatus = "done" | "todo" | "optional";
+
+interface SectionMeta {
+  id: string;
+  title: string;
+  description: string;
+  status: SectionStatus;
+}
+
+function StatusBadge({ index, status }: { index: number; status: SectionStatus }) {
+  return (
+    <span
+      className={cn(
+        "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-semibold transition-colors",
+        status === "done" && "bg-primary text-primary-foreground",
+        status === "todo" && "border-2 border-muted-foreground/30 text-muted-foreground",
+        status === "optional" && "border-2 border-dashed border-muted-foreground/30 text-muted-foreground"
+      )}
+    >
+      {status === "done" ? <Check className="h-4 w-4" /> : index + 1}
+    </span>
+  );
+}
+
+function FormSection({
+  meta,
+  index,
+  children,
+  collapsible,
 }: {
-  form: UseFormReturn<RecipeFormValues>;
-  imagePreview: string | null;
+  meta: SectionMeta;
+  index: number;
+  children: React.ReactNode;
+  collapsible?: {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    summary: string;
+  };
 }) {
-  const values = form.getValues();
-  const ingredients = values.ingredients || [];
-  const steps = values.steps || [];
-  const tags = values.tags || [];
+  const header = (
+    <div className="flex items-start gap-3">
+      <StatusBadge index={index} status={meta.status} />
+      <div className="min-w-0 flex-1">
+        <h2 className="font-semibold leading-7">
+          {meta.title}
+          {meta.status === "optional" && (
+            <span className="ml-2 text-xs font-normal text-muted-foreground">
+              Optional
+            </span>
+          )}
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          {collapsible && !collapsible.open ? collapsible.summary : meta.description}
+        </p>
+      </div>
+      {collapsible && (
+        <ChevronDown
+          className={cn(
+            "mt-1.5 h-4 w-4 shrink-0 text-muted-foreground transition-transform",
+            collapsible.open && "rotate-180"
+          )}
+        />
+      )}
+    </div>
+  );
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
-      <div className="space-y-4">
-        <div className="aspect-video relative rounded-lg overflow-hidden bg-muted border">
-          {imagePreview ? (
-            <Image
-              src={imagePreview}
-              alt="Preview"
-              fill
-              className="object-cover"
-            />
-          ) : (
-            <div className="flex items-center justify-center h-full text-muted-foreground">
-              No Image Selected
-            </div>
-          )}
-          <div className="absolute top-2 right-2">
-            <Badge variant={values.isPublic ? "default" : "secondary"}>
-              {values.isPublic ? "Public" : "Private"}
-            </Badge>
-          </div>
-        </div>
+    <section
+      id={meta.id}
+      className="scroll-mt-24 rounded-xl border bg-card shadow-xs"
+    >
+      {collapsible ? (
+        <Collapsible open={collapsible.open} onOpenChange={collapsible.onOpenChange}>
+          <CollapsibleTrigger asChild>
+            <button type="button" className="w-full p-4 md:p-6 text-left">
+              {header}
+            </button>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="px-4 pb-4 md:px-6 md:pb-6 md:pl-16">{children}</div>
+          </CollapsibleContent>
+        </Collapsible>
+      ) : (
+        <>
+          <div className="p-4 md:p-6 pb-4 md:pb-4">{header}</div>
+          <div className="px-4 pb-4 md:px-6 md:pb-6 md:pl-16">{children}</div>
+        </>
+      )}
+    </section>
+  );
+}
 
-        <div>
-          <h2 className="text-2xl font-bold">
-            {values.title || "Untitled Recipe"}
-          </h2>
-          <p className="text-muted-foreground mt-2">
-            {values.description || "No description provided."}
-          </p>
-        </div>
+function SectionNav({
+  sections,
+  onJump,
+}: {
+  sections: SectionMeta[];
+  onJump: (id: string) => void;
+}) {
+  const required = sections.filter((s) => s.status !== "optional");
+  const done = required.filter((s) => s.status === "done").length;
 
-        <div className="flex flex-wrap gap-2">
-          {tags.map((tag: string) => (
-            <Badge key={tag} variant="outline">
-              {tag}
-            </Badge>
-          ))}
+  return (
+    <nav className="sticky top-24 space-y-4">
+      <div>
+        <p className="text-sm font-medium">
+          {done} of {required.length} required
+        </p>
+        <div className="mt-2 h-1.5 rounded-full bg-muted overflow-hidden">
+          <div
+            className="h-full bg-primary transition-all"
+            style={{ width: `${(done / required.length) * 100}%` }}
+          />
         </div>
       </div>
-
-      <div className="grid gap-6 md:grid-cols-2 pt-4 border-t">
-        <div>
-          <h3 className="font-semibold mb-2">
-            Ingredients ({ingredients.filter((i) => i.value.trim()).length})
-          </h3>
-          <ul className="list-disc pl-5 space-y-1 text-sm">
-            {ingredients
-              .filter((i) => i.value.trim())
-              .map((item, i) => (
-                <li key={i}>{item.value}</li>
-              ))}
-            {ingredients.filter((i) => i.value.trim()).length === 0 && (
-              <li className="text-muted-foreground">None</li>
-            )}
-          </ul>
-        </div>
-        <div>
-          <h3 className="font-semibold mb-2">
-            Instructions ({steps.filter((i) => i.value.trim()).length})
-          </h3>
-          <ol className="list-decimal pl-5 space-y-1 text-sm">
-            {steps
-              .filter((i) => i.value.trim())
-              .map((item, i) => (
-                <li key={i}>{item.value}</li>
-              ))}
-            {steps.filter((i) => i.value.trim()).length === 0 && (
-              <li className="text-muted-foreground">None</li>
-            )}
-          </ol>
-        </div>
-      </div>
-    </div>
+      <ol className="space-y-1">
+        {sections.map((section, i) => (
+          <li key={section.id}>
+            <button
+              type="button"
+              onClick={() => onJump(section.id)}
+              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-left hover:bg-muted"
+            >
+              <StatusBadge index={i} status={section.status} />
+              <span
+                className={cn(
+                  section.status === "done" ? "text-foreground" : "text-muted-foreground"
+                )}
+              >
+                {section.title}
+              </span>
+            </button>
+          </li>
+        ))}
+      </ol>
+    </nav>
   );
 }
 
@@ -656,13 +657,8 @@ function CreateRecipeContent() {
   );
 
   // State
-  const [currentStep, setCurrentStep] = useState(1);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-
-  const [alertOpen, setAlertOpen] = useState(false);
-  const [alertTitle, setAlertTitle] = useState("");
-  const [alertMessage, setAlertMessage] = useState("");
 
   const form = useForm<RecipeFormValues>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -678,7 +674,7 @@ function CreateRecipeContent() {
       calories: undefined,
       difficulty: undefined,
     },
-    mode: "onChange",
+    mode: "onTouched",
   });
 
   useEffect(() => {
@@ -750,41 +746,46 @@ function CreateRecipeContent() {
   };
 
   const showAlert = (title: string, message: string) => {
-    setAlertTitle(title);
-    setAlertMessage(message);
-    setAlertOpen(true);
+    toast.error(title, { description: message });
   };
 
-  const nextStep = async () => {
-    let valid = false;
-    if (currentStep === 1) {
-      valid = await form.trigger([
-        "title",
-        "description",
-        "cookingTime",
-        "calories",
-        "difficulty",
-        "tags",
-        "isPublic",
-      ]);
-      if (!imagePreview && !editId) {
-        showAlert("Image Required", "Please upload an image for your recipe.");
-        return;
+  const [extrasOpen, setExtrasOpen] = useState(false);
+  const values = useWatch({ control: form.control });
+
+  const scrollToSection = (id: string) =>
+    document
+      .getElementById(id)
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+
+  // Blank rows (e.g. left behind by pressing Enter) shouldn't block saving
+  const pruneEmptyRows = () => {
+    (["ingredients", "steps"] as const).forEach((name) => {
+      const rows = form.getValues(name) ?? [];
+      const filled = rows.filter((r) => r.value.trim() !== "");
+      if (filled.length !== rows.length) {
+        form.setValue(name, filled.length > 0 ? filled : [{ value: "" }]);
       }
-    } else if (currentStep === 2) {
-      valid = await form.trigger("ingredients");
-    } else if (currentStep === 3) {
-      valid = await form.trigger("steps");
-    } else {
-      valid = true;
-    }
-
-    if (valid) {
-      setCurrentStep((prev) => Math.min(prev + 1, 4));
-    }
+    });
   };
 
-  const prevStep = () => setCurrentStep((prev) => Math.max(prev - 1, 1));
+  const handleSave = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    pruneEmptyRows();
+    if (!imagePreview && !editId) {
+      showAlert("Image Required", "Please upload an image for your recipe.");
+      scrollToSection("section-photo");
+      // Still validate so all other errors are shown at once
+      form.trigger();
+      return;
+    }
+    form.handleSubmit(onSubmit, (errors) => {
+      // Extras is collapsible; open it if the problem is in there
+      if (errors.cookingTime || errors.calories || errors.difficulty || errors.tags) {
+        setExtrasOpen(true);
+      }
+      toast.error("Please fix the highlighted fields.");
+    })();
+  };
 
   const onSubmit = async (data: RecipeFormValues) => {
     try {
@@ -846,120 +847,165 @@ function CreateRecipeContent() {
 
   if (editId && existingRecipe === undefined) {
     return (
-      <div className="container mx-auto p-4 flex items-center justify-center h-[50vh]">
-        Loading recipe...
+      <div className="container mx-auto p-4 max-w-3xl space-y-6">
+        <Skeleton className="h-9 w-48" />
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-24 w-full" />
+        <Skeleton className="aspect-video w-full max-w-sm" />
       </div>
     );
   }
 
+  const isSubmitting = form.formState.isSubmitting;
+
+  const hasRows = (rows?: { value?: string }[]) =>
+    !!rows?.some((r) => r.value?.trim());
+  const extrasSummary = [
+    values.cookingTime ? `${values.cookingTime} min` : null,
+    values.difficulty,
+    values.calories ? `${values.calories} kcal` : null,
+    values.tags?.length
+      ? `${values.tags.length} tag${values.tags.length > 1 ? "s" : ""}`
+      : null,
+    values.isPublic ? "Public" : "Private",
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  const sections: SectionMeta[] = [
+    {
+      id: "section-basics",
+      title: "Basics",
+      description: "Name your dish and describe it in a sentence or two.",
+      status:
+        (values.title?.trim().length ?? 0) >= 2 &&
+        (values.description?.trim().length ?? 0) >= 10
+          ? "done"
+          : "todo",
+    },
+    {
+      id: "section-photo",
+      title: "Photo",
+      description: "A photo helps your recipe stand out.",
+      status: imagePreview ? "done" : "todo",
+    },
+    {
+      id: "section-ingredients",
+      title: "Ingredients",
+      description: "One ingredient per line, with amounts.",
+      status: hasRows(values.ingredients) ? "done" : "todo",
+    },
+    {
+      id: "section-steps",
+      title: "Instructions",
+      description: "One step per line, in order.",
+      status: hasRows(values.steps) ? "done" : "todo",
+    },
+    {
+      id: "section-extras",
+      title: "Extras",
+      description: "Cooking time, calories, difficulty, tags and visibility.",
+      status: "optional",
+    },
+  ];
+  const [basics, photo, ingredients, steps, extras] = sections;
+
   return (
-    <div className="container mx-auto p-4 max-w-3xl">
-      <div className="mb-6">
-        <Button
-          variant="ghost"
-          className="pl-0"
-          onClick={() => router.push("/")}
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" /> Cancel & Exit
-        </Button>
-      </div>
+    <div className="container mx-auto p-4 max-w-5xl">
+      <title>{editId ? "CHEF | Edit Recipe" : "CHEF | Create Recipe"}</title>
+      <meta name="description" content="Create a new recipe with CHEF" />
 
-      <Card className="min-h-[600px] flex flex-col">
-        <CardHeader>
-          <CardTitle className="text-center text-2xl">
-            {editId ? "Edit Recipe" : "Create New Recipe"}
-          </CardTitle>
-          <StepIndicator
-            currentStep={currentStep}
-            steps={["Details", "Ingredients", "Instructions", "Review"]}
-          />
-        </CardHeader>
-        <CardContent className="flex-1 overflow-y-auto px-4 md:px-8 py-2">
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-              {currentStep === 1 && (
-                <BasicDetailsStep
-                  form={form}
-                  imagePreview={imagePreview}
-                  onImageChange={handleImageChange}
-                />
-              )}
-              {currentStep === 2 && (
-                <DynamicListStep
-                  form={form}
-                  name="ingredients"
-                  title="Ingredients"
-                  placeholder="e.g., 200g Spaghetti"
-                  label="Ingredient"
-                />
-              )}
-              {currentStep === 3 && (
-                <DynamicListStep
-                  form={form}
-                  name="steps"
-                  title="Instructions"
-                  placeholder="e.g., Bring a large pot of salted water to a boil."
-                  label="Step"
-                />
-              )}
-              {currentStep === 4 && (
-                <ReviewStep form={form} imagePreview={imagePreview} />
-              )}
-            </form>
-          </Form>
-        </CardContent>
-        <div className="p-6 border-t bg-muted/10 flex justify-between mt-auto">
-          <Button
-            variant="outline"
-            onClick={prevStep}
-            disabled={currentStep === 1 || form.formState.isSubmitting}
-            className="w-32"
-            type="button"
-          >
-            <ChevronLeft className="w-4 h-4 mr-2" /> Back
-          </Button>
+      <h1 className="text-2xl font-bold mb-6">
+        {editId ? "Edit recipe" : "New recipe"}
+      </h1>
 
-          {currentStep < 4 ? (
-            <Button onClick={nextStep} className="w-32" type="button">
-              Next <ChevronRight className="w-4 h-4 ml-2" />
-            </Button>
-          ) : (
-            <Button
-              onClick={form.handleSubmit(onSubmit)}
-              disabled={form.formState.isSubmitting}
-              className="w-32"
+      <div className="grid gap-8 lg:grid-cols-[13rem_1fr]">
+        <aside className="hidden lg:block">
+          <SectionNav sections={sections} onJump={scrollToSection} />
+        </aside>
+
+        <Form {...form}>
+          <form onSubmit={handleSave} className="min-w-0 space-y-4">
+            <FormSection meta={basics} index={0}>
+              <BasicsFields form={form} />
+            </FormSection>
+
+            <FormSection meta={photo} index={1}>
+              <PhotoField
+                imagePreview={imagePreview}
+                onImageChange={handleImageChange}
+              />
+            </FormSection>
+
+            <FormSection meta={ingredients} index={2}>
+              <ListSection
+                form={form}
+                name="ingredients"
+                placeholder="e.g., 200g Spaghetti"
+                label="Ingredient"
+              />
+            </FormSection>
+
+            <FormSection meta={steps} index={3}>
+              <ListSection
+                form={form}
+                name="steps"
+                placeholder="e.g., Bring a large pot of salted water to a boil."
+                label="Step"
+              />
+            </FormSection>
+
+            <FormSection
+              meta={extras}
+              index={4}
+              collapsible={{
+                open: extrasOpen,
+                onOpenChange: setExtrasOpen,
+                summary: extrasSummary,
+              }}
             >
-              {form.formState.isSubmitting
-                ? "Saving..."
-                : editId
-                  ? "Update"
-                  : "Create"}
-              {!form.formState.isSubmitting && (
-                <CheckCircle2 className="w-4 h-4 ml-2" />
-              )}
-            </Button>
-          )}
-        </div>
-      </Card>
+              <ExtrasFields form={form} />
+            </FormSection>
 
-      <Dialog open={alertOpen} onOpenChange={setAlertOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{alertTitle}</DialogTitle>
-            <DialogDescription>{alertMessage}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button onClick={() => setAlertOpen(false)}>OK</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            <div className="sticky bottom-16 md:bottom-0 z-10 -mx-4 px-4 py-3 border-t bg-background/95 backdrop-blur flex items-center justify-end gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => router.back()}
+                disabled={isSubmitting}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isSubmitting} className="min-w-32">
+                {isSubmitting ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="w-4 h-4 mr-2" />
+                )}
+                {isSubmitting
+                  ? "Saving..."
+                  : editId
+                    ? "Save changes"
+                    : "Create recipe"}
+              </Button>
+            </div>
+          </form>
+        </Form>
+      </div>
     </div>
   );
 }
 
 export default function CreateRecipe() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense
+      fallback={
+        <div className="container mx-auto p-4 max-w-3xl space-y-6">
+          <Skeleton className="h-9 w-48" />
+          <Skeleton className="h-10 w-full" />
+        </div>
+      }
+    >
       <CreateRecipeContent />
     </Suspense>
   );
