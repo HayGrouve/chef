@@ -63,6 +63,7 @@ export default function ShoppingListPage() {
   const clearChecked = useMutation(api.shoppingList.clearChecked);
   const clearAll = useMutation(api.shoppingList.clearAll);
   const organizeShoppingList = useAction(api.ai.organizeShoppingList);
+  const restoreShoppingListItems = useMutation(api.ai.restoreShoppingListItems);
 
   const [newItem, setNewItem] = useState("");
   const [groupBy, setGroupBy] = useState<"category" | "recipe">("category");
@@ -80,17 +81,26 @@ export default function ShoppingListPage() {
 
   const handleOrganize = async () => {
     if (!items || items.length === 0) return;
-    
+
     setIsOrganizing(true);
-    
+
     try {
-      const itemsToOrganize = items.map(item => ({
-        id: item._id,
-        ingredient: item.ingredient,
-      }));
-      
-      await organizeShoppingList({ items: itemsToOrganize });
+      const { merged, originals } = await organizeShoppingList({});
       setCooldown(30);
+      toast.success(
+        merged > 0
+          ? `Sorted into aisles and combined ${merged} duplicate item${merged === 1 ? "" : "s"}`
+          : "Sorted into aisles",
+        {
+          action:
+            originals.length > 0
+              ? {
+                  label: "Undo",
+                  onClick: () => restoreShoppingListItems({ items: originals }),
+                }
+              : undefined,
+        }
+      );
     } catch (error: any) {
       console.error("Failed to organize:", error);
       toast.error(error.data || error.message || "Failed to organize shopping list.");
@@ -280,6 +290,7 @@ export default function ShoppingListPage() {
                 onClick={handleOrganize}
                 disabled={isOrganizing || cooldown > 0}
                 className="text-primary"
+                title="Sort into aisles and combine duplicate items"
               >
                 {isOrganizing ? (
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
