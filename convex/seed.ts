@@ -1,4 +1,5 @@
 import { mutation } from "./_generated/server";
+import { internal } from "./_generated/api";
 
 export const seedDatabase = mutation({
   handler: async (ctx) => {
@@ -137,9 +138,12 @@ export const seedDatabase = mutation({
 
       if (!existing) {
         const searchText = `${r.title} ${r.authorName}`.toLowerCase();
-        await ctx.db.insert("recipes", {
+        const recipeId = await ctx.db.insert("recipes", {
           ...r,
           searchText,
+        });
+        await ctx.scheduler.runAfter(0, internal.ai.tagRecipeIngredients, {
+          recipeId,
         });
         count++;
       }
