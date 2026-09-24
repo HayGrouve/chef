@@ -97,8 +97,8 @@ export const addBatch = mutation({
     
     // Note: For now we don't do complex merging on the server side to keep it simple
     // We just insert new items. Complex merging requires more robust parsing logic.
-    
-    await Promise.all(
+    // Returns the inserted ids so the client can offer "Undo".
+    return await Promise.all(
       args.ingredients.map((ingredient) =>
         ctx.db.insert("shoppingList", {
           userId: identity.subject,

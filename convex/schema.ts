@@ -30,6 +30,9 @@ export default defineSchema({
     calories: v.optional(v.number()),
     authorName: v.optional(v.string()),
     searchText: v.optional(v.string()),
+    // AI-generated canonical names per ingredient line, used for pantry
+    // matching, e.g. "200g spaghetti" -> ["spaghetti", "pasta"]
+    ingredientKeys: v.optional(v.array(v.array(v.string()))),
   })
     .index("by_userId", ["userId"])
     .searchIndex("search_recipes", {

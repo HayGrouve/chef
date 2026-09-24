@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, ArrowRight, CheckCircle2, X, Timer, Play, Pause, RotateCcw, PartyPopper } from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCircle2, X, Timer, Play, Pause, RotateCcw, PartyPopper, Loader2 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import Image from "next/image";
@@ -52,7 +52,7 @@ function CookingTimer() {
     };
 
     return (
-        <div className="flex items-center gap-2 bg-muted/50 rounded-lg p-2 border">
+        <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1 pl-2 border shrink-0">
             <Timer className="h-4 w-4 text-muted-foreground" />
             {timeLeft > 0 || isActive ? (
                 <span className="font-mono font-bold text-lg w-16 text-center">{formatTime(timeLeft)}</span>
@@ -144,7 +144,11 @@ export default function CookingMode() {
   }, [isFinished]);
 
   if (recipe === undefined) {
-    return <div className="flex h-screen items-center justify-center">Loading...</div>;
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
   }
 
   if (recipe === null) {
@@ -186,12 +190,7 @@ export default function CookingMode() {
     }
   };
 
-  // Progress calculation
-  // Phase 0: count checked ingredients? Or just 0% until phase 2?
-  // Let's do: 
-  // Phase 0: 0% to 10% (based on ingredients checked?)
-  // Phase 1: 10% to 100% based on steps
-  
+  // Progress: ingredients phase fills 0-10%, instructions fill 10-100%
   let progress = 0;
   if (isFinished) {
     progress = 100;
@@ -208,34 +207,24 @@ export default function CookingMode() {
   return (
     <div className="flex flex-col h-screen bg-background">
       {/* Header */}
-      <div className="p-4 border-b flex items-center justify-between sticky top-0 bg-background z-10 shadow-sm">
-        <div className="flex items-center gap-4 overflow-hidden">
-            <Button variant="ghost" size="icon" onClick={() => router.back()}>
-                <X className="h-6 w-6" />
-            </Button>
-            <div className="min-w-0">
-                <h1 className="font-semibold text-lg truncate">{recipe.title}</h1>
-                <p className="text-sm text-muted-foreground truncate">
-                    {isFinished 
-                        ? "Completed!" 
-                        : cookingPhase === 0 
-                            ? "Step 1: Ingredients" 
-                            : `Step 2: Cooking (${activeStepIndex + 1}/${totalInstructionSteps})`}
-                </p>
-            </div>
+      <div className="sticky top-0 bg-background z-10 border-b">
+        <div className="p-3 md:p-4 flex items-center gap-2 md:gap-4">
+          <Button variant="ghost" size="icon" onClick={() => router.back()} aria-label="Exit cooking mode">
+            <X className="h-6 w-6" />
+          </Button>
+          <div className="min-w-0 flex-1">
+            <h1 className="font-semibold text-lg truncate">{recipe.title}</h1>
+            <p className="text-sm text-muted-foreground truncate">
+              {isFinished
+                ? "Completed!"
+                : cookingPhase === 0
+                  ? "Step 1: Ingredients"
+                  : `Step 2: Cooking (${activeStepIndex + 1}/${totalInstructionSteps})`}
+            </p>
+          </div>
+          <CookingTimer />
         </div>
-        <div className="flex items-center gap-4">
-             <div className="hidden md:block">
-                 <CookingTimer />
-             </div>
-             <div className="w-24 md:w-32 hidden sm:block">
-                <Progress value={progress} className="h-2" />
-            </div>
-        </div>
-      </div>
-      
-      <div className="md:hidden p-2 bg-muted/20 flex justify-end">
-         <CookingTimer />
+        <Progress value={progress} className="h-1 rounded-none" />
       </div>
 
       {/* Content */}

@@ -8,6 +8,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { AuthenticatedMobileNav } from "@/components/authenticated-mobile-nav";
 import { Footer } from "@/components/footer";
 import { Navbar } from "@/components/navbar";
+import { Toaster } from "@/components/ui/sonner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -75,6 +76,7 @@ export default function RootLayout({
               <Footer />
             </div>
             <AuthenticatedMobileNav />
+            <Toaster position="top-center" />
           </ThemeProvider>
         </ConvexClientProvider>
       </body>

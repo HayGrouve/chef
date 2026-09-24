@@ -1,25 +1,28 @@
 "use client";
 
-import { useState } from "react";
-import { useQuery, useMutation } from "convex/react";
+import { useState, useSyncExternalStore } from "react";
+import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Plus,
   Trash2,
   ShoppingCart,
-  ArrowLeft,
-  CalendarDays,
   Sparkles,
+  MoreHorizontal,
+  Loader2,
+  X,
 } from "lucide-react";
 import Link from "next/link";
+import { toast } from "sonner";
+import { MealSelector } from "@/components/meal-planner/MealSelector";
 import Image from "next/image";
 import { Id, Doc } from "../../convex/_generated/dataModel";
 import {
@@ -35,18 +38,56 @@ import {
 import {
   DndContext,
   DragEndEvent,
+  KeyboardSensor,
+  PointerSensor,
   useDraggable,
   useDroppable,
+  useSensor,
+  useSensors,
 } from "@dnd-kit/core";
+import { cn } from "@/lib/utils";
+
+type PlannedMeal = Doc<"mealPlans"> & {
+  recipeTitle?: string;
+  recipeImage?: string | null;
+};
+
+const WEEK_DAYS = [
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+  "Sunday",
+];
+const MEAL_TYPES = ["Breakfast", "Lunch", "Dinner"];
+
+function todayName() {
+  // getDay(): 0 = Sunday
+  return WEEK_DAYS[(new Date().getDay() + 6) % 7];
+}
+
+function subscribeToDesktop(callback: () => void) {
+  const mql = window.matchMedia("(min-width: 768px)");
+  mql.addEventListener("change", callback);
+  return () => mql.removeEventListener("change", callback);
+}
+
+// Only one layout is mounted at a time so drag/drop ids stay unique.
+function useIsDesktop() {
+  return useSyncExternalStore(
+    subscribeToDesktop,
+    () => window.matchMedia("(min-width: 768px)").matches,
+    () => true
+  );
+}
 
 function DraggableMeal({
   meal,
   onRemove,
 }: {
-  meal: Doc<"mealPlans"> & {
-    recipeTitle?: string;
-    recipeImage?: string | null;
-  };
+  meal: PlannedMeal;
   onRemove: (id: Id<"mealPlans">) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } =
@@ -59,7 +100,6 @@ function DraggableMeal({
     ? {
         transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
         zIndex: 100,
-        opacity: isDragging ? 0.5 : 1,
       }
     : undefined;
 
@@ -67,87 +107,139 @@ function DraggableMeal({
     <div
       ref={setNodeRef}
       style={style}
-      className="relative group bg-background border rounded-md p-2 shadow-sm hover:shadow-md transition-all"
+      className={cn(
+        "group relative flex items-center gap-2 rounded-md border bg-background p-1.5 pr-7 shadow-xs",
+        isDragging && "opacity-60 shadow-lg"
+      )}
     >
-      {/* Drag handle wraps the main content so the delete button is not draggable */}
+      {/* Drag handle wraps the content so the remove button is not draggable */}
       <div
         {...listeners}
         {...attributes}
-        className="touch-none cursor-grab active:cursor-grabbing"
+        className="flex min-w-0 flex-1 items-center gap-2 touch-none cursor-grab active:cursor-grabbing"
       >
-        <div className="text-sm font-medium text-center line-clamp-2 mb-1">
-          <Link
-            href={`/recipe/${meal.recipeId}`}
-            className="hover:underline"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {meal.recipeTitle}
-          </Link>
-        </div>
-        {meal.recipeImage && (
-          <div className="w-12 h-12 relative rounded-md overflow-hidden mb-1 mx-auto pointer-events-none">
+        <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded bg-muted pointer-events-none">
+          {meal.recipeImage && (
             <Image
               src={meal.recipeImage}
-              alt={meal.recipeTitle || ""}
+              alt=""
               fill
+              sizes="36px"
               className="object-cover"
             />
-          </div>
-        )}
+          )}
+        </div>
+        <Link
+          href={`/recipe/${meal.recipeId}`}
+          className="text-sm font-medium leading-tight line-clamp-2 hover:underline"
+        >
+          {meal.recipeTitle}
+        </Link>
       </div>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-6 w-6 absolute top-1 right-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity text-destructive"
-        onClick={(e) => {
-          e.stopPropagation();
-          onRemove(meal._id);
-        }}
+      <button
+        onClick={() => onRemove(meal._id)}
+        className="absolute right-1 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:text-destructive md:opacity-0 md:group-hover:opacity-100 focus-visible:opacity-100"
+        aria-label={`Remove ${meal.recipeTitle ?? "meal"}`}
       >
-        <Trash2 className="h-3 w-3" />
-      </Button>
+        <X className="h-3.5 w-3.5" />
+      </button>
     </div>
   );
 }
 
-function DroppableDay({
-  dateStr,
+function MealSlot({
+  day,
   mealType,
-  children,
+  meals,
   onAdd,
+  onRemove,
+  showLabel,
 }: {
-  dateStr: string;
+  day: string;
   mealType: string;
-  children: React.ReactNode;
+  meals: PlannedMeal[];
   onAdd: () => void;
+  onRemove: (id: Id<"mealPlans">) => void;
+  showLabel?: boolean;
 }) {
-  const { setNodeRef, isOver } = useDroppable({
-    id: `${dateStr}:${mealType}`,
-  });
+  const { setNodeRef, isOver } = useDroppable({ id: `${day}:${mealType}` });
 
   return (
     <div
       ref={setNodeRef}
-      className={`flex-1 p-2 flex flex-col gap-2 min-h-[100px] transition-colors rounded-md ${
-        isOver ? "bg-primary/10 border-primary border-2 border-dashed" : ""
-      }`}
+      className={cn(
+        "flex flex-col gap-1.5 rounded-md p-1.5 min-h-12 transition-colors",
+        isOver && "bg-primary/10 ring-2 ring-primary/40"
+      )}
     >
-      {children}
-      <Button
-        variant="ghost"
-        size="sm"
-        className="w-full text-muted-foreground hover:text-primary mt-auto h-8"
+      {showLabel && (
+        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          {mealType}
+        </span>
+      )}
+      {meals.map((meal) => (
+        <DraggableMeal key={meal._id} meal={meal} onRemove={onRemove} />
+      ))}
+      <button
         onClick={onAdd}
+        className={cn(
+          "flex items-center justify-center gap-1 rounded-md border border-dashed py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-primary",
+          meals.length > 0 && "border-transparent"
+        )}
+        aria-label={`Add ${mealType.toLowerCase()} on ${day}`}
       >
-        <Plus className="h-4 w-4" />
-      </Button>
+        <Plus className="h-3.5 w-3.5" />
+        {meals.length === 0 && <span>Add</span>}
+      </button>
     </div>
   );
 }
 
-import { MealSelector } from "@/components/meal-planner/MealSelector";
-import { useAction } from "convex/react";
-import { Loader2 } from "lucide-react";
+function DayTab({
+  day,
+  isSelected,
+  hasMeals,
+  isToday,
+  onSelect,
+}: {
+  day: string;
+  isSelected: boolean;
+  hasMeals: boolean;
+  isToday: boolean;
+  onSelect: () => void;
+}) {
+  // Dropping a meal on a tab moves it to that day (keeping its meal type)
+  const { setNodeRef, isOver } = useDroppable({ id: `tab:${day}` });
+
+  return (
+    <button
+      ref={setNodeRef}
+      onClick={onSelect}
+      className={cn(
+        "relative flex flex-1 flex-col items-center rounded-md py-2 text-sm font-medium transition-colors",
+        isSelected
+          ? "bg-primary text-primary-foreground"
+          : "text-muted-foreground hover:bg-muted",
+        isOver && "ring-2 ring-primary"
+      )}
+      aria-pressed={isSelected}
+    >
+      <span className={cn(isToday && !isSelected && "text-primary")}>
+        {day.slice(0, 3)}
+      </span>
+      <span
+        className={cn(
+          "mt-1 h-1 w-1 rounded-full",
+          hasMeals
+            ? isSelected
+              ? "bg-primary-foreground"
+              : "bg-primary"
+            : "bg-transparent"
+        )}
+      />
+    </button>
+  );
+}
 
 export default function MealPlannerPage() {
   // CHANGED: No arguments needed for getWeek
@@ -158,6 +250,7 @@ export default function MealPlannerPage() {
   const removeMeal = useMutation(api.mealPlans.remove);
   const moveMeal = useMutation(api.mealPlans.move);
   const addBatchToShoppingList = useMutation(api.shoppingList.addBatch);
+  const removeBatchFromShoppingList = useMutation(api.shoppingList.removeBatch);
   const autoGenerate = useMutation(api.mealPlans.autoGenerate);
   const generateMealPlanWithAI = useAction(api.ai.generateMealPlanWithAI);
   const clearAll = useMutation(api.mealPlans.clearAll);
@@ -165,30 +258,33 @@ export default function MealPlannerPage() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedMealType, setSelectedMealType] = useState<string>("dinner");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [showShopConfirmDialog, setShowShopConfirmDialog] = useState(false);
   const [showClearConfirmDialog, setShowClearConfirmDialog] = useState(false);
-  const [alertOpen, setAlertOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
 
-  const [alertTitle, setAlertTitle] = useState("");
-  const [alertMessage, setAlertMessage] = useState("");
+  const isDesktop = useIsDesktop();
+  const [mobileDay, setMobileDay] = useState(todayName);
+  const today = todayName();
 
-  // NEW: Static week days
-  const weekDays = [
-    "Monday",
-    "Tuesday",
-    "Wednesday",
-    "Thursday",
-    "Friday",
-    "Saturday",
-    "Sunday",
-  ].map((day) => ({
-    dateStr: day, // We use the day name as the ID/key
-    dayName: day,
-    date: null, // No real date object needed
-  }));
+  const sensors = useSensors(
+    // Small drag threshold so taps on the recipe link still navigate
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor)
+  );
 
-  const mealTypes = ["Breakfast", "Lunch", "Dinner"];
+  const mealsFor = (day: string, mealType?: string) =>
+    mealPlans?.filter(
+      (p) =>
+        p.date === day &&
+        (mealType === undefined || p.mealType === mealType.toLowerCase())
+    ) ?? [];
+
+  const openAdd = (day: string, mealType: string) => {
+    setSelectedDate(day);
+    setSelectedMealType(mealType);
+    setIsAddDialogOpen(true);
+  };
+
+  const handleRemove = (id: Id<"mealPlans">) => removeMeal({ id });
 
   const handleAddMeal = async (recipeId: string) => {
     if (selectedDate && selectedMealType) {
@@ -204,13 +300,30 @@ export default function MealPlannerPage() {
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
 
-    if (over && active.id !== over.id) {
-      const [date, mealType] = (over.id as string).split(":");
-      await moveMeal({
-        id: active.id as Id<"mealPlans">,
-        date,
-        mealType: mealType.toLowerCase(),
-      });
+    if (!over || active.id === over.id) return;
+    const overId = over.id as string;
+    const meal = active.data.current?.meal as PlannedMeal | undefined;
+
+    let date: string;
+    let mealType: string;
+    if (overId.startsWith("tab:")) {
+      date = overId.slice(4);
+      mealType = meal?.mealType ?? "dinner";
+    } else {
+      [date, mealType] = overId.split(":");
+    }
+
+    if (meal && meal.date === date && meal.mealType === mealType.toLowerCase()) {
+      return;
+    }
+
+    await moveMeal({
+      id: active.id as Id<"mealPlans">,
+      date,
+      mealType: mealType.toLowerCase(),
+    });
+    if (overId.startsWith("tab:")) {
+      toast.success(`Moved to ${date}`);
     }
   };
 
@@ -229,13 +342,13 @@ export default function MealPlannerPage() {
       const result = await generateMealPlanWithAI();
 
       if (result && result.count > 0) {
-        showAlert("Success", result.message);
+        toast.success(result.message);
       } else {
         // 2. AI succeeded but returned 0 meals (hallucination/confusion) -> Fallback
         console.warn("AI returned 0 meals, falling back to random generation.");
         const fallbackResult = await autoGenerate({});
         if (fallbackResult) {
-          showAlert("Info", `AI returned empty. Fallback used: ${fallbackResult.message}`);
+          toast.info(`AI returned empty. Fallback used: ${fallbackResult.message}`);
         }
       }
     } catch (error: any) {
@@ -244,20 +357,14 @@ export default function MealPlannerPage() {
       try {
         const fallbackResult = await autoGenerate({});
         if (fallbackResult) {
-          showAlert("Info", `AI unavailable. Fallback used: ${fallbackResult.message}`);
+          toast.info(`AI unavailable. Fallback used: ${fallbackResult.message}`);
         }
       } catch (fallbackError) {
-        showAlert("Error", "Both AI and fallback generation failed.");
+        toast.error("Both AI and fallback generation failed.");
       }
     } finally {
       setIsGenerating(false);
     }
-  };
-
-  const showAlert = (title: string, message: string) => {
-    setAlertTitle(title);
-    setAlertMessage(message);
-    setAlertOpen(true);
   };
 
   const handleAddToShoppingList = async () => {
@@ -272,124 +379,171 @@ export default function MealPlannerPage() {
       }
     });
 
-    if (ingredientsToAdd.length > 0) {
-      await addBatchToShoppingList({ ingredients: ingredientsToAdd });
-      setShowShopConfirmDialog(false);
-      showAlert("Success", "Added ingredients to shopping list!");
-    } else {
-      setShowShopConfirmDialog(false);
-      showAlert("Info", "No recipes found to add.");
+    if (ingredientsToAdd.length === 0) {
+      toast.info("Plan some meals first to shop for them.");
+      return;
     }
+
+    const ids = await addBatchToShoppingList({ ingredients: ingredientsToAdd });
+    toast.success(
+      `Added ${ingredientsToAdd.length} ingredients to your shopping list`,
+      {
+        action: ids?.length
+          ? {
+              label: "Undo",
+              onClick: () => removeBatchFromShoppingList({ ids }),
+            }
+          : undefined,
+      }
+    );
   };
 
   const handleClearAll = async () => {
     await clearAll();
     setShowClearConfirmDialog(false);
-    showAlert("Success", "All meal plans cleared!");
+    toast.success("Meal plan cleared");
   };
 
   return (
     <div className="container mx-auto p-4">
       <title>CHEF | Meal Planner</title>
       <meta name="description" content="Plan your weekly meals with ease" />
-      <div className="mb-4">
-        <Link href="/">
-          <Button variant="ghost" className="pl-0">
-            <ArrowLeft className="h-4 w-4 mr-2" /> Back to Home
-          </Button>
-        </Link>
-      </div>
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-        <div className="flex items-center gap-3">
-          <CalendarDays className="h-8 w-8" />
-          <h1 className="text-3xl font-bold">Weekly Meal Planner</h1>
-        </div>
+      <div className="flex items-center justify-between gap-2 mb-6">
+        <h1 className="text-2xl font-bold">Meal Planner</h1>
 
-        <div className="flex flex-wrap gap-2 w-full md:w-auto justify-start md:justify-end">
-          {mealPlans && mealPlans.length > 0 && (
-            <Button
-              variant="ghost"
-              className="text-destructive hover:bg-destructive/10 flex-1 md:flex-none order-3 md:order-1"
-              onClick={() => setShowClearConfirmDialog(true)}
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              <span className="md:inline">Delete All</span>
-            </Button>
-          )}
+        <div className="flex items-center gap-2">
           <Button
-            variant="secondary"
+            variant="outline"
+            size="sm"
             onClick={handleAutoGenerate}
             disabled={isGenerating}
-            className="flex-1 md:flex-none order-1 md:order-2"
           >
             {isGenerating ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Loader2 className="h-4 w-4 animate-spin sm:mr-2" />
             ) : (
-              <Sparkles className="mr-2 h-4 w-4 text-yellow-500" />
+              <Sparkles className="h-4 w-4 text-yellow-500 sm:mr-2" />
             )}
-            <span className="whitespace-nowrap">
+            <span className="hidden sm:inline">
               {isGenerating ? "Generating..." : "Magic Fill"}
             </span>
           </Button>
-          <Button
-            onClick={() => setShowShopConfirmDialog(true)}
-            className="flex-1 md:flex-none order-2 md:order-3"
-          >
-            <ShoppingCart className="mr-2 h-4 w-4" />
-            <span className="whitespace-nowrap">Shop Week</span>
+          <Button size="sm" onClick={handleAddToShoppingList}>
+            <ShoppingCart className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Shop Week</span>
           </Button>
+          {mealPlans && mealPlans.length > 0 && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="More actions">
+                  <MoreHorizontal className="h-5 w-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  variant="destructive"
+                  onSelect={() => setShowClearConfirmDialog(true)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Clear meal plan
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
       </div>
 
-      <DndContext onDragEnd={handleDragEnd}>
-        <div className="grid grid-cols-1 md:grid-cols-7 gap-4">
-          {weekDays.map((day) => (
-            <div key={day.dateStr} className="flex flex-col gap-2">
-              <div className="text-center p-2 bg-muted rounded-lg">
-                <div className="font-bold">{day.dayName}</div>
-              </div>
-
-              <div className="space-y-2 flex-1">
-                {mealTypes.map((type) => {
-                  const typeLower = type.toLowerCase();
-                  const plans =
-                    mealPlans?.filter(
-                      (p) => p.date === day.dateStr && p.mealType === typeLower
-                    ) || [];
-
-                  return (
-                    <Card
-                      key={type}
-                      className="min-h-[120px] flex flex-col bg-muted/20"
-                    >
-                      <div className="p-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider border-b bg-background/50 text-center">
-                        {type}
-                      </div>
-                      <DroppableDay
-                        dateStr={day.dateStr}
-                        mealType={type}
-                        onAdd={() => {
-                          setSelectedDate(day.dateStr);
-                          setSelectedMealType(type);
-                          setIsAddDialogOpen(true);
-                        }}
-                      >
-                        {plans.map((plan) => (
-                          <DraggableMeal
-                            key={plan._id}
-                            meal={plan}
-                            onRemove={(id) => removeMeal({ id })}
-                          />
-                        ))}
-                      </DroppableDay>
-                    </Card>
-                  );
-                })}
-              </div>
-            </div>
+      {mealPlans === undefined ? (
+        <div className="space-y-2">
+          {[...Array(7)].map((_, i) => (
+            <Skeleton key={i} className="h-16 w-full" />
           ))}
         </div>
-      </DndContext>
+      ) : (
+        <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+          {isDesktop ? (
+            <div className="rounded-lg border">
+              <div className="grid grid-cols-[8rem_repeat(3,1fr)] border-b bg-muted/40 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <div className="px-3 py-2" />
+                {MEAL_TYPES.map((type) => (
+                  <div key={type} className="px-3 py-2">
+                    {type}
+                  </div>
+                ))}
+              </div>
+              {WEEK_DAYS.map((day) => (
+                <div
+                  key={day}
+                  className="grid grid-cols-[8rem_repeat(3,1fr)] border-b last:border-b-0"
+                >
+                  <div
+                    className={cn(
+                      "px-3 py-3 text-sm font-semibold",
+                      day === today && "text-primary"
+                    )}
+                  >
+                    {day}
+                    {day === today && (
+                      <span className="block text-xs font-normal text-muted-foreground">
+                        Today
+                      </span>
+                    )}
+                  </div>
+                  {MEAL_TYPES.map((type) => (
+                    <div key={type} className="border-l p-1">
+                      <MealSlot
+                        day={day}
+                        mealType={type}
+                        meals={mealsFor(day, type)}
+                        onAdd={() => openAdd(day, type)}
+                        onRemove={handleRemove}
+                      />
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex gap-1 rounded-lg bg-muted/50 p-1">
+                {WEEK_DAYS.map((day) => (
+                  <DayTab
+                    key={day}
+                    day={day}
+                    isSelected={day === mobileDay}
+                    isToday={day === today}
+                    hasMeals={mealsFor(day).length > 0}
+                    onSelect={() => setMobileDay(day)}
+                  />
+                ))}
+              </div>
+              <h2 className="text-lg font-semibold">
+                {mobileDay}
+                {mobileDay === today && (
+                  <span className="ml-2 text-sm font-normal text-muted-foreground">
+                    Today
+                  </span>
+                )}
+              </h2>
+              <div className="space-y-3">
+                {MEAL_TYPES.map((type) => (
+                  <MealSlot
+                    key={type}
+                    day={mobileDay}
+                    mealType={type}
+                    meals={mealsFor(mobileDay, type)}
+                    onAdd={() => openAdd(mobileDay, type)}
+                    onRemove={handleRemove}
+                    showLabel
+                  />
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Tip: drag a meal onto another day to move it.
+              </p>
+            </div>
+          )}
+        </DndContext>
+      )}
 
       <MealSelector
         isOpen={isAddDialogOpen}
@@ -398,27 +552,6 @@ export default function MealPlannerPage() {
         currentDate={selectedDate}
         currentMealType={selectedMealType}
       />
-
-      <AlertDialog
-        open={showShopConfirmDialog}
-        onOpenChange={setShowShopConfirmDialog}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Shop This Week</AlertDialogTitle>
-            <AlertDialogDescription>
-              Add ingredients for all planned meals this week to your shopping
-              list?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleAddToShoppingList}>
-              Add Ingredients
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       <AlertDialog
         open={showClearConfirmDialog}
@@ -438,7 +571,7 @@ export default function MealPlannerPage() {
               onClick={handleClearAll}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Delete All
+              Clear
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -464,17 +597,6 @@ export default function MealPlannerPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <Dialog open={alertOpen} onOpenChange={setAlertOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{alertTitle}</DialogTitle>
-          </DialogHeader>
-          <div className="py-4">{alertMessage}</div>
-          <div className="flex justify-end">
-            <Button onClick={() => setAlertOpen(false)}>OK</Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

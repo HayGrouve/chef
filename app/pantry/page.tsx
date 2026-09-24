@@ -13,7 +13,8 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { X, ChefHat, Plus, ArrowLeft } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { X, ChefHat, Plus } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 
@@ -59,15 +60,7 @@ export default function PantryPage() {
         name="description"
         content="Find recipes based on your pantry ingredients"
       />
-      <div className="mb-6">
-        <Link href="/">
-          <Button variant="ghost" className="pl-0">
-            <ArrowLeft className="w-4 h-4 mr-2" /> Back to Home
-          </Button>
-        </Link>
-      </div>
-
-      <div className="text-center mb-10">
+      <div className="text-center my-6">
         <div className="inline-flex items-center justify-center p-3 bg-muted rounded-full mb-4">
           <ChefHat className="w-8 h-8 text-primary" />
         </div>
@@ -145,7 +138,11 @@ export default function PantryPage() {
             </p>
           </div>
         ) : matchingRecipes === undefined ? (
-          <div className="text-center py-12">Loading matches...</div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {[...Array(2)].map((_, i) => (
+              <Skeleton key={i} className="h-72 rounded-xl" />
+            ))}
+          </div>
         ) : matchingRecipes.length === 0 ? (
           <div className="text-center py-12 bg-muted/30 rounded-lg border-2 border-dashed">
             <p className="text-muted-foreground">

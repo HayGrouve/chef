@@ -2,41 +2,14 @@
 
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, User as UserIcon, Edit } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
-import { Badge } from "@/components/ui/badge";
-
-function RecipeImage({
-  imageUrl,
-  title,
-}: {
-  imageUrl: string | null;
-  title: string;
-}) {
-  if (!imageUrl) {
-    return (
-      <div className="aspect-video bg-muted rounded-md flex items-center justify-center overflow-hidden">
-        <span className="text-muted-foreground">No Image</span>
-      </div>
-    );
-  }
-
-  return (
-    <div className="aspect-video relative rounded-md overflow-hidden bg-muted">
-      <Image
-        src={imageUrl}
-        alt={title}
-        fill
-        className="object-cover"
-        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-      />
-    </div>
-  );
-}
+import { RecipeCard } from "@/components/RecipeCard";
+import { RecipeCardSkeleton } from "@/components/RecipeCardSkeleton";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function PublicProfilePage() {
   const params = useParams();
@@ -46,16 +19,17 @@ export default function PublicProfilePage() {
   const user = useQuery(api.users.get, { userId });
   const currentUser = useQuery(api.users.getMe);
   
-  // We need a query to list PUBLIC recipes by a specific user. 
-  // Currently `api.recipes.list` lists recipes for the logged in user.
-  // Let's create a new query or modify list.
-  // Since I can't easily modify recipes.ts right this second without context switching tasks too much, 
-  // I'll note that we need `api.recipes.listPublicByUser`.
-  // Wait, I can modify recipes.ts. I'll do that next.
-  // For now, let's assume we have `api.recipes.listPublic` which takes a userId.
   const recipes = useQuery(api.recipes.listPublic, { userId });
 
-  if (user === undefined) return <div className="container mx-auto p-4">Loading...</div>;
+  if (user === undefined) {
+    return (
+      <div className="container mx-auto p-4 flex flex-col items-center gap-4 pt-16">
+        <Skeleton className="w-24 h-24 rounded-full" />
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-4 w-72" />
+      </div>
+    );
+  }
   if (user === null) return <div className="container mx-auto p-4">User not found</div>;
 
   const isOwnProfile = currentUser?.userId === userId;
@@ -91,7 +65,9 @@ export default function PublicProfilePage() {
         <h2 className="text-2xl font-semibold border-b pb-2">Public Recipes</h2>
         
         {recipes === undefined ? (
-            <div className="py-8 text-center">Loading recipes...</div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {[...Array(3)].map((_, i) => <RecipeCardSkeleton key={i} />)}
+            </div>
         ) : recipes.length === 0 ? (
             <div className="py-12 text-center text-muted-foreground bg-muted/30 rounded-lg">
                 This chef hasn't published any recipes yet.
@@ -99,25 +75,7 @@ export default function PublicProfilePage() {
         ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {recipes.map((recipe) => (
-                    <Link href={`/recipe/${recipe._id}`} key={recipe._id}>
-                        <Card className="h-full hover:shadow-lg transition-shadow cursor-pointer">
-                            <CardHeader>
-                                <CardTitle className="line-clamp-1">{recipe.title}</CardTitle>
-                                <CardDescription className="line-clamp-2">{recipe.description}</CardDescription>
-                                <div className="flex flex-wrap gap-1 mt-2">
-                                    {recipe.tags?.slice(0, 3).map(tag => (
-                                        <Badge key={tag} variant="outline" className="text-xs px-1 py-0">{tag}</Badge>
-                                    ))}
-                                </div>
-                            </CardHeader>
-                            <CardContent>
-                                <RecipeImage
-                                    imageUrl={recipe.imageUrl}
-                                    title={recipe.title}
-                                />
-                            </CardContent>
-                        </Card>
-                    </Link>
+                    <RecipeCard key={recipe._id} recipe={recipe} />
                 ))}
             </div>
         )}

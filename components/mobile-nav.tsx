@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Search, PlusSquare, ShoppingCart, Calendar } from "lucide-react";
+import { ChefHat, Refrigerator, PlusSquare, ShoppingCart, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuery } from "convex/react";
 import { api } from "../convex/_generated/api";
@@ -17,40 +17,17 @@ export function MobileNav() {
   }
 
   const links = [
-    {
-      href: "/",
-      icon: Home,
-      label: "Home",
-    },
+    { href: "/", icon: ChefHat, label: "Recipes" },
+    { href: "/meal-planner", icon: Calendar, label: "Planner" },
+    { href: "/create", icon: PlusSquare, label: "Add" },
     {
       href: "/shopping-list",
       icon: ShoppingCart,
-      label: "Shop",
+      label: "Shopping",
       badge: shoppingListCount,
     },
-    {
-      href: "/create",
-      icon: PlusSquare,
-      label: "Add",
-    },
-    {
-      href: "/meal-planner",
-      icon: Calendar,
-      label: "Plan",
-    },
-    {
-      href: "/pantry",
-      icon: Search,
-      label: "Pantry",
-    },
+    { href: "/pantry", icon: Refrigerator, label: "Pantry" },
   ];
-
-  // Only show on mobile and when authenticated (we assume authenticated if viewing these pages mostly,
-  // but layout check is better. Since this is client component, we can't easily check auth state without flickering
-  // or prop drilling. For now, render it, and rely on layout to only show it for authenticated users or handle redirects)
-  // Actually, best to put this in the layout but only render if authenticated?
-  // Or just render it and let unauthenticated users see it but get redirected?
-  // Let's keep it simple.
 
   return (
     <div className="fixed bottom-0 left-0 right-0 border-t bg-background z-50 md:hidden pb-safe">

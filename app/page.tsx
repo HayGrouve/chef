@@ -8,19 +8,13 @@ import {
 } from "convex/react";
 import { api } from "../convex/_generated/api";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import Link from "next/link";
-import Image from "next/image";
+import { RecipeCard } from "@/components/RecipeCard";
 import { RecipeCardSkeleton } from "@/components/RecipeCardSkeleton";
 import {
   Plus,
-  LogIn,
+  Search,
   SearchX,
   UtensilsCrossed,
   Loader2,
@@ -32,12 +26,12 @@ import { Badge } from "@/components/ui/badge";
 import { LikeButton } from "@/components/ui/like-button";
 import { InstallDialog } from "@/components/install-dialog";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
-import { RecipeFilters } from "@/components/RecipeFilters";
-import { MobileFilterSheet } from "@/components/MobileFilterSheet";
+import { RecipeFilters, MAX_TIME_ANY } from "@/components/RecipeFilters";
 import { useDebounce } from "@/hooks/use-debounce";
 import {
   Sheet,
   SheetContent,
+  SheetFooter,
   SheetHeader,
   SheetTitle,
   SheetTrigger,
@@ -57,7 +51,7 @@ function HomeContent() {
     searchParams.get("difficulty") || "all"
   );
   const [maxTime, setMaxTime] = useState<number>(
-    searchParams.get("maxTime") ? parseInt(searchParams.get("maxTime")!) : 180
+    searchParams.get("maxTime") ? parseInt(searchParams.get("maxTime")!) : MAX_TIME_ANY
   );
   const [favoritesOnly, setFavoritesOnly] = useState(
     searchParams.get("favorites") === "true"
@@ -85,7 +79,7 @@ function HomeContent() {
     if (difficulty !== "all") params.set("difficulty", difficulty);
     else params.delete("difficulty");
 
-    if (maxTime !== 180) params.set("maxTime", maxTime.toString());
+    if (maxTime !== MAX_TIME_ANY) params.set("maxTime", maxTime.toString());
     else params.delete("maxTime");
 
     if (favoritesOnly) params.set("favorites", "true");
@@ -119,7 +113,7 @@ function HomeContent() {
     setSearch("");
     setSelectedTags([]);
     setDifficulty("all");
-    setMaxTime(180);
+    setMaxTime(MAX_TIME_ANY);
     setFavoritesOnly(false);
     setMyRecipesOnly(false);
   };
@@ -156,7 +150,7 @@ function HomeContent() {
     {
       search: debouncedSearch === "" ? undefined : debouncedSearch,
       difficulty: difficulty === "all" ? undefined : difficulty,
-      maxTime: maxTime === 180 ? undefined : maxTime,
+      maxTime: maxTime === MAX_TIME_ANY ? undefined : maxTime,
       favoritesOnly: favoritesOnly ? true : undefined,
       myRecipesOnly: myRecipesOnly ? true : undefined,
     },
@@ -179,8 +173,6 @@ function HomeContent() {
   });
 
   const filterProps = {
-    search,
-    setSearch,
     difficulty,
     setDifficulty,
     maxTime,
@@ -192,112 +184,112 @@ function HomeContent() {
     selectedTags,
     setSelectedTags,
     allTags,
-    clearFilters,
   };
+
+  const activeFilterCount =
+    selectedTags.length +
+    (difficulty !== "all" ? 1 : 0) +
+    (maxTime !== MAX_TIME_ANY ? 1 : 0) +
+    (favoritesOnly ? 1 : 0) +
+    (myRecipesOnly ? 1 : 0);
+  const hasActiveFilters = activeFilterCount > 0 || debouncedSearch !== "";
 
   return (
     <div className="container mx-auto p-4">
-      {/* Sign-in CTA for unauthenticated users */}
       <Unauthenticated>
-        <div className="mb-6 mt-4 p-4 bg-primary/10 border border-primary/20 rounded-lg flex items-center justify-between">
-          <div>
-            <h3 className="font-semibold mb-1">Browse recipes for free!</h3>
-            <p className="text-sm text-muted-foreground">
-              Sign up to save favorites, create recipes, and more.
-            </p>
-          </div>
-          <Link href="/sign-up">
-            <Button size="sm">
-              <LogIn className="mr-2 h-4 w-4" />
-              Sign Up
-            </Button>
-          </Link>
-        </div>
+        <SignUpBanner />
       </Unauthenticated>
 
-      <div className="flex flex-col md:flex-row gap-6 mt-4">
+      <div className="flex flex-col md:flex-row gap-8 mt-2">
         {/* Desktop Sidebar */}
-        <aside className="hidden md:block w-64 shrink-0 sticky px-4 top-24 h-[calc(100vh-6rem)] overflow-y-auto pr-6">
+        <aside className="hidden md:block w-60 shrink-0 sticky top-24 self-start max-h-[calc(100vh-7rem)] overflow-y-auto pr-2">
           <RecipeFilters {...filterProps} />
         </aside>
 
         {/* Main Content Area */}
         <div className="flex-1 min-w-0">
-          {/* Mobile Filters Button */}
-          <div className="md:hidden mb-6">
+          <div className="flex gap-2 mb-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search recipes or authors..."
+                className="pl-9 pr-9"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+              {search && (
+                <button
+                  onClick={() => setSearch("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  aria-label="Clear search"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+
+            {/* Mobile Filters */}
             <Sheet open={isMobileFiltersOpen} onOpenChange={setIsMobileFiltersOpen}>
               <SheetTrigger asChild>
-                <Button variant="outline" className="w-full flex items-center justify-center gap-2">
+                <Button variant="outline" className="md:hidden gap-2">
                   <SlidersHorizontal className="h-4 w-4" />
                   Filters
-                  {(selectedTags.length > 0 || difficulty !== "all" || maxTime !== 180 || favoritesOnly || myRecipesOnly) && (
-                    <Badge variant="secondary" className="ml-2 rounded-full px-2 py-0.5">
-                      Active
+                  {activeFilterCount > 0 && (
+                    <Badge className="rounded-full px-1.5 min-w-5 h-5">
+                      {activeFilterCount}
                     </Badge>
                   )}
                 </Button>
               </SheetTrigger>
               <SheetContent side="left" className="w-full sm:max-w-md overflow-y-auto">
-                <SheetHeader className="sr-only">
-                  <SheetTitle>Filter Recipes</SheetTitle>
+                <SheetHeader>
+                  <SheetTitle>Filters</SheetTitle>
                 </SheetHeader>
-                <MobileFilterSheet
-                  isOpen={isMobileFiltersOpen}
-                  onClose={() => setIsMobileFiltersOpen(false)}
-                  initialProps={filterProps}
-                />
+                <div className="px-4">
+                  <RecipeFilters {...filterProps} />
+                </div>
+                <SheetFooter className="flex-row">
+                  {activeFilterCount > 0 && (
+                    <Button variant="outline" className="flex-1" onClick={clearFilters}>
+                      Reset
+                    </Button>
+                  )}
+                  <Button className="flex-1" onClick={() => setIsMobileFiltersOpen(false)}>
+                    Done
+                  </Button>
+                </SheetFooter>
               </SheetContent>
             </Sheet>
           </div>
 
           {/* Active Filter Chips */}
-          {(debouncedSearch || selectedTags.length > 0 || difficulty !== "all" || maxTime !== 180 || favoritesOnly || myRecipesOnly) && (
-            <div className="flex flex-wrap items-center gap-2 mb-6">
-              <span className="text-sm text-muted-foreground mr-1">Active filters:</span>
-              
-              {debouncedSearch && (
-                <Badge variant="secondary" className="flex items-center gap-1 px-2 py-1">
-                  Search: {debouncedSearch}
-                  <X className="h-3 w-3 cursor-pointer hover:text-foreground" onClick={() => setSearch("")} />
-                </Badge>
-              )}
-              
+          {activeFilterCount > 0 && (
+            <div className="flex flex-wrap items-center gap-2 mb-4">
               {difficulty !== "all" && (
-                <Badge variant="secondary" className="flex items-center gap-1 px-2 py-1">
-                  Difficulty: {difficulty}
-                  <X className="h-3 w-3 cursor-pointer hover:text-foreground" onClick={() => setDifficulty("all")} />
-                </Badge>
+                <FilterChip label={difficulty} onRemove={() => setDifficulty("all")} />
               )}
-              
-              {maxTime !== 180 && (
-                <Badge variant="secondary" className="flex items-center gap-1 px-2 py-1">
-                  Max Time: {maxTime}m
-                  <X className="h-3 w-3 cursor-pointer hover:text-foreground" onClick={() => setMaxTime(180)} />
-                </Badge>
+              {maxTime !== MAX_TIME_ANY && (
+                <FilterChip label={`≤ ${maxTime} min`} onRemove={() => setMaxTime(MAX_TIME_ANY)} />
               )}
-              
               {favoritesOnly && (
-                <Badge variant="secondary" className="flex items-center gap-1 px-2 py-1">
-                  Favorites Only
-                  <X className="h-3 w-3 cursor-pointer hover:text-foreground" onClick={() => setFavoritesOnly(false)} />
-                </Badge>
+                <FilterChip label="Favorites" onRemove={() => setFavoritesOnly(false)} />
               )}
-              
               {myRecipesOnly && (
-                <Badge variant="secondary" className="flex items-center gap-1 px-2 py-1">
-                  My Recipes Only
-                  <X className="h-3 w-3 cursor-pointer hover:text-foreground" onClick={() => setMyRecipesOnly(false)} />
-                </Badge>
+                <FilterChip label="My recipes" onRemove={() => setMyRecipesOnly(false)} />
               )}
-              
-              {selectedTags.map(tag => (
-                <Badge key={tag} variant="secondary" className="flex items-center gap-1 px-2 py-1">
-                  Tag: {tag}
-                  <X className="h-3 w-3 cursor-pointer hover:text-foreground" onClick={() => setSelectedTags(selectedTags.filter(t => t !== tag))} />
-                </Badge>
+              {selectedTags.map((tag) => (
+                <FilterChip
+                  key={tag}
+                  label={tag}
+                  onRemove={() => setSelectedTags(selectedTags.filter((t) => t !== tag))}
+                />
               ))}
-
-              <Button variant="ghost" size="sm" onClick={clearFilters} className="h-6 px-2 text-xs text-muted-foreground">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearFilters}
+                className="h-6 px-2 text-xs text-muted-foreground"
+              >
                 Clear all
               </Button>
             </div>
@@ -305,41 +297,39 @@ function HomeContent() {
 
           {/* Recipe Listings */}
           {status === "LoadingFirstPage" ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {[...Array(6)].map((_, i) => (
                 <RecipeCardSkeleton key={i} />
               ))}
             </div>
           ) : filteredRecipes?.length === 0 ? (
-            <div className="text-center py-12">
-              {debouncedSearch || selectedTags.length > 0 || difficulty !== "all" || favoritesOnly || myRecipesOnly ? (
+            <div className="text-center py-16">
+              {hasActiveFilters ? (
                 <div className="flex flex-col items-center gap-4">
-                  <SearchX className="h-16 w-16 text-muted-foreground" />
-                  <p className="text-xl text-muted-foreground">
-                    No recipes found matching your filters.
+                  <SearchX className="h-12 w-12 text-muted-foreground" />
+                  <p className="text-lg text-muted-foreground">
+                    No recipes match your search.
                   </p>
-                  <Button variant="outline" onClick={clearFilters} className="mt-2">
-                    Clear Filters
+                  <Button variant="outline" onClick={clearFilters}>
+                    Clear filters
                   </Button>
                 </div>
               ) : (
                 <div className="flex flex-col items-center gap-4">
-                  <UtensilsCrossed className="h-16 w-16 text-muted-foreground" />
+                  <UtensilsCrossed className="h-12 w-12 text-muted-foreground" />
                   <Authenticated>
-                    <p className="text-xl text-muted-foreground">
-                      {myRecipesOnly
-                        ? "You haven't added any recipes yet."
-                        : "No recipes found. Be the first to share one!"}
+                    <p className="text-lg text-muted-foreground">
+                      No recipes yet. Be the first to share one!
                     </p>
                     <Link href="/create">
-                      <Button size="lg">
+                      <Button>
                         <Plus className="mr-2 h-4 w-4" />
-                        Create Your First Recipe
+                        Create a recipe
                       </Button>
                     </Link>
                   </Authenticated>
                   <Unauthenticated>
-                    <p className="text-xl text-muted-foreground">
+                    <p className="text-lg text-muted-foreground">
                       No public recipes found yet.
                     </p>
                   </Unauthenticated>
@@ -348,52 +338,13 @@ function HomeContent() {
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
                 {filteredRecipes?.map((recipe) => (
-                  <div key={recipe._id} className="relative group">
-                    <Link href={`/recipe/${recipe._id}`}>
-                      <Card className="h-full hover:shadow-lg transition-shadow cursor-pointer">
-                        <CardHeader>
-                          <div className="flex justify-between items-start gap-2">
-                            <CardTitle className="line-clamp-1 py-1">
-                              {recipe.title}
-                            </CardTitle>
-                          </div>
-                          <CardDescription className="line-clamp-2">
-                            {recipe.description}
-                          </CardDescription>
-                          {recipe.authorName && (
-                            <p className="text-xs text-muted-foreground mt-1">
-                              By {recipe.authorName}
-                            </p>
-                          )}
-                          <div className="flex flex-wrap gap-1 mt-2">
-                            {recipe.tags?.slice(0, 3).map((tag) => (
-                              <Badge
-                                key={tag}
-                                variant="outline"
-                                className="text-xs px-1 py-0"
-                              >
-                                {tag}
-                              </Badge>
-                            ))}
-                            {recipe.tags && recipe.tags.length > 3 && (
-                              <span className="text-xs text-muted-foreground">
-                                +{recipe.tags.length - 3}
-                              </span>
-                            )}
-                          </div>
-                        </CardHeader>
-                        <CardContent>
-                          <RecipeImage
-                            imageUrl={recipe.imageUrl}
-                            title={recipe.title}
-                          />
-                        </CardContent>
-                      </Card>
-                    </Link>
-                    <Authenticated>
-                      <div className="absolute top-2 right-2 z-10">
+                  <RecipeCard
+                    key={recipe._id}
+                    recipe={recipe}
+                    action={
+                      <Authenticated>
                         <LikeButton
                           isFavorite={recipe.isFavorite || false}
                           onClick={(e) => {
@@ -401,19 +352,19 @@ function HomeContent() {
                             toggleFavorite({ id: recipe._id });
                           }}
                         />
-                      </div>
-                    </Authenticated>
-                  </div>
+                      </Authenticated>
+                    }
+                  />
                 ))}
               </div>
 
               {status === "CanLoadMore" && (
                 <div className="flex justify-center py-8">
-                  <Button onClick={() => loadMore(9)} disabled={isLoading}>
+                  <Button variant="outline" onClick={() => loadMore(9)} disabled={isLoading}>
                     {isLoading && (
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     )}
-                    Load More
+                    Load more
                   </Button>
                 </div>
               )}
@@ -439,7 +390,15 @@ export default function Home() {
       <title>CHEF | Home</title>
       <meta name="description" content="Your personal digital cookbook" />
       <Suspense
-        fallback={<div className="container mx-auto p-4">Loading...</div>}
+        fallback={
+          <div className="container mx-auto p-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:ml-68">
+              {[...Array(6)].map((_, i) => (
+                <RecipeCardSkeleton key={i} />
+              ))}
+            </div>
+          </div>
+        }
       >
         <HomeContent />
       </Suspense>
@@ -447,35 +406,58 @@ export default function Home() {
   );
 }
 
-function RecipeImage({
-  imageUrl,
-  title,
-}: {
-  imageUrl: string | null;
-  title: string;
-}) {
-  const [hasError, setHasError] = useState(false);
+function FilterChip({ label, onRemove }: { label: string; onRemove: () => void }) {
+  return (
+    <Badge variant="secondary" className="gap-1 pl-2 pr-1 py-0.5 font-normal">
+      {label}
+      <button
+        onClick={onRemove}
+        className="rounded-full p-0.5 hover:bg-foreground/10"
+        aria-label={`Remove ${label} filter`}
+      >
+        <X className="h-3 w-3" />
+      </button>
+    </Badge>
+  );
+}
 
-  if (!imageUrl || hasError) {
-    return (
-      <div className="aspect-video bg-muted rounded-md flex items-center justify-center overflow-hidden">
-        <span className="text-muted-foreground">
-          {hasError ? "Image Error" : "No Image"}
-        </span>
-      </div>
+const BANNER_DISMISSED_KEY = "signUpBannerDismissed";
+
+function SignUpBanner() {
+  const [dismissed, setDismissed] = useState(true);
+
+  useEffect(() => {
+    // Read after mount to avoid a hydration mismatch
+    const timer = setTimeout(
+      () => setDismissed(localStorage.getItem(BANNER_DISMISSED_KEY) === "true"),
+      0
     );
-  }
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (dismissed) return null;
 
   return (
-    <div className="aspect-video relative rounded-md overflow-hidden bg-muted">
-      <Image
-        src={imageUrl}
-        alt={title}
-        fill
-        className="object-cover"
-        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-        onError={() => setHasError(true)}
-      />
+    <div className="mb-4 flex items-center gap-3 rounded-lg bg-primary/10 px-4 py-2.5 text-sm">
+      <p className="flex-1">
+        <span className="font-medium">Browsing for free.</span>{" "}
+        <span className="text-muted-foreground">
+          Sign up to save favorites and share your own recipes.
+        </span>
+      </p>
+      <Link href="/sign-up">
+        <Button size="sm">Sign up</Button>
+      </Link>
+      <button
+        onClick={() => {
+          localStorage.setItem(BANNER_DISMISSED_KEY, "true");
+          setDismissed(true);
+        }}
+        className="text-muted-foreground hover:text-foreground"
+        aria-label="Dismiss"
+      >
+        <X className="h-4 w-4" />
+      </button>
     </div>
   );
 }

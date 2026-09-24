@@ -2,6 +2,8 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { paginationOptsValidator } from "convex/server";
 import { PREDEFINED_TAGS } from "../lib/constants";
+import { internal } from "./_generated/api";
+import { pantryTermMatches } from "./ingredientMatch";
 
 // Generate an upload URL for storing recipe images
 export const generateUploadUrl = mutation(async (ctx) => {
@@ -58,7 +60,10 @@ export const create = mutation({
       authorName,
       searchText,
     };
-    return await ctx.db.insert("recipes", recipe);
+    const recipeId = await ctx.db.insert("recipes", recipe);
+    // Tag ingredients with canonical names for pantry matching (runs in the background)
+    await ctx.scheduler.runAfter(0, internal.ai.tagRecipeIngredients, { recipeId });
+    return recipeId;
   },
 });
 
@@ -131,7 +136,20 @@ export const update = mutation({
       updates.format = args.format;
     }
 
-    return await ctx.db.patch(args.id, updates);
+    const ingredientsChanged =
+      recipe.ingredients.length !== args.ingredients.length ||
+      recipe.ingredients.some((line, i) => line !== args.ingredients[i]);
+    if (ingredientsChanged) {
+      // Old keys no longer line up with the ingredient lines; re-tag in the background
+      updates.ingredientKeys = undefined;
+    }
+
+    await ctx.db.patch(args.id, updates);
+    if (ingredientsChanged) {
+      await ctx.scheduler.runAfter(0, internal.ai.tagRecipeIngredients, {
+        recipeId: args.id,
+      });
+    }
   },
 });
 
@@ -516,10 +534,10 @@ export const searchByIngredients = query({
         const missingIngredients: string[] = [];
         const matchingIngredients: string[] = [];
 
-        recipe.ingredients.forEach((ingredientLine) => {
-          const ingLower = ingredientLine.toLowerCase();
+        recipe.ingredients.forEach((ingredientLine, i) => {
+          const keys = recipe.ingredientKeys?.[i] ?? [];
           const isMatch = userIngredients.some((userIng) =>
-            ingLower.includes(userIng)
+            pantryTermMatches(userIng, ingredientLine, keys)
           );
 
           if (isMatch) {
