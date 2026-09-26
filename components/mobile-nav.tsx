@@ -12,7 +12,8 @@ export function MobileNav() {
   const shoppingListCount = useQuery(api.shoppingList.getBadgeCount);
 
   // Hide nav on recipe cook page
-  if (/^\/recipe\/[^/]+\/cook$/.test(pathname)) {
+  // PROTOTYPE: /prototype/cook/[id] is full screen too
+  if (/^\/recipe\/[^/]+\/cook$/.test(pathname) || pathname.startsWith("/prototype/cook/")) {
     return null;
   }
 

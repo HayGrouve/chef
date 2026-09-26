@@ -9,6 +9,8 @@ import { AuthenticatedMobileNav } from "@/components/authenticated-mobile-nav";
 import { Footer } from "@/components/footer";
 import { Navbar } from "@/components/navbar";
 import { Toaster } from "@/components/ui/sonner";
+// PROTOTYPE: opt-in ⌘K palette (off unless enabled at /prototype)
+import { PrototypeCommandPalette } from "@/components/prototype/command/PrototypeCommandPalette";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -77,6 +79,7 @@ export default function RootLayout({
             </div>
             <AuthenticatedMobileNav />
             <Toaster position="top-center" />
+            <PrototypeCommandPalette />
           </ThemeProvider>
         </ConvexClientProvider>
       </body>
