@@ -26,7 +26,8 @@ export function Navbar() {
   const pathname = usePathname();
   const shoppingListCount = useQuery(api.shoppingList.getBadgeCount);
 
-  if (pathname?.endsWith("/cook")) return null;
+  // PROTOTYPE: /prototype/cook/[id] is full screen too
+  if (pathname?.endsWith("/cook") || pathname?.startsWith("/prototype/cook/")) return null;
 
   const navItems = [
     { href: "/", label: "Recipes", icon: ChefHat },
