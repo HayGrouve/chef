@@ -1,6 +1,6 @@
-import { mutation } from "./_generated/server";
+import { internalMutation } from "./_generated/server";
 
-export const backfillSearchText = mutation({
+export const backfillSearchText = internalMutation({
   handler: async (ctx) => {
     const recipes = await ctx.db.query("recipes").collect();
     
