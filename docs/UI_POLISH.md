@@ -119,6 +119,12 @@ These three were chosen from the product-exploration prototypes (draft PR #5). T
 | `seed:seedDatabase` and `migrations:backfillSearchText` were **public** mutations, so anyone could insert demo recipes or run the migration on production. Both are now internal (still runnable with `npx convex run`). | ✅ | `convex/seed.ts`, `convex/migrations.ts` |
 | Test data: `convex/devSeed.ts` seeds a Clerk **test** user only (refuses real accounts). | ✅ | `convex/devSeed.ts` |
 
+## Round 7 — 2026-09-28 (recipe detail header)
+
+| Change | Status | Files |
+|--------|--------|-------|
+| On phones the header was squeezed into a narrow column, because the title, author, description, meta and tags all sat beside the favorite/share/⋯ icons, leaving empty space under them. Now only the title shares a row with the icons, and everything else spans the full width. The description is clamped to 3 lines, with "Show more" appearing only when it is actually cut off. The card has less side padding on mobile (`px-4 sm:px-6`) and a smaller title (`text-2xl sm:text-3xl`). | ✅ | `app/recipe/[id]/RecipeDetailClient.tsx` |
+
 ## Backlog
 
 All items from the original audit are done. Ideas for a future round:

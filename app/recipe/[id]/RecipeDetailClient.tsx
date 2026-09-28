@@ -26,7 +26,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -168,57 +168,12 @@ function RecipeDetailContent() {
       </div>
 
       <Card>
-        <CardHeader className="space-y-4">
-          <div className="flex justify-between items-start gap-4">
-            <div className="space-y-2">
-              <CardTitle className="text-3xl">{recipe.title}</CardTitle>
-              {recipe.authorName && (
-                <Link
-                  href={`/profile/${recipe.userId}`}
-                  className="flex items-center text-sm text-muted-foreground gap-1 hover:underline hover:text-primary transition-colors"
-                >
-                  <User className="h-4 w-4" />
-                  <p>Recipe by {recipe.authorName}</p>
-                </Link>
-              )}
-              <p className="text-muted-foreground">{recipe.description}</p>
-              {(recipe.cookingTime || recipe.difficulty || recipe.calories) && (
-                <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
-                  {recipe.cookingTime ? (
-                    <span className="flex items-center gap-1.5">
-                      <Clock className="h-4 w-4" />
-                      {recipe.cookingTime} min
-                    </span>
-                  ) : null}
-                  {recipe.difficulty && (
-                    <span className="flex items-center gap-1.5">
-                      <Gauge className="h-4 w-4" />
-                      {recipe.difficulty}
-                    </span>
-                  )}
-                  {recipe.calories ? (
-                    <span className="flex items-center gap-1.5">
-                      <Flame className="h-4 w-4" />
-                      {recipe.calories} kcal
-                    </span>
-                  ) : null}
-                </div>
-              )}
-              {recipe.tags && recipe.tags.length > 0 && (
-                <div className="flex flex-wrap gap-2 pt-1">
-                  {recipe.tags.map((tag) => (
-                    <Badge
-                      key={tag}
-                      variant="outline"
-                      className="text-xs px-2 py-0.5"
-                    >
-                      {tag}
-                    </Badge>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div className="flex gap-1 shrink-0">
+        <CardHeader className="gap-4 px-4 sm:px-6">
+          <div className="flex items-start justify-between gap-2">
+            <CardTitle className="text-2xl sm:text-3xl leading-tight break-words min-w-0">
+              {recipe.title}
+            </CardTitle>
+            <div className="flex shrink-0 -mr-2 -mt-1">
               <Authenticated>
                 <Button
                   variant="ghost"
@@ -281,8 +236,53 @@ function RecipeDetailContent() {
               </Authenticated>
             </div>
           </div>
+          {recipe.authorName && (
+            <Link
+              href={`/profile/${recipe.userId}`}
+              className="flex w-fit items-center text-sm text-muted-foreground gap-1.5 hover:underline hover:text-primary transition-colors"
+            >
+              <User className="h-4 w-4 shrink-0" />
+              <span>Recipe by {recipe.authorName}</span>
+            </Link>
+          )}
+          {recipe.description && <ClampedText text={recipe.description} />}
+          {(recipe.cookingTime || recipe.difficulty || recipe.calories) && (
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+              {recipe.cookingTime ? (
+                <span className="flex items-center gap-1.5">
+                  <Clock className="h-4 w-4" />
+                  {recipe.cookingTime} min
+                </span>
+              ) : null}
+              {recipe.difficulty && (
+                <span className="flex items-center gap-1.5">
+                  <Gauge className="h-4 w-4" />
+                  {recipe.difficulty}
+                </span>
+              )}
+              {recipe.calories ? (
+                <span className="flex items-center gap-1.5">
+                  <Flame className="h-4 w-4" />
+                  {recipe.calories} kcal
+                </span>
+              ) : null}
+            </div>
+          )}
+          {recipe.tags && recipe.tags.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {recipe.tags.map((tag) => (
+                <Badge
+                  key={tag}
+                  variant="outline"
+                  className="text-xs px-2 py-0.5"
+                >
+                  {tag}
+                </Badge>
+              ))}
+            </div>
+          )}
         </CardHeader>
-        <CardContent className="space-y-8">
+        <CardContent className="space-y-8 px-4 sm:px-6">
           {recipe.imageUrl && (
             <div className="aspect-video relative rounded-lg overflow-hidden bg-muted">
               <Image
@@ -354,6 +354,45 @@ function RecipeDetailContent() {
         </AlertDialogContent>
       </AlertDialog>
 
+    </div>
+  );
+}
+
+/** Shows up to three lines, with a "Show more" toggle only when the text is cut off. */
+function ClampedText({ text }: { text: string }) {
+  const ref = useRef<HTMLParagraphElement>(null);
+  const [expanded, setExpanded] = useState(false);
+  const [overflows, setOverflows] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const measure = () => {
+      if (!expanded) setOverflows(el.scrollHeight > el.clientHeight + 1);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [text, expanded]);
+
+  return (
+    <div>
+      <p
+        ref={ref}
+        className={`text-muted-foreground leading-relaxed whitespace-pre-line ${expanded ? "" : "line-clamp-3"}`}
+      >
+        {text}
+      </p>
+      {(overflows || expanded) && (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="mt-1 text-sm font-medium text-primary hover:underline"
+        >
+          {expanded ? "Show less" : "Show more"}
+        </button>
+      )}
     </div>
   );
 }
