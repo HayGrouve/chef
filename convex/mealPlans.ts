@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { canReadRecipe } from "./access";
 
 // Get the static weekly plan
 export const getWeek = query({
@@ -21,6 +22,9 @@ export const getWeek = query({
     return await Promise.all(
       meals.map(async (meal) => {
         const recipe = await ctx.db.get(meal.recipeId);
+        if (!canReadRecipe(recipe, identity.subject)) {
+          return { ...meal, recipeTitle: undefined, recipeImage: null };
+        }
         return {
           ...meal,
           recipeTitle: recipe?.title,
@@ -44,6 +48,10 @@ export const add = mutation({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
       throw new Error("Unauthenticated");
+    }
+    const recipe = await ctx.db.get(args.recipeId);
+    if (!canReadRecipe(recipe, identity.subject)) {
+      throw new Error("Recipe not found");
     }
     return await ctx.db.insert("mealPlans", {
       userId: identity.subject,

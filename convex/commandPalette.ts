@@ -1,4 +1,5 @@
 import { query } from "./_generated/server";
+import { canReadRecipe } from "./access";
 
 /**
  * Suggestions for the ⌘K palette: the week's planned meals (for "Up next" and
@@ -19,7 +20,7 @@ export const suggestions = query({
       await Promise.all(
         plans.map(async (plan) => {
           const recipe = await ctx.db.get(plan.recipeId);
-          if (!recipe) return null;
+          if (!canReadRecipe(recipe, userId)) return null;
           return {
             _id: plan._id,
             day: plan.date,

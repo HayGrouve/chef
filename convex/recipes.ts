@@ -4,6 +4,7 @@ import { paginationOptsValidator } from "convex/server";
 import { PREDEFINED_TAGS } from "../lib/constants";
 import { internal } from "./_generated/api";
 import { pantryTermMatches } from "./ingredientMatch";
+import { canReadRecipe } from "./access";
 
 // Generate an upload URL for storing recipe images
 export const generateUploadUrl = mutation(async (ctx) => {
@@ -477,7 +478,8 @@ export const get = query({
     const userId = identity?.subject;
 
     const recipe = await ctx.db.get(args.id);
-    if (!recipe) {
+    // Private recipes are only visible to their owner
+    if (!canReadRecipe(recipe, userId)) {
       return null;
     }
 

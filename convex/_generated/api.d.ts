@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as access from "../access.js";
 import type * as ai from "../ai.js";
 import type * as categories from "../categories.js";
 import type * as commandPalette from "../commandPalette.js";
@@ -29,6 +30,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  access: typeof access;
   ai: typeof ai;
   categories: typeof categories;
   commandPalette: typeof commandPalette;
