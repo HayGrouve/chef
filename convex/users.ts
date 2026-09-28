@@ -4,10 +4,19 @@ import { mutation, query } from "./_generated/server";
 export const get = query({
   args: { userId: v.string() },
   handler: async (ctx, args) => {
-    return await ctx.db
+    const user = await ctx.db
       .query("users")
       .withIndex("by_userId", (q) => q.eq("userId", args.userId))
       .unique();
+    if (!user) return null;
+    // Public profile: never expose email or the auth token identifier
+    return {
+      _id: user._id,
+      userId: user.userId,
+      name: user.name,
+      bio: user.bio,
+      avatarUrl: user.avatarUrl,
+    };
   },
 });
 

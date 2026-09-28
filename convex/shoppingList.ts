@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getCategory } from "./categories";
+import { canReadRecipe } from "./access";
 
 // List all shopping list items for the authenticated user
 export const list = query({
@@ -49,7 +50,7 @@ export const listWithDetails = query({
         let recipeTitle = undefined;
         if (item.recipeId) {
           const recipe = await ctx.db.get(item.recipeId);
-          if (recipe) {
+          if (canReadRecipe(recipe, identity.subject)) {
             recipeTitle = recipe.title;
           }
         }
