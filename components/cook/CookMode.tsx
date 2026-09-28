@@ -3,6 +3,7 @@
 // Cook mode: one step at a time, per-step scaled ingredients, tap-to-start
 // named timers, scaling, voice control and a resilient wake lock.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery } from "convex/react";
@@ -640,26 +641,45 @@ function CookSession({ recipe }: { recipe: Recipe }) {
         >
           <div className="mx-auto w-full max-w-2xl px-5 py-8 sm:px-8 lg:py-12">
             {finished ? (
-              <div className="flex flex-col items-center py-8 text-center">
-                <PartyPopper className="mb-4 h-12 w-12 text-primary" />
-                <h2 className="text-3xl font-bold sm:text-4xl">Bon appétit!</h2>
-                <p className="mt-3 max-w-md text-lg text-muted-foreground">
-                  You cooked <span className="font-medium text-foreground">{recipe.title}</span>. Enjoy it.
+              <div className="flex flex-col items-center py-4 text-center animate-in fade-in zoom-in duration-500">
+                <div className="relative mb-8 aspect-video w-full max-w-md overflow-hidden rounded-xl shadow-2xl ring-4 ring-primary/20">
+                  {recipe.imageUrl ? (
+                    <Image
+                      src={recipe.imageUrl}
+                      alt={recipe.title}
+                      fill
+                      sizes="(max-width: 640px) 100vw, 448px"
+                      className="object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center bg-muted">
+                      <ChefHat className="h-20 w-20 text-muted-foreground/40" />
+                    </div>
+                  )}
+                  <div className="absolute inset-0 flex items-end justify-center bg-gradient-to-t from-black/60 to-transparent pb-5">
+                    <span className="flex items-center gap-2 text-lg font-bold text-white">
+                      <PartyPopper className="h-6 w-6 text-yellow-400" /> Completed!
+                    </span>
+                  </div>
+                </div>
+                <h2 className="text-4xl font-bold text-primary md:text-5xl">Bon appétit!</h2>
+                <p className="mt-4 max-w-lg text-xl leading-relaxed text-muted-foreground">
+                  You cooked <span className="font-semibold text-foreground">{recipe.title}</span>. Time to enjoy it!
                 </p>
                 {runningCount > 0 && (
                   <p className="mt-3 text-sm text-muted-foreground">
-                    {runningCount === 1 ? "A timer is" : `${runningCount} timers are`} still running — keep an eye on the tray.
+                    {runningCount === 1 ? "A timer is" : `${runningCount} timers are`} still running. Keep an eye on them above.
                   </p>
                 )}
-                <div className="mt-8 flex w-full max-w-sm flex-col gap-2 sm:flex-row">
-                  <Button asChild size="lg" className="flex-1">
+                <div className="mt-10 flex w-full max-w-md flex-col gap-3 sm:flex-row">
+                  <Button asChild size="lg" className="h-14 w-full text-lg sm:w-auto sm:flex-1">
                     <Link href={`/recipe/${recipe._id}`}>Back to recipe</Link>
                   </Button>
-                  <Button asChild size="lg" variant="outline" className="flex-1">
+                  <Button asChild size="lg" variant="outline" className="h-14 w-full text-lg sm:w-auto sm:flex-1">
                     <Link href="/">Cook something else</Link>
                   </Button>
                 </div>
-                <Button variant="link" className="mt-2 text-muted-foreground" onClick={prev}>
+                <Button variant="link" className="mt-3 text-muted-foreground" onClick={prev}>
                   <ArrowLeft className="h-4 w-4" /> Back to the last step
                 </Button>
               </div>

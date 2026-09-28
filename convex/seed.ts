@@ -1,7 +1,7 @@
-import { mutation } from "./_generated/server";
+import { internalMutation } from "./_generated/server";
 import { internal } from "./_generated/api";
 
-export const seedDatabase = mutation({
+export const seedDatabase = internalMutation({
   handler: async (ctx) => {
     // 1. Create Ghost Users
     const ghostUsers = [
