@@ -9,6 +9,7 @@ import { AuthenticatedMobileNav } from "@/components/authenticated-mobile-nav";
 import { Footer } from "@/components/footer";
 import { Navbar } from "@/components/navbar";
 import { Toaster } from "@/components/ui/sonner";
+import { GlobalCommandPalette } from "@/components/command-palette/GlobalCommandPalette";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -77,6 +78,7 @@ export default function RootLayout({
             </div>
             <AuthenticatedMobileNav />
             <Toaster position="top-center" />
+            <GlobalCommandPalette />
           </ThemeProvider>
         </ConvexClientProvider>
       </body>

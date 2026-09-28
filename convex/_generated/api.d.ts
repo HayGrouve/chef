@@ -10,7 +10,10 @@
 
 import type * as ai from "../ai.js";
 import type * as categories from "../categories.js";
+import type * as commandPalette from "../commandPalette.js";
+import type * as devSeed from "../devSeed.js";
 import type * as gemini from "../gemini.js";
+import type * as importRecipe from "../importRecipe.js";
 import type * as ingredientMatch from "../ingredientMatch.js";
 import type * as mealPlans from "../mealPlans.js";
 import type * as migrations from "../migrations.js";
@@ -28,7 +31,10 @@ import type {
 declare const fullApi: ApiFromModules<{
   ai: typeof ai;
   categories: typeof categories;
+  commandPalette: typeof commandPalette;
+  devSeed: typeof devSeed;
   gemini: typeof gemini;
+  importRecipe: typeof importRecipe;
   ingredientMatch: typeof ingredientMatch;
   mealPlans: typeof mealPlans;
   migrations: typeof migrations;

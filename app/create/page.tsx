@@ -22,7 +22,9 @@ import {
   ChevronDown,
   ChevronsUpDown,
   GripVertical,
+  Sparkles,
 } from "lucide-react";
+import Link from "next/link";
 import {
   DndContext,
   closestCenter,
@@ -915,9 +917,19 @@ function CreateRecipeContent() {
       <title>{editId ? "CHEF | Edit Recipe" : "CHEF | Create Recipe"}</title>
       <meta name="description" content="Create a new recipe with CHEF" />
 
-      <h1 className="text-2xl font-bold mb-6">
-        {editId ? "Edit recipe" : "New recipe"}
-      </h1>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
+        <h1 className="text-2xl font-bold">
+          {editId ? "Edit recipe" : "New recipe"}
+        </h1>
+        {!editId && (
+          <Button asChild variant="outline" size="sm">
+            <Link href="/import">
+              <Sparkles className="h-4 w-4" />
+              Import from a link or photo
+            </Link>
+          </Button>
+        )}
+      </div>
 
       <div className="grid gap-8 lg:grid-cols-[13rem_1fr]">
         <aside className="hidden lg:block">

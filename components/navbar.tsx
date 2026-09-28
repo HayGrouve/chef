@@ -21,6 +21,7 @@ import { UserButton } from "@clerk/nextjs";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { api } from "../convex/_generated/api";
+import { CommandPaletteTrigger } from "./command-palette/CommandPaletteTrigger";
 
 export function Navbar() {
   const pathname = usePathname();
@@ -89,6 +90,7 @@ export function Navbar() {
           </AuthLoading>
           
           <Authenticated>
+            <CommandPaletteTrigger />
             <Link href="/create">
               <Button size="sm" className="hidden md:flex">
                 <Plus className="h-4 w-4 mr-2" />
