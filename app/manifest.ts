@@ -8,23 +8,33 @@ export default function manifest(): MetadataRoute.Manifest {
       "Organize your recipes, plan your weekly meals, and manage your shopping list.",
     start_url: "/",
     display: "standalone",
-    background_color: "#ffffff",
-    theme_color: "#000000",
+    // Also the splash screen color on Android — matches the icon backdrop.
+    background_color: "#0a0a0a",
+    theme_color: "#0a0a0a",
     icons: [
       {
-        src: "/favicon.ico",
-        sizes: "any",
-        type: "image/x-icon",
+        src: "/icons/icon-192.png",
+        sizes: "192x192",
+        type: "image/png",
+        purpose: "any",
       },
       {
-        src: "/icon.png",
-        sizes: "32x32",
+        src: "/icons/icon-512.png",
+        sizes: "512x512",
         type: "image/png",
+        purpose: "any",
       },
       {
-        src: "/apple-icon.png",
-        sizes: "180x180",
+        src: "/icons/icon-maskable-192.png",
+        sizes: "192x192",
         type: "image/png",
+        purpose: "maskable",
+      },
+      {
+        src: "/icons/icon-maskable-512.png",
+        sizes: "512x512",
+        type: "image/png",
+        purpose: "maskable",
       },
     ],
   };
