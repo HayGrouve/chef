@@ -665,7 +665,7 @@ function ExtrasEditor({
       <div className="flex items-center justify-between gap-4 rounded-lg border p-3">
         <div>
           <Label htmlFor="import-public">Make public</Label>
-          <p className="text-xs text-muted-foreground">Anyone with the link can view it. Imports start private.</p>
+          <p className="text-xs text-muted-foreground">Anyone with the link can view it.</p>
         </div>
         <Switch id="import-public" checked={form.isPublic} onCheckedChange={(isPublic) => setForm({ isPublic })} />
       </div>

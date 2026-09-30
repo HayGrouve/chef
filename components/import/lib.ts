@@ -61,7 +61,7 @@ export function toEditor(result: ImportResult): Editor {
       calories: draft.calories ? String(draft.calories) : "",
       difficulty: draft.difficulty ?? "",
       tags: draft.tags,
-      isPublic: false,
+      isPublic: true,
     },
     // A photo of a cookbook page or card shows text, not the dish, so it's
     // offered via the "Use this photo" switch instead of being used by default
