@@ -112,7 +112,7 @@ export function ReviewStep({ editor, onChange, onStartOver, onSaved }: Props) {
     form.cookingTime ? `${form.cookingTime} min` : null,
     form.difficulty || null,
     form.calories
-      ? `${draft.caloriesEstimated && form.calories === String(draft.calories) ? "~" : ""}${form.calories} kcal`
+      ? `${draft.caloriesEstimated && form.calories === String(draft.calories) ? "~" : ""}${form.calories} kcal/serving`
       : null,
     form.tags.length ? `${form.tags.length} tag${form.tags.length > 1 ? "s" : ""}` : null,
     form.isPublic ? "Public" : "Private",
@@ -603,7 +603,7 @@ function ExtrasEditor({
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="import-calories">Calories (kcal)</Label>
+          <Label htmlFor="import-calories">Calories per serving (kcal)</Label>
           <Input
             id="import-calories"
             type="number"
@@ -615,7 +615,7 @@ function ExtrasEditor({
           />
           {estimatedCalories !== undefined && form.calories === String(estimatedCalories) && (
             <p className="flex items-center gap-1 text-xs text-muted-foreground">
-              <Sparkles className="h-3 w-3" /> Estimated per serving
+              <Sparkles className="h-3 w-3" /> Estimated from ingredients
             </p>
           )}
         </div>
