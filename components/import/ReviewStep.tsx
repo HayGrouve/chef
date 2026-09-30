@@ -111,7 +111,9 @@ export function ReviewStep({ editor, onChange, onStartOver, onSaved }: Props) {
   const extrasSummary = [
     form.cookingTime ? `${form.cookingTime} min` : null,
     form.difficulty || null,
-    form.calories ? `${form.calories} kcal` : null,
+    form.calories
+      ? `${draft.caloriesEstimated && form.calories === String(draft.calories) ? "~" : ""}${form.calories} kcal`
+      : null,
     form.tags.length ? `${form.tags.length} tag${form.tags.length > 1 ? "s" : ""}` : null,
     form.isPublic ? "Public" : "Private",
   ]
@@ -243,7 +245,11 @@ export function ReviewStep({ editor, onChange, onStartOver, onSaved }: Props) {
         index={4}
         collapsible={{ open: extrasOpen, onOpenChange: setExtrasOpen, summary: extrasSummary }}
       >
-        <ExtrasEditor form={form} setForm={setForm} />
+        <ExtrasEditor
+          form={form}
+          setForm={setForm}
+          estimatedCalories={draft.caloriesEstimated ? draft.calories : undefined}
+        />
       </FormSection>
 
       <div className="sticky bottom-16 z-10 -mx-4 flex items-center gap-2 border-t bg-background/95 px-4 py-3 backdrop-blur md:bottom-0">
@@ -571,9 +577,12 @@ function ListEditor({
 function ExtrasEditor({
   form,
   setForm,
+  estimatedCalories,
 }: {
   form: EditableDraft;
   setForm: (patch: Partial<EditableDraft>) => void;
+  /** Calories the AI estimated from the ingredients, if any. */
+  estimatedCalories?: number;
 }) {
   const toggleTag = (tag: string) =>
     setForm({ tags: form.tags.includes(tag) ? form.tags.filter((t) => t !== tag) : [...form.tags, tag] });
@@ -604,6 +613,11 @@ function ExtrasEditor({
             onChange={(e) => setForm({ calories: e.target.value })}
             placeholder="e.g., 500"
           />
+          {estimatedCalories !== undefined && form.calories === String(estimatedCalories) && (
+            <p className="flex items-center gap-1 text-xs text-muted-foreground">
+              <Sparkles className="h-3 w-3" /> Estimated per serving
+            </p>
+          )}
         </div>
         <div className="col-span-2 space-y-2 md:col-span-1">
           <Label>Difficulty</Label>
