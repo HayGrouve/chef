@@ -208,7 +208,7 @@ function ExtrasFields({ form }: SectionFormProps) {
           name="calories"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Calories (kcal)</FormLabel>
+              <FormLabel>Calories per serving (kcal)</FormLabel>
               <FormControl>
                 <Input
                   type="number"

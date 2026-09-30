@@ -263,7 +263,7 @@ function RecipeDetailContent() {
               {recipe.calories ? (
                 <span className="flex items-center gap-1.5">
                   <Flame className="h-4 w-4" />
-                  {recipe.calories} kcal
+                  {recipe.calories} kcal / serving
                 </span>
               ) : null}
             </div>
