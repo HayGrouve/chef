@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ModeToggle } from "@/components/ui/mode-toggle";
 import {
   Authenticated,
@@ -21,7 +22,10 @@ import { UserButton } from "@clerk/nextjs";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { api } from "../convex/_generated/api";
-import { CommandPaletteTrigger } from "./command-palette/CommandPaletteTrigger";
+import {
+  CommandPaletteIconTrigger,
+  CommandPaletteTrigger,
+} from "./command-palette/CommandPaletteTrigger";
 
 export function Navbar() {
   const pathname = usePathname();
@@ -43,24 +47,30 @@ export function Navbar() {
 
   return (
     <header className="border-b bg-background sticky top-0 z-50">
-      <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-        {/* Left: Brand */}
-        <Link href="/" className="flex items-center gap-2">
-          <div className="bg-primary/10 p-2 rounded-full">
-            <ChefHat className="h-6 w-6 text-primary" />
-          </div>
-          <span className="text-xl font-bold hidden md:inline-block">CHEF</span>
-        </Link>
+      {/* Three columns so the centered nav can never overlap either side. */}
+      <div className="container mx-auto px-4 h-16 grid grid-cols-[1fr_auto_1fr] items-center gap-4">
+        {/* Left: Brand + search */}
+        <div className="flex items-center gap-6">
+          <Link href="/" className="flex items-center gap-2">
+            <div className="bg-primary/10 p-2 rounded-full">
+              <ChefHat className="h-6 w-6 text-primary" />
+            </div>
+            <span className="text-xl font-bold hidden md:inline-block">CHEF</span>
+          </Link>
+          <Authenticated>
+            <CommandPaletteTrigger />
+          </Authenticated>
+        </div>
 
         {/* Center: Navigation */}
         <Authenticated>
-          <nav className="hidden md:flex items-center gap-6 absolute left-1/2 -translate-x-1/2">
+          <nav className="hidden md:flex items-center gap-4 lg:gap-6">
             {navItems.map(({ href, label, icon: Icon, badge }) => (
               <Link
                 key={href}
                 href={href}
                 className={cn(
-                  "flex items-center gap-2 text-sm font-medium transition-colors hover:text-primary relative",
+                  "flex items-center gap-2 whitespace-nowrap text-sm font-medium transition-colors hover:text-primary relative",
                   pathname === href
                     ? "text-foreground font-bold"
                     : "text-muted-foreground"
@@ -81,34 +91,42 @@ export function Navbar() {
         </Authenticated>
 
         {/* Right: Actions */}
-        <div className="flex items-center gap-2">
-          <ModeToggle />
-          <AuthLoading>
-            <Button variant="ghost" size="sm" disabled>
-              Loading...
-            </Button>
-          </AuthLoading>
-          
+        {/* Every control here is h-9 (36px) so the row lines up. */}
+        <div className="col-start-3 flex items-center justify-end gap-2">
           <Authenticated>
-            <CommandPaletteTrigger />
-            <Link href="/create">
-              <Button size="sm" className="hidden md:flex">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Recipe
-              </Button>
-            </Link>
-            <div className="ml-2 flex">
-              <UserButton />
-            </div>
+            <CommandPaletteIconTrigger />
+            <Button asChild className="hidden md:flex max-lg:size-9 max-lg:px-0">
+              <Link href="/create" aria-label="Add Recipe">
+                <Plus />
+                <span className="hidden lg:inline">Add Recipe</span>
+              </Link>
+            </Button>
           </Authenticated>
 
+          <div className="flex items-center gap-1">
+            <ModeToggle />
+            <AuthLoading>
+              <Skeleton className="size-9 rounded-full" />
+            </AuthLoading>
+            <Authenticated>
+              <UserButton
+                appearance={{
+                  elements: {
+                    userButtonTrigger: "rounded-full",
+                    avatarBox: "size-9",
+                  },
+                }}
+              />
+            </Authenticated>
+          </div>
+
           <Unauthenticated>
-            <Link href="/sign-in">
-              <Button size="sm">
-                <LogIn className="h-4 w-4 mr-2" />
+            <Button asChild>
+              <Link href="/sign-in">
+                <LogIn />
                 Sign In
-              </Button>
-            </Link>
+              </Link>
+            </Button>
           </Unauthenticated>
         </div>
       </div>

@@ -125,6 +125,12 @@ These three were chosen from the product-exploration prototypes (draft PR #5). T
 |--------|--------|-------|
 | On phones the header was squeezed into a narrow column, because the title, author, description, meta and tags all sat beside the favorite/share/⋯ icons, leaving empty space under them. Now only the title shares a row with the icons, and everything else spans the full width. The description is clamped to 3 lines, with "Show more" appearing only when it is actually cut off. The card has less side padding on mobile (`px-4 sm:px-6`) and a smaller title (`text-2xl sm:text-3xl`). | ✅ | `app/recipe/[id]/RecipeDetailClient.tsx` |
 
+## Round 8 — 2026-09-30 (navbar actions)
+
+| Change | Status | Files |
+|--------|--------|-------|
+| The right side of the navbar had controls of four sizes (36/32/32/28px), and the ⌘K pill showed only an icon plus keys. Now every control is 36px. The palette trigger looks like a search field ("Search recipes…" plus the shortcut) and sits next to the logo, because it didn't fit beside the centered nav. The header is a 3-column grid, so the centered nav can't overlap either side. The theme toggle is a quiet ghost icon placed next to the avatar. Between `md` and `lg`, "Add Recipe" is icon-only and nav links don't wrap. The auth-loading "Loading..." text is now an avatar skeleton. `Link`-wrapped buttons now use `asChild`, which removes the invalid `<a><button>` nesting. | ✅ | `components/navbar.tsx`, `components/command-palette/CommandPaletteTrigger.tsx`, `components/ui/mode-toggle.tsx` |
+
 ## Backlog
 
 All items from the original audit are done. Ideas for a future round:
