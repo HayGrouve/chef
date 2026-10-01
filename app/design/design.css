@@ -1,0 +1,131 @@
+/*
+ * Tokens for the three /design prototypes. Each direction adds a class to
+ * <html> while mounted (see useDirectionTheme), so these override the app's
+ * :root/.dark tokens everywhere, including portaled menus and sheets.
+ * All three work in light and dark mode.
+ */
+
+/* Workspace: the existing orange, darkened for AA on white text; cool zinc neutrals. */
+html.dir-workspace {
+  --radius: 0.5rem;
+  --background: oklch(0.992 0.001 286);
+  --foreground: oklch(0.2 0.006 286);
+  --card: oklch(1 0 0);
+  --popover: oklch(1 0 0);
+  --primary: oklch(0.56 0.17 45);
+  --primary-foreground: oklch(0.99 0 0);
+  --muted: oklch(0.965 0.002 286);
+  --muted-foreground: oklch(0.5 0.01 286);
+  --accent: oklch(0.955 0.003 286);
+  --secondary: oklch(0.955 0.003 286);
+  --border: oklch(0.915 0.004 286);
+  --input: oklch(0.915 0.004 286);
+  --ring: oklch(0.56 0.17 45);
+  --sidebar: oklch(0.975 0.002 286);
+  --sidebar-border: oklch(0.92 0.004 286);
+}
+html.dark.dir-workspace {
+  --background: oklch(0.16 0.004 286);
+  --foreground: oklch(0.96 0.002 286);
+  --card: oklch(0.195 0.005 286);
+  --popover: oklch(0.21 0.005 286);
+  --primary: oklch(0.72 0.16 52);
+  --primary-foreground: oklch(0.18 0.01 50);
+  --muted: oklch(0.23 0.005 286);
+  --muted-foreground: oklch(0.7 0.01 286);
+  --accent: oklch(0.25 0.006 286);
+  --secondary: oklch(0.25 0.006 286);
+  --border: oklch(1 0 0 / 9%);
+  --input: oklch(1 0 0 / 12%);
+  --ring: oklch(0.72 0.16 52);
+  --sidebar: oklch(0.135 0.004 286);
+  --sidebar-border: oklch(1 0 0 / 8%);
+}
+
+html.dir-workspace body { font-family: var(--font-geist-sans), sans-serif; }
+
+/* Cookbook: monochrome plus one tomato red. */
+html.dir-cookbook {
+  --radius: 0.75rem;
+  --background: oklch(0.985 0 0);
+  --foreground: oklch(0.17 0 0);
+  --card: oklch(1 0 0);
+  --popover: oklch(1 0 0);
+  --primary: oklch(0.56 0.2 30);
+  --primary-foreground: oklch(0.99 0 0);
+  --muted: oklch(0.95 0 0);
+  --muted-foreground: oklch(0.47 0 0);
+  --accent: oklch(0.94 0 0);
+  --secondary: oklch(0.94 0 0);
+  --border: oklch(0.89 0 0);
+  --input: oklch(0.89 0 0);
+  --ring: oklch(0.56 0.2 30);
+}
+html.dark.dir-cookbook {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.965 0 0);
+  --card: oklch(0.19 0 0);
+  --popover: oklch(0.2 0 0);
+  --primary: oklch(0.68 0.19 32);
+  --primary-foreground: oklch(0.15 0.02 30);
+  --muted: oklch(0.22 0 0);
+  --muted-foreground: oklch(0.7 0 0);
+  --accent: oklch(0.24 0 0);
+  --secondary: oklch(0.24 0 0);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 14%);
+  --ring: oklch(0.68 0.19 32);
+}
+html.dir-cookbook body { font-family: var(--font-geist-sans), sans-serif; }
+.font-display { font-family: var(--font-display), var(--font-geist-sans), sans-serif; }
+
+/* Spaces: deep herb green on faintly green-tinted neutrals; soft, rounded. */
+html.dir-spaces {
+  --radius: 1.25rem;
+  --background: oklch(0.972 0.005 165);
+  --foreground: oklch(0.2 0.015 165);
+  --card: oklch(0.995 0.002 165);
+  --popover: oklch(0.995 0.002 165);
+  --primary: oklch(0.48 0.1 162);
+  --primary-foreground: oklch(0.99 0.005 165);
+  --muted: oklch(0.94 0.008 165);
+  --muted-foreground: oklch(0.48 0.015 165);
+  --accent: oklch(0.93 0.012 165);
+  --secondary: oklch(0.93 0.012 165);
+  --border: oklch(0.9 0.01 165);
+  --input: oklch(0.9 0.01 165);
+  --ring: oklch(0.48 0.1 162);
+}
+html.dark.dir-spaces {
+  --background: oklch(0.155 0.008 165);
+  --foreground: oklch(0.95 0.008 165);
+  --card: oklch(0.2 0.01 165);
+  --popover: oklch(0.22 0.012 165);
+  --primary: oklch(0.74 0.12 160);
+  --primary-foreground: oklch(0.17 0.02 165);
+  --muted: oklch(0.235 0.012 165);
+  --muted-foreground: oklch(0.72 0.015 165);
+  --accent: oklch(0.26 0.014 165);
+  --secondary: oklch(0.26 0.014 165);
+  --border: oklch(1 0 0 / 9%);
+  --input: oklch(1 0 0 / 13%);
+  --ring: oklch(0.74 0.12 160);
+}
+html.dir-spaces body { font-family: var(--font-spaces), var(--font-geist-sans), sans-serif; }
+
+/* Frosted dock (a web glass approximation), with a solid fallback. */
+.spaces-dock {
+  background: color-mix(in oklch, var(--card) 95%, transparent);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklch, white 40%, transparent),
+    0 12px 32px -8px color-mix(in oklch, var(--foreground) 22%, transparent);
+}
+@media (prefers-reduced-transparency: reduce) {
+  .spaces-dock { background: var(--card); backdrop-filter: none; -webkit-backdrop-filter: none; }
+}
+
+/* Horizontal shelves: scroll-snap without a visible scrollbar. */
+.shelf { scrollbar-width: none; }
+.shelf::-webkit-scrollbar { display: none; }

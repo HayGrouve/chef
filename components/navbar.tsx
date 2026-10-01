@@ -31,7 +31,8 @@ export function Navbar() {
   const pathname = usePathname();
   const shoppingListCount = useQuery(api.shoppingList.getBadgeCount);
 
-  if (pathname?.endsWith("/cook")) return null;
+  // Cook mode and the /design prototypes bring their own chrome.
+  if (pathname?.endsWith("/cook") || pathname?.startsWith("/design")) return null;
 
   const navItems = [
     { href: "/", label: "Recipes", icon: ChefHat },

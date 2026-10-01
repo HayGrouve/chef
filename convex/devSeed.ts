@@ -5,7 +5,7 @@
 // Only runs for Clerk test users (email contains "+clerk_test") so it can't
 // touch a real account. Recipes are private to that user.
 import { v, ConvexError } from "convex/values";
-import { internalMutation } from "./_generated/server";
+import { internalMutation, type QueryCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 
 const RECIPES = [
@@ -139,5 +139,37 @@ export const seedTestUser = internalMutation({
     }
 
     return { recipes: RECIPES.length, meals: PLAN.length };
+  },
+});
+
+// Real dish photos for the seeded test recipes, so design work isn't judged
+// on placeholder tiles. Wikimedia rate-limits Convex's servers, so the photos
+// are downloaded locally and uploaded by scripts/attach-demo-photos.sh, which
+// uses the functions below. Dev only, test users only.
+async function testUserRecipes(ctx: QueryCtx, userId: string) {
+  const user = await ctx.db
+    .query("users")
+    .withIndex("by_userId", (q) => q.eq("userId", userId))
+    .unique();
+  if (!user?.email?.includes("+clerk_test")) {
+    throw new ConvexError("Refusing: not a Clerk test user.");
+  }
+  return await ctx.db
+    .query("recipes")
+    .withIndex("by_userId", (q) => q.eq("userId", userId))
+    .collect();
+}
+
+export const photoUploadUrl = internalMutation({
+  args: {},
+  handler: async (ctx) => await ctx.storage.generateUploadUrl(),
+});
+
+export const setRecipePhoto = internalMutation({
+  args: { userId: v.string(), title: v.string(), storageId: v.string() },
+  handler: async (ctx, args) => {
+    const recipe = (await testUserRecipes(ctx, args.userId)).find((r) => r.title === args.title);
+    if (!recipe) throw new ConvexError(`No test recipe titled "${args.title}"`);
+    await ctx.db.patch(recipe._id, { storageId: args.storageId });
   },
 });

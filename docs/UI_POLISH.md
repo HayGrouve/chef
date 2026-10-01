@@ -131,12 +131,28 @@ These three were chosen from the product-exploration prototypes (draft PR #5). T
 |--------|--------|-------|
 | The right side of the navbar had controls of four sizes (36/32/32/28px), and the ⌘K pill showed only an icon plus keys. Now every control is 36px. The palette trigger looks like a search field ("Search recipes…" plus the shortcut) and sits next to the logo, because it didn't fit beside the centered nav. The header is a 3-column grid, so the centered nav can't overlap either side. The theme toggle is a quiet ghost icon placed next to the avatar. Between `md` and `lg`, "Add Recipe" is icon-only and nav links don't wrap. The auth-loading "Loading..." text is now an avatar skeleton. `Link`-wrapped buttons now use `asChild`, which removes the invalid `<a><button>` nesting. | ✅ | `components/navbar.tsx`, `components/command-palette/CommandPaletteTrigger.tsx`, `components/ui/mode-toggle.tsx` |
 
+## Round 9 — 2026-10-01 (design prototypes, not shipped)
+
+Three directions for reorganizing and modernizing the app, as working prototypes at `/design` (draft PR). They run on real Convex data with the existing queries and mutations; the main app is unchanged apart from hiding its navbar, footer and tab bar on `/design/*`. A pill in the bottom-right corner (a bar on phones) switches between directions and keeps you on the equivalent screen.
+
+| Direction | Structure | Look | Status |
+|---|---|---|---|
+| **Workspace** `/design/workspace` | A sidebar holds everything: Library (All, Mine, Favorites, Under 30 min), Collections (your tags, with counts), Kitchen (This week, Shopping list, Pantry). Phones: sidebar in a sheet plus 4 tabs. Library has grid/list views, difficulty and sort. The recipe page has a sticky ingredient checklist: tick what you have, then add only the missing items to the list. | The existing orange (darkened for contrast), cool zinc neutrals, Geist, 8px radius. Calm and dense. | ⏳ prototype |
+| **Cookbook** `/design/cookbook` | Three sections: Cook, Plan, Shop. Pantry is folded into the Cook search box: a comma ("eggs, feta") switches it to ingredient matching. Home is a feature (tonight's planned dinner, or the newest recipe) plus horizontal shelves (Quick weeknights, Your recipes, Favorites, top tags). Magazine-style recipe page with ½×–3× scaling. | Monochrome with one tomato red, Bricolage Grotesque headings, big photos. | ⏳ prototype |
+| **Spaces** `/design/spaces` | Two spaces in a floating dock (Recipes, Week) plus Add and Search. Recipes has a "What can I make?" mode with ingredient chips. **Week puts the meal plan and the shopping list on one screen**, with add/remove meals, "Shop for these", and check-off. The recipe page has "Plan it" (a day × meal grid). | Deep herb green, Outfit, soft 20px cards, pill buttons. | ⏳ prototype |
+
+Plan/Shop/Week/List/Pantry screens that a direction doesn't redesign reuse the real pages inside the new shell. Code: `app/design/*`, `components/design/*`, tokens in `app/design/design.css`.
+
+Test data: the seeded test recipes had no photos, so `scripts/attach-demo-photos.sh` uploads real dish photos (Wikimedia Commons) to them on the dev deployment. It uses two internal, test-user-only helpers in `convex/devSeed.ts`.
+
 ## Backlog
 
 All items from the original audit are done. Ideas for a future round:
 
 - After editing a recipe, return to that recipe's page instead of home.
 - Meal planner: show which week/dates the day names refer to (the data model stores day names only).
+- **Geist is loaded but never used.** `app/layout.tsx` puts the font variables on `<body>`, but `--font-sans` is read at `<html>`, so the whole app renders in the system font. Moving the variable classes to `<html>` (or setting `font-family` on body) fixes it. The `/design` prototypes set their fonts explicitly.
+- Meal types are stored with mixed casing (`Breakfast` from the planner, `breakfast` from the seed); compare case-insensitively or normalize.
 
 ## Notes
 

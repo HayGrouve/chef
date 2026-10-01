@@ -12,7 +12,7 @@ export function MobileNav() {
   const shoppingListCount = useQuery(api.shoppingList.getBadgeCount);
 
   // Hide nav on recipe cook page
-  if (/^\/recipe\/[^/]+\/cook$/.test(pathname)) {
+  if (/^\/recipe\/[^/]+\/cook$/.test(pathname) || pathname.startsWith("/design")) {
     return null;
   }
 
