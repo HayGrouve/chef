@@ -5,26 +5,17 @@ import { api } from "../../../convex/_generated/api";
 import { Id } from "../../../convex/_generated/dataModel";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   ArrowLeft,
   Trash2,
   Heart,
-  Edit,
-  ShoppingCart,
+  Pencil,
+  ShoppingBasket,
   Share2,
-  PlayCircle,
-  Utensils,
-  ListOrdered,
-  User,
+  Play,
   MoreHorizontal,
-  Clock,
-  Gauge,
-  Flame,
 } from "lucide-react";
-import Image from "next/image";
 import Link from "next/link";
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
@@ -45,6 +36,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { RecipePhoto, formatMinutes } from "@/components/RecipeCard";
+import { scaleIngredient } from "@/lib/recipe-text";
+import { cn } from "@/lib/utils";
+
+const SCALES = [
+  { value: 0.5, label: "½×" },
+  { value: 1, label: "1×" },
+  { value: 2, label: "2×" },
+  { value: 3, label: "3×" },
+];
 
 function RecipeDetailContent() {
   const params = useParams();
@@ -54,15 +55,16 @@ function RecipeDetailContent() {
   // Use getPublic for unauthenticated users, get for authenticated users
   const publicRecipe = useQuery(api.recipes.getPublic, { id: recipeId });
   const authenticatedRecipe = useQuery(api.recipes.get, { id: recipeId });
-  
+
   // Use the appropriate recipe based on auth status
   const recipe = authenticatedRecipe ?? publicRecipe;
-  
+
   const deleteRecipe = useMutation(api.recipes.remove);
   const toggleFavorite = useMutation(api.recipes.toggleFavorite);
   const addBatchToShoppingList = useMutation(api.shoppingList.addBatch);
   const removeBatchFromShoppingList = useMutation(api.shoppingList.removeBatch);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [scale, setScale] = useState(1);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" });
@@ -70,30 +72,39 @@ function RecipeDetailContent() {
 
   if (recipe === undefined) {
     return (
-      <div className="container mx-auto p-4 max-w-4xl space-y-4">
-        <Skeleton className="h-9 w-40" />
-        <Skeleton className="h-10 w-2/3" />
-        <Skeleton className="h-5 w-full" />
-        <Skeleton className="aspect-video w-full rounded-lg" />
+      <div className="container mx-auto max-w-5xl px-4 pt-6 md:pt-10">
+        <Skeleton className="h-5 w-16" />
+        <Skeleton className="mt-6 h-14 w-3/4" />
+        <Skeleton className="mt-5 h-5 w-2/3" />
+        <Skeleton className="mt-10 aspect-[21/9] w-full rounded-2xl" />
       </div>
     );
   }
 
   if (recipe === null) {
     return (
-      <div className="container mx-auto p-4 max-w-4xl">
-        <div className="text-center py-12">
-          <p className="text-xl text-muted-foreground">Recipe not found</p>
-          <p className="text-sm text-muted-foreground mt-2">
-            This recipe may be private or doesn't exist.
-          </p>
-          <Button variant="outline" className="mt-4" onClick={() => router.push("/")}>
-            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Recipes
-          </Button>
-        </div>
+      <div className="container mx-auto max-w-md px-4 py-24 text-center">
+        <p className="font-display text-2xl font-bold">Recipe not found</p>
+        <p className="mt-2 text-muted-foreground">
+          This recipe may be private or doesn&apos;t exist.
+        </p>
+        <Button variant="outline" className="mt-6" onClick={() => router.push("/")}>
+          <ArrowLeft /> Back to Cook
+        </Button>
       </div>
     );
   }
+
+  const ingredients = recipe.ingredients.map((line) =>
+    scale === 1 ? line : scaleIngredient(line, scale)
+  );
+  const isOwner = "isOwner" in recipe && recipe.isOwner;
+  const facts = [
+    { label: "Time", value: formatMinutes(recipe.cookingTime) },
+    { label: "Difficulty", value: recipe.difficulty },
+    { label: "Per serving", value: recipe.calories ? `${recipe.calories} kcal` : null },
+    { label: "Steps", value: String(recipe.steps.length) },
+  ].filter((f) => f.value);
 
   const handleDelete = async () => {
     await deleteRecipe({ id: recipeId });
@@ -103,20 +114,17 @@ function RecipeDetailContent() {
 
   const handleAddToCart = async () => {
     const ids = await addBatchToShoppingList({
-      ingredients: recipe.ingredients,
+      ingredients,
       recipeId: recipe._id,
     });
-    toast.success(
-      `Added ${recipe.ingredients.length} ingredients to your shopping list`,
-      {
-        action: ids?.length
-          ? {
-              label: "Undo",
-              onClick: () => removeBatchFromShoppingList({ ids }),
-            }
-          : undefined,
-      }
-    );
+    toast.success(`Added ${ingredients.length} ingredients to your shopping list`, {
+      action: ids?.length
+        ? {
+            label: "Undo",
+            onClick: () => removeBatchFromShoppingList({ ids }),
+          }
+        : undefined,
+    });
   };
 
   const handleShare = async () => {
@@ -146,193 +154,179 @@ function RecipeDetailContent() {
   };
 
   return (
-    <div className="container mx-auto p-4 max-w-4xl">
-      <div className="flex justify-between items-center mb-4">
-        <Button variant="ghost" className="pl-0" onClick={() => router.back()}>
-          <ArrowLeft className="mr-2 h-4 w-4" /> Back
-        </Button>
-        <Authenticated>
-          <Link href={`/recipe/${recipeId}/cook`}>
-            <Button>
-              <PlayCircle className="mr-2 h-4 w-4" /> Start Cooking
-            </Button>
-          </Link>
-        </Authenticated>
-        <Unauthenticated>
-          <Link href="/sign-in">
-            <Button>
-              <PlayCircle className="mr-2 h-4 w-4" /> Sign In to Cook
-            </Button>
-          </Link>
-        </Unauthenticated>
-      </div>
+    <article className="pb-16">
+      <div className="container mx-auto max-w-5xl px-4 pt-6 md:pt-10">
+        <button
+          onClick={() => router.back()}
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="size-4" />
+          Back
+        </button>
 
-      <Card>
-        <CardHeader className="gap-4 px-4 sm:px-6">
-          <div className="flex items-start justify-between gap-2">
-            <CardTitle className="text-2xl sm:text-3xl leading-tight break-words min-w-0">
-              {recipe.title}
-            </CardTitle>
-            <div className="flex shrink-0 -mr-2 -mt-1">
-              <Authenticated>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="text-muted-foreground hover:text-red-500"
-                  onClick={() => toggleFavorite({ id: recipeId })}
-                  title={
-                    recipe.isFavorite
-                      ? "Remove from favorites"
-                      : "Add to favorites"
-                  }
-                >
-                  <Heart
-                    className={`h-5 w-5 ${recipe.isFavorite ? "fill-red-500 text-red-500" : ""}`}
-                  />
-                </Button>
-              </Authenticated>
-              {recipe.isPublic && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="text-muted-foreground"
-                  onClick={handleShare}
-                  title="Share"
-                >
-                  <Share2 className="h-5 w-5" />
-                </Button>
-              )}
-              <Authenticated>
-                {recipe.isOwner && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-muted-foreground"
-                        aria-label="More actions"
-                      >
-                        <MoreHorizontal className="h-5 w-5" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem asChild>
-                        <Link href={`/create?edit=${recipeId}`}>
-                          <Edit className="h-4 w-4" />
-                          Edit recipe
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        variant="destructive"
-                        onSelect={() => setShowDeleteDialog(true)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        Delete recipe
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
-              </Authenticated>
-            </div>
-          </div>
-          {recipe.authorName && (
+        <h1 className="mt-6 max-w-4xl break-words font-display text-4xl font-bold leading-[1.02] tracking-tight md:text-6xl">
+          {recipe.title}
+        </h1>
+        {recipe.description && <ClampedText text={recipe.description} />}
+        {recipe.authorName && (
+          <p className="mt-4 text-sm">
+            By{" "}
             <Link
               href={`/profile/${recipe.userId}`}
-              className="flex w-fit items-center text-sm text-muted-foreground gap-1.5 hover:underline hover:text-primary transition-colors"
+              className="font-medium underline-offset-4 hover:underline"
             >
-              <User className="h-4 w-4 shrink-0" />
-              <span>Recipe by {recipe.authorName}</span>
+              {recipe.authorName}
             </Link>
+          </p>
+        )}
+
+        <div className="mt-8 flex flex-wrap items-center gap-2">
+          <Authenticated>
+            <Button asChild size="lg">
+              <Link href={`/recipe/${recipeId}/cook`}>
+                <Play />
+                Start cooking
+              </Link>
+            </Button>
+            <Button
+              size="lg"
+              variant="outline"
+              onClick={handleAddToCart}
+              className="max-sm:w-10 max-sm:px-0"
+              aria-label="Add to shopping list"
+            >
+              <ShoppingBasket />
+              <span className="max-sm:hidden">Add to list</span>
+            </Button>
+            <Button
+              size="icon-lg"
+              variant="ghost"
+              onClick={() => toggleFavorite({ id: recipeId })}
+              aria-pressed={!!recipe.isFavorite}
+              aria-label={recipe.isFavorite ? "Remove from favorites" : "Add to favorites"}
+            >
+              <Heart className={cn(recipe.isFavorite && "fill-primary text-primary")} />
+            </Button>
+          </Authenticated>
+          <Unauthenticated>
+            <Button asChild size="lg">
+              <Link href="/sign-in">
+                <Play />
+                Sign in to cook
+              </Link>
+            </Button>
+          </Unauthenticated>
+          {recipe.isPublic && (
+            <Button size="icon-lg" variant="ghost" onClick={handleShare} aria-label="Share">
+              <Share2 />
+            </Button>
           )}
-          {recipe.description && <ClampedText text={recipe.description} />}
-          {(recipe.cookingTime || recipe.difficulty || recipe.calories) && (
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
-              {recipe.cookingTime ? (
-                <span className="flex items-center gap-1.5">
-                  <Clock className="h-4 w-4" />
-                  {recipe.cookingTime} min
-                </span>
-              ) : null}
-              {recipe.difficulty && (
-                <span className="flex items-center gap-1.5">
-                  <Gauge className="h-4 w-4" />
-                  {recipe.difficulty}
-                </span>
-              )}
-              {recipe.calories ? (
-                <span className="flex items-center gap-1.5">
-                  <Flame className="h-4 w-4" />
-                  {recipe.calories} kcal / serving
-                </span>
-              ) : null}
+          {isOwner && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="icon-lg" variant="ghost" aria-label="More actions">
+                  <MoreHorizontal />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                <DropdownMenuItem asChild>
+                  <Link href={`/create?edit=${recipeId}`}>
+                    <Pencil />
+                    Edit recipe
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem variant="destructive" onSelect={() => setShowDeleteDialog(true)}>
+                  <Trash2 />
+                  Delete recipe
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
+      </div>
+
+      <div className="container mx-auto mt-10 max-w-6xl px-4">
+        {recipe.imageUrl && (
+          <RecipePhoto
+            src={recipe.imageUrl}
+            alt={recipe.title}
+            priority
+            sizes="(max-width: 1200px) 100vw, 1152px"
+            className="aspect-[16/9] rounded-2xl md:aspect-[21/9]"
+          />
+        )}
+        {facts.length > 0 && (
+          <dl className="mt-6 grid grid-cols-2 gap-y-4 md:grid-cols-4">
+            {facts.map((f) => (
+              <div key={f.label} className="border-l-2 border-primary/70 pl-4">
+                <dt className="text-sm text-muted-foreground">{f.label}</dt>
+                <dd className="font-display text-xl font-semibold tracking-tight">{f.value}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
+      </div>
+
+      <div className="container mx-auto mt-14 grid max-w-5xl gap-12 px-4 md:grid-cols-[18rem_1fr]">
+        <section className="md:sticky md:top-24 md:self-start">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="font-display text-2xl font-bold tracking-tight">Ingredients</h2>
+            <div className="flex rounded-full bg-muted p-0.5" role="group" aria-label="Scale ingredients">
+              {SCALES.map((s) => (
+                <button
+                  key={s.value}
+                  onClick={() => setScale(s.value)}
+                  aria-pressed={scale === s.value}
+                  className={cn(
+                    "rounded-full px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground",
+                    scale === s.value && "bg-background text-foreground shadow-sm"
+                  )}
+                >
+                  {s.label}
+                </button>
+              ))}
             </div>
-          )}
+          </div>
+          <ul className="mt-5 flex flex-col gap-3">
+            {ingredients.map((line, i) => (
+              <li key={i} className="flex gap-3 leading-snug">
+                <span className="mt-2 size-1.5 shrink-0 rounded-full bg-primary" aria-hidden />
+                {line}
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section>
+          <h2 className="font-display text-2xl font-bold tracking-tight">Method</h2>
+          <ol className="mt-6 flex flex-col gap-8">
+            {recipe.steps.map((step, i) => (
+              <li key={i} className="grid grid-cols-[3rem_1fr] gap-2">
+                <span className="font-display text-3xl font-bold leading-none tabular-nums text-primary">
+                  {i + 1}
+                </span>
+                <p className="max-w-[60ch] pt-1 text-[1.0625rem] leading-relaxed">{step}</p>
+              </li>
+            ))}
+          </ol>
           {recipe.tags && recipe.tags.length > 0 && (
-            <div className="flex flex-wrap gap-2">
+            <div className="mt-12 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+              Filed under
               {recipe.tags.map((tag) => (
-                <Badge
+                <Link
                   key={tag}
-                  variant="outline"
-                  className="text-xs px-2 py-0.5"
+                  href={`/?tags=${encodeURIComponent(tag)}`}
+                  className="rounded-full bg-muted px-3 py-1 hover:text-foreground"
                 >
                   {tag}
-                </Badge>
+                </Link>
               ))}
             </div>
           )}
-        </CardHeader>
-        <CardContent className="space-y-8 px-4 sm:px-6">
-          {recipe.imageUrl && (
-            <div className="aspect-video relative rounded-lg overflow-hidden bg-muted">
-              <Image
-                src={recipe.imageUrl}
-                alt={recipe.title}
-                fill
-                className="object-cover"
-              />
-            </div>
-          )}
+        </section>
+      </div>
 
-          <div className="grid md:grid-cols-2 gap-8">
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-semibold flex items-center gap-2">
-                  <Utensils className="h-5 w-5" />
-                  Ingredients
-                </h3>
-                <Authenticated>
-                  <Button variant="outline" size="sm" onClick={handleAddToCart}>
-                    <ShoppingCart className="mr-2 h-4 w-4" />
-                    Add to list
-                  </Button>
-                </Authenticated>
-              </div>
-              <ul className="list-disc pl-5 space-y-2">
-                {recipe.ingredients.map((ingredient, i) => (
-                  <li key={i}>{ingredient}</li>
-                ))}
-              </ul>
-            </div>
-
-            <div>
-              <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                <ListOrdered className="h-5 w-5" />
-                Instructions
-              </h3>
-              <ol className="list-decimal pl-5 space-y-4">
-                {recipe.steps.map((step, i) => (
-                  <li key={i} className="pl-2">
-                    {step}
-                  </li>
-                ))}
-              </ol>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Dialogs */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -346,15 +340,14 @@ function RecipeDetailContent() {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
-              className="bg-destructive hover:bg-destructive/90"
+              className="bg-destructive text-white hover:bg-destructive/90"
             >
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-    </div>
+    </article>
   );
 }
 
@@ -377,10 +370,13 @@ function ClampedText({ text }: { text: string }) {
   }, [text, expanded]);
 
   return (
-    <div>
+    <div className="mt-5 max-w-[60ch]">
       <p
         ref={ref}
-        className={`text-muted-foreground leading-relaxed whitespace-pre-line ${expanded ? "" : "line-clamp-3"}`}
+        className={cn(
+          "whitespace-pre-line text-lg leading-relaxed text-muted-foreground",
+          !expanded && "line-clamp-3"
+        )}
       >
         {text}
       </p>

@@ -27,6 +27,8 @@ export function LikeButton({
       variant="ghost"
       size="icon"
       onClick={handleClick}
+      aria-label={isFavorite ? "Remove from favorites" : "Add to favorites"}
+      aria-pressed={isFavorite}
       className={cn(
         "relative transition-all hover:scale-110 active:scale-95 hover:bg-transparent",
         className
@@ -34,10 +36,10 @@ export function LikeButton({
     >
       <Heart
         className={cn(
-          "h-6 w-6 transition-colors duration-300",
+          "h-5 w-5 transition-colors duration-300",
           isFavorite
-            ? "fill-red-500 text-red-500"
-            : "text-muted-foreground hover:text-red-500",
+            ? "fill-primary text-primary"
+            : "text-muted-foreground hover:text-primary",
           isAnimating && "animate-ping"
         )}
       />

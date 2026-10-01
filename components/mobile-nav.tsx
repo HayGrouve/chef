@@ -2,11 +2,19 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChefHat, Refrigerator, PlusSquare, ShoppingCart, Calendar } from "lucide-react";
+import { CalendarDays, CookingPot, ShoppingBasket } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuery } from "convex/react";
 import { api } from "../convex/_generated/api";
+import { SECTIONS, isSectionActive } from "./navbar";
 
+const ICONS = {
+  "/": CookingPot,
+  "/meal-planner": CalendarDays,
+  "/shopping-list": ShoppingBasket,
+};
+
+/** Phone tab bar with the same three sections as the header. "Add" is the + in the header. */
 export function MobileNav() {
   const pathname = usePathname();
   const shoppingListCount = useQuery(api.shoppingList.getBadgeCount);
@@ -16,48 +24,39 @@ export function MobileNav() {
     return null;
   }
 
-  const links = [
-    { href: "/", icon: ChefHat, label: "Recipes" },
-    { href: "/meal-planner", icon: Calendar, label: "Planner" },
-    { href: "/create", icon: PlusSquare, label: "Add" },
-    {
-      href: "/shopping-list",
-      icon: ShoppingCart,
-      label: "Shopping",
-      badge: shoppingListCount,
-    },
-    { href: "/pantry", icon: Refrigerator, label: "Pantry" },
-  ];
-
   return (
-    <div className="fixed bottom-0 left-0 right-0 border-t bg-background z-50 md:hidden pb-safe">
-      <div className="flex justify-around items-center h-16">
-        {links.map(({ href, icon: Icon, label, badge }) => {
-          const isActive = pathname === href;
+    <nav
+      aria-label="Sections"
+      className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background pb-safe md:hidden"
+    >
+      <div className="grid h-16 grid-cols-3">
+        {SECTIONS.map(({ href, label }) => {
+          const Icon = ICONS[href];
+          const active = isSectionActive(href, pathname);
+          const badge = href === "/shopping-list" ? shoppingListCount : undefined;
           return (
             <Link
               key={href}
               href={href}
+              aria-current={active ? "page" : undefined}
               className={cn(
-                "flex flex-col items-center justify-center w-full h-full gap-1 relative",
-                isActive
-                  ? "text-primary"
-                  : "text-muted-foreground hover:text-foreground"
+                "flex flex-col items-center justify-center gap-1 text-[11px] font-medium",
+                active ? "text-primary" : "text-muted-foreground hover:text-foreground"
               )}
             >
-              <div className="relative">
-                <Icon className="h-5 w-5" />
-                {badge !== undefined && badge > 0 && (
-                  <span className="absolute -top-2 -right-2 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground">
+              <span className="relative">
+                <Icon className="size-5" strokeWidth={1.75} />
+                {!!badge && (
+                  <span className="absolute -right-2.5 -top-1.5 min-w-4 rounded-full bg-primary px-1 text-center text-[10px] leading-4 text-primary-foreground">
                     {badge > 99 ? "99+" : badge}
                   </span>
                 )}
-              </div>
-              <span className="text-[10px] font-medium">{label}</span>
+              </span>
+              {label}
             </Link>
           );
         })}
       </div>
-    </div>
+    </nav>
   );
 }

@@ -1,17 +1,10 @@
 "use client";
 
-import {
-  ChefHat,
-  ShoppingCart,
-  Calendar,
-  Refrigerator,
-  Plus,
-  LogIn,
-} from "lucide-react";
+// The app has three sections: Cook (recipes, plus "what can I make" in the
+// search box), Plan and Shop. Phones get the same three in a bottom tab bar.
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { ModeToggle } from "@/components/ui/mode-toggle";
+import { usePathname } from "next/navigation";
+import { Link2, LogIn, PenLine, Plus, Search } from "lucide-react";
 import {
   Authenticated,
   Unauthenticated,
@@ -19,13 +12,29 @@ import {
   useQuery,
 } from "convex/react";
 import { UserButton } from "@clerk/nextjs";
-import { usePathname } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ModeToggle } from "@/components/ui/mode-toggle";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { api } from "../convex/_generated/api";
-import {
-  CommandPaletteIconTrigger,
-  CommandPaletteTrigger,
-} from "./command-palette/CommandPaletteTrigger";
+import { openCommandPalette } from "./command-palette/shared";
+
+export const SECTIONS = [
+  { href: "/", label: "Cook" },
+  { href: "/meal-planner", label: "Plan" },
+  { href: "/shopping-list", label: "Shop" },
+] as const;
+
+/** Cook stays highlighted on recipe pages, which you reach from it. */
+export function isSectionActive(href: string, pathname: string) {
+  return href === "/" ? pathname === "/" || pathname.startsWith("/recipe/") : pathname === href;
+}
 
 export function Navbar() {
   const pathname = usePathname();
@@ -33,98 +42,74 @@ export function Navbar() {
 
   if (pathname?.endsWith("/cook")) return null;
 
-  const navItems = [
-    { href: "/", label: "Recipes", icon: ChefHat },
-    { href: "/meal-planner", label: "Meal Planner", icon: Calendar },
-    {
-      href: "/shopping-list",
-      label: "Shopping List",
-      icon: ShoppingCart,
-      badge: shoppingListCount,
-    },
-    { href: "/pantry", label: "Pantry", icon: Refrigerator },
-  ];
-
   return (
-    <header className="border-b bg-background sticky top-0 z-50">
-      {/* Three columns so the centered nav can never overlap either side. */}
-      <div className="container mx-auto px-4 h-16 grid grid-cols-[1fr_auto_1fr] items-center gap-4">
-        {/* Left: Brand + search */}
-        <div className="flex items-center gap-6">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="bg-primary/10 p-2 rounded-full">
-              <ChefHat className="h-6 w-6 text-primary" />
-            </div>
-            <span className="text-xl font-bold hidden md:inline-block">CHEF</span>
-          </Link>
-          <Authenticated>
-            <CommandPaletteTrigger />
-          </Authenticated>
-        </div>
+    <header className="sticky top-0 z-50 border-b bg-background/85 backdrop-blur-md">
+      {/* Three columns so the centered sections can never overlap either side. */}
+      <div className="container mx-auto grid h-16 grid-cols-[1fr_auto_1fr] items-center gap-4 px-4">
+        <Link href="/" className="w-fit font-display text-xl font-extrabold tracking-tight">
+          chef<span className="text-primary">.</span>
+        </Link>
 
-        {/* Center: Navigation */}
         <Authenticated>
-          <nav className="hidden md:flex items-center gap-4 lg:gap-6">
-            {navItems.map(({ href, label, icon: Icon, badge }) => (
-              <Link
-                key={href}
-                href={href}
-                className={cn(
-                  "flex items-center gap-2 whitespace-nowrap text-sm font-medium transition-colors hover:text-primary relative",
-                  pathname === href
-                    ? "text-foreground font-bold"
-                    : "text-muted-foreground"
-                )}
-              >
-                <div className="relative">
-                  <Icon className="h-4 w-4" />
-                  {badge !== undefined && badge > 0 && (
-                    <span className="absolute -top-2 -right-2 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground">
-                      {badge > 99 ? "99+" : badge}
+          <nav className="hidden items-center rounded-full bg-muted p-1 md:flex" aria-label="Sections">
+            {SECTIONS.map(({ href, label }) => {
+              const active = isSectionActive(href, pathname);
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  aria-current={active ? "page" : undefined}
+                  className={cn(
+                    "rounded-full px-5 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground",
+                    active && "bg-background text-foreground shadow-sm"
+                  )}
+                >
+                  {label}
+                  {href === "/shopping-list" && !!shoppingListCount && (
+                    <span className="ml-1.5 font-mono text-xs tabular-nums text-primary">
+                      {shoppingListCount > 99 ? "99+" : shoppingListCount}
                     </span>
                   )}
-                </div>
-                {label}
-              </Link>
-            ))}
+                </Link>
+              );
+            })}
           </nav>
         </Authenticated>
 
-        {/* Right: Actions */}
         {/* Every control here is h-9 (36px) so the row lines up. */}
-        <div className="col-start-3 flex items-center justify-end gap-2">
+        <div className="col-start-3 flex items-center justify-end gap-1.5">
           <Authenticated>
-            <CommandPaletteIconTrigger />
-            <Button asChild className="hidden md:flex max-lg:size-9 max-lg:px-0">
-              <Link href="/create" aria-label="Add Recipe">
-                <Plus />
-                <span className="hidden lg:inline">Add Recipe</span>
-              </Link>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground"
+              onClick={() => openCommandPalette()}
+              aria-label="Search and quick actions"
+              title="Search and quick actions (Ctrl K)"
+            >
+              <Search />
             </Button>
+            <AddRecipeMenu />
           </Authenticated>
-
-          <div className="flex items-center gap-1">
-            <ModeToggle />
-            <AuthLoading>
-              <Skeleton className="size-9 rounded-full" />
-            </AuthLoading>
-            <Authenticated>
-              <UserButton
-                appearance={{
-                  elements: {
-                    userButtonTrigger: "rounded-full",
-                    avatarBox: "size-9",
-                  },
-                }}
-              />
-            </Authenticated>
-          </div>
-
+          <ModeToggle />
+          <AuthLoading>
+            <Skeleton className="size-9 rounded-full" />
+          </AuthLoading>
+          <Authenticated>
+            <UserButton
+              appearance={{
+                elements: {
+                  userButtonTrigger: "rounded-full",
+                  avatarBox: "size-9",
+                },
+              }}
+            />
+          </Authenticated>
           <Unauthenticated>
             <Button asChild>
               <Link href="/sign-in">
                 <LogIn />
-                Sign In
+                Sign in
               </Link>
             </Button>
           </Unauthenticated>
@@ -134,3 +119,29 @@ export function Navbar() {
   );
 }
 
+function AddRecipeMenu() {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button className="max-md:size-9 max-md:px-0" aria-label="Add a recipe">
+          <Plus />
+          <span className="hidden md:inline">Add recipe</span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuItem asChild>
+          <Link href="/create">
+            <PenLine />
+            Write it yourself
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link href="/import">
+            <Link2 />
+            Import a link or photo
+          </Link>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}

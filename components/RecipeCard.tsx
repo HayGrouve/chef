@@ -3,78 +3,61 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { ChefHat, Clock } from "lucide-react";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { ChefHat } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export interface RecipeCardData {
   _id: string;
   title: string;
-  description: string;
   imageUrl: string | null;
-  tags?: string[];
   authorName?: string;
   cookingTime?: number;
+  difficulty?: string;
 }
 
+export function formatMinutes(minutes?: number) {
+  if (!minutes) return null;
+  if (minutes < 60) return `${minutes} min`;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return m ? `${h} h ${m} min` : `${h} h`;
+}
+
+/** A portrait photo tile: the photo carries the card, text sits underneath. */
 export function RecipeCard({
   recipe,
   action,
+  className,
+  priority,
 }: {
   recipe: RecipeCardData;
-  /** Optional overlay rendered in the top-right corner of the image (e.g. a like button). */
+  /** Optional overlay rendered in the top-right corner of the photo (e.g. a like button). */
   action?: React.ReactNode;
+  className?: string;
+  priority?: boolean;
 }) {
-  const tags = recipe.tags ?? [];
+  const meta = [formatMinutes(recipe.cookingTime), recipe.difficulty].filter(Boolean).join(" · ");
 
   return (
-    <div className="relative group h-full">
-      <Link href={`/recipe/${recipe._id}`} className="block h-full">
-        <Card className="h-full gap-0 py-0 overflow-hidden transition-shadow hover:shadow-lg">
-          <RecipeImage imageUrl={recipe.imageUrl} title={recipe.title} />
-          <div className="flex flex-col gap-1.5 p-4">
-            <h3 className="font-semibold leading-tight line-clamp-1">
-              {recipe.title}
-            </h3>
-            <p className="text-sm text-muted-foreground line-clamp-2">
-              {recipe.description}
-            </p>
-            {(recipe.authorName || recipe.cookingTime) && (
-              <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                {recipe.authorName && (
-                  <span className="truncate">By {recipe.authorName}</span>
-                )}
-                {recipe.cookingTime ? (
-                  <span className="flex items-center gap-1 shrink-0">
-                    <Clock className="h-3 w-3" />
-                    {recipe.cookingTime}m
-                  </span>
-                ) : null}
-              </div>
-            )}
-            {tags.length > 0 && (
-              <div className="flex flex-wrap items-center gap-1 pt-1">
-                {tags.slice(0, 3).map((tag) => (
-                  <Badge
-                    key={tag}
-                    variant="outline"
-                    className="text-xs px-1.5 py-0 font-normal"
-                  >
-                    {tag}
-                  </Badge>
-                ))}
-                {tags.length > 3 && (
-                  <span className="text-xs text-muted-foreground">
-                    +{tags.length - 3}
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
-        </Card>
+    <div className={cn("group relative", className)}>
+      <Link href={`/recipe/${recipe._id}`} className="block">
+        <RecipePhoto
+          src={recipe.imageUrl}
+          alt={recipe.title}
+          priority={priority}
+          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 260px"
+          className="aspect-[4/5] rounded-xl"
+        />
+        <h3 className="mt-3 line-clamp-2 font-display text-lg font-semibold leading-tight tracking-tight decoration-primary decoration-2 underline-offset-4 group-hover:underline">
+          {recipe.title}
+        </h3>
+        {meta && <p className="mt-1 text-sm text-muted-foreground">{meta}</p>}
+        {recipe.authorName && (
+          <p className="mt-0.5 truncate text-sm text-muted-foreground">by {recipe.authorName}</p>
+        )}
       </Link>
       {action && (
-        <div className="absolute top-2 right-2 z-10 rounded-full bg-background/80 backdrop-blur-sm">
+        <div className="absolute right-2 top-2 z-10 rounded-full bg-background/85 backdrop-blur-sm">
           {action}
         </div>
       )}
@@ -82,29 +65,36 @@ export function RecipeCard({
   );
 }
 
-function RecipeImage({
-  imageUrl,
-  title,
+/** Recipe photo with a quiet chef-hat fallback when there's no image or it fails to load. */
+export function RecipePhoto({
+  src,
+  alt,
+  sizes,
+  priority,
+  className,
 }: {
-  imageUrl: string | null;
-  title: string;
+  src: string | null | undefined;
+  alt: string;
+  sizes: string;
+  priority?: boolean;
+  className?: string;
 }) {
-  const [hasError, setHasError] = useState(false);
-
+  const [failed, setFailed] = useState(false);
   return (
-    <div className="aspect-video relative bg-muted">
-      {!imageUrl || hasError ? (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <ChefHat className="h-10 w-10 text-muted-foreground/40" />
+    <div className={cn("relative overflow-hidden bg-muted", className)}>
+      {!src || failed ? (
+        <div className="absolute inset-0 grid place-items-center bg-gradient-to-br from-muted to-accent text-muted-foreground/40">
+          <ChefHat className="size-10" strokeWidth={1.5} />
         </div>
       ) : (
         <Image
-          src={imageUrl}
-          alt={title}
+          src={src}
+          alt={alt}
           fill
+          sizes={sizes}
+          priority={priority}
           className="object-cover"
-          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-          onError={() => setHasError(true)}
+          onError={() => setFailed(true)}
         />
       )}
     </div>

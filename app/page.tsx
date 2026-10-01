@@ -1,28 +1,34 @@
 "use client";
 
-import { Suspense, useState, useEffect, useCallback } from "react";
+import { Suspense, useState, useEffect, useCallback, useMemo } from "react";
 import {
   Authenticated,
   Unauthenticated,
+  useConvexAuth,
+  useMutation,
   usePaginatedQuery,
+  useQuery,
 } from "convex/react";
 import { api } from "../convex/_generated/api";
+import type { FunctionReturnType } from "convex/server";
+import { useUser } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import Link from "next/link";
-import { RecipeCard } from "@/components/RecipeCard";
+import { RecipeCard, RecipePhoto, formatMinutes } from "@/components/RecipeCard";
 import { RecipeCardSkeleton } from "@/components/RecipeCardSkeleton";
 import {
+  ArrowRight,
+  Loader2,
+  Play,
   Plus,
   Search,
   SearchX,
-  UtensilsCrossed,
-  Loader2,
   SlidersHorizontal,
+  UtensilsCrossed,
   X,
 } from "lucide-react";
-import { useMutation } from "convex/react";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { LikeButton } from "@/components/ui/like-button";
 import { InstallDialog } from "@/components/install-dialog";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
@@ -34,8 +40,12 @@ import {
   SheetFooter,
   SheetHeader,
   SheetTitle,
-  SheetTrigger,
 } from "@/components/ui/sheet";
+
+const PAGE_SIZE = 24;
+const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+type Recipe = FunctionReturnType<typeof api.recipes.list>["page"][number];
 
 function HomeContent() {
   const searchParams = useSearchParams();
@@ -59,17 +69,19 @@ function HomeContent() {
   const [myRecipesOnly, setMyRecipesOnly] = useState(
     searchParams.get("myRecipes") === "true"
   );
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
-  const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
-
-  // Debounce search for API calls
-  const debouncedSearch = useDebounce(search, 500);
+  const debouncedSearch = useDebounce(search, 400);
+  // A comma means "these are ingredients I have": search the pantry instead.
+  const pantryTerms = debouncedSearch.includes(",")
+    ? debouncedSearch.split(",").map((s) => s.trim()).filter(Boolean)
+    : null;
 
   // Sync state to URL
   const updateUrl = useCallback(() => {
     const currentQueryString = searchParams.toString();
     const params = new URLSearchParams(currentQueryString);
-    
+
     if (debouncedSearch) params.set("q", debouncedSearch);
     else params.delete("q");
 
@@ -104,7 +116,6 @@ function HomeContent() {
     searchParams,
   ]);
 
-  // Update URL whenever debounced state changes
   useEffect(() => {
     updateUrl();
   }, [updateUrl]);
@@ -147,30 +158,34 @@ function HomeContent() {
 
   const { results, status, loadMore, isLoading } = usePaginatedQuery(
     api.recipes.list,
-    {
-      search: debouncedSearch === "" ? undefined : debouncedSearch,
-      difficulty: difficulty === "all" ? undefined : difficulty,
-      maxTime: maxTime === MAX_TIME_ANY ? undefined : maxTime,
-      favoritesOnly: favoritesOnly ? true : undefined,
-      myRecipesOnly: myRecipesOnly ? true : undefined,
-    },
-    { initialNumItems: 9 }
+    pantryTerms
+      ? "skip"
+      : {
+          search: debouncedSearch === "" ? undefined : debouncedSearch,
+          difficulty: difficulty === "all" ? undefined : difficulty,
+          maxTime: maxTime === MAX_TIME_ANY ? undefined : maxTime,
+          favoritesOnly: favoritesOnly ? true : undefined,
+          myRecipesOnly: myRecipesOnly ? true : undefined,
+        },
+    { initialNumItems: PAGE_SIZE }
   );
 
-  const recipes = results;
-  const toggleFavorite = useMutation(api.recipes.toggleFavorite);
+  // Tags come from the loaded recipes; tag filtering is client-side (AND).
+  const allTags = useMemo(
+    () => Array.from(new Set(results.flatMap((r) => r.tags || []))).sort(),
+    [results]
+  );
+  const filteredRecipes = results.filter((recipe) =>
+    selectedTags.every((tag) => recipe.tags?.includes(tag))
+  );
 
-  // Extract unique tags from recipes for the filter list (from all loaded recipes)
-  const allTags = Array.from(
-    new Set(recipes?.flatMap((r) => r.tags || []) || [])
-  ).sort();
-
-  // Client-side filtering for tags (AND logic)
-  const filteredRecipes = recipes?.filter((recipe) => {
-    if (selectedTags.length === 0) return true;
-    // Recipe must include ALL selected tags
-    return selectedTags.every((tag) => recipe.tags?.includes(tag));
-  });
+  const activeFilterCount =
+    selectedTags.length +
+    (difficulty !== "all" ? 1 : 0) +
+    (maxTime !== MAX_TIME_ANY ? 1 : 0) +
+    (favoritesOnly ? 1 : 0) +
+    (myRecipesOnly ? 1 : 0);
+  const browsing = activeFilterCount > 0 || debouncedSearch !== "";
 
   const filterProps = {
     difficulty,
@@ -186,192 +201,147 @@ function HomeContent() {
     allTags,
   };
 
-  const activeFilterCount =
-    selectedTags.length +
-    (difficulty !== "all" ? 1 : 0) +
-    (maxTime !== MAX_TIME_ANY ? 1 : 0) +
-    (favoritesOnly ? 1 : 0) +
-    (myRecipesOnly ? 1 : 0);
-  const hasActiveFilters = activeFilterCount > 0 || debouncedSearch !== "";
+  const openShelf = (shelf: Shelf) => {
+    window.scrollTo({ top: 0 });
+    if (shelf.id === "quick") setMaxTime(30);
+    else if (shelf.id === "mine") setMyRecipesOnly(true);
+    else if (shelf.id === "favorites") setFavoritesOnly(true);
+    else setSelectedTags([shelf.title]);
+  };
 
   return (
-    <div className="container mx-auto p-4">
+    <div className="container mx-auto px-4 pb-16 pt-6 md:pt-10">
       <Unauthenticated>
         <SignUpBanner />
       </Unauthenticated>
 
-      <div className="flex flex-col md:flex-row gap-8 mt-2">
-        {/* Desktop Sidebar */}
-        <aside className="hidden md:block w-60 shrink-0 sticky top-24 self-start max-h-[calc(100vh-7rem)] overflow-y-auto pr-2">
-          <RecipeFilters {...filterProps} />
-        </aside>
-
-        {/* Main Content Area */}
-        <div className="flex-1 min-w-0">
-          <div className="flex gap-2 mb-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search recipes or authors..."
-                className="pl-9 pr-9"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-              {search && (
-                <button
-                  onClick={() => setSearch("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  aria-label="Clear search"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-
-            {/* Mobile Filters */}
-            <Sheet open={isMobileFiltersOpen} onOpenChange={setIsMobileFiltersOpen}>
-              <SheetTrigger asChild>
-                <Button variant="outline" className="md:hidden gap-2">
-                  <SlidersHorizontal className="h-4 w-4" />
-                  Filters
-                  {activeFilterCount > 0 && (
-                    <Badge className="rounded-full px-1.5 min-w-5 h-5">
-                      {activeFilterCount}
-                    </Badge>
-                  )}
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="left" className="w-full sm:max-w-md overflow-y-auto">
-                <SheetHeader>
-                  <SheetTitle>Filters</SheetTitle>
-                </SheetHeader>
-                <div className="px-4">
-                  <RecipeFilters {...filterProps} />
-                </div>
-                <SheetFooter className="flex-row">
-                  {activeFilterCount > 0 && (
-                    <Button variant="outline" className="flex-1" onClick={clearFilters}>
-                      Reset
-                    </Button>
-                  )}
-                  <Button className="flex-1" onClick={() => setIsMobileFiltersOpen(false)}>
-                    Done
-                  </Button>
-                </SheetFooter>
-              </SheetContent>
-            </Sheet>
-          </div>
-
-          {/* Active Filter Chips */}
-          {activeFilterCount > 0 && (
-            <div className="flex flex-wrap items-center gap-2 mb-4">
-              {difficulty !== "all" && (
-                <FilterChip label={difficulty} onRemove={() => setDifficulty("all")} />
-              )}
-              {maxTime !== MAX_TIME_ANY && (
-                <FilterChip label={`≤ ${maxTime} min`} onRemove={() => setMaxTime(MAX_TIME_ANY)} />
-              )}
-              {favoritesOnly && (
-                <FilterChip label="Favorites" onRemove={() => setFavoritesOnly(false)} />
-              )}
-              {myRecipesOnly && (
-                <FilterChip label="My recipes" onRemove={() => setMyRecipesOnly(false)} />
-              )}
-              {selectedTags.map((tag) => (
-                <FilterChip
-                  key={tag}
-                  label={tag}
-                  onRemove={() => setSelectedTags(selectedTags.filter((t) => t !== tag))}
-                />
-              ))}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={clearFilters}
-                className="h-6 px-2 text-xs text-muted-foreground"
+      <div className="max-w-3xl">
+        <h1 className="font-display text-4xl font-bold tracking-tight md:text-5xl">
+          What are we cooking?
+        </h1>
+        <div className="mt-6 flex gap-2">
+          <div className="relative flex-1">
+            <Search className="pointer-events-none absolute left-5 top-1/2 size-5 -translate-y-1/2 text-muted-foreground" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search, or list ingredients"
+              aria-label="Search recipes, or list ingredients you have"
+              aria-describedby="home-search-help"
+              className="h-14 w-full rounded-full border bg-card pl-13 pr-12 text-base shadow-sm outline-none transition-shadow placeholder:text-muted-foreground focus-visible:ring-[3px] focus-visible:ring-ring/40"
+            />
+            {search && (
+              <button
+                onClick={() => setSearch("")}
+                aria-label="Clear search"
+                className="absolute right-4 top-1/2 grid size-8 -translate-y-1/2 place-items-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
               >
-                Clear all
-              </Button>
-            </div>
-          )}
-
-          {/* Recipe Listings */}
-          {status === "LoadingFirstPage" ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[...Array(6)].map((_, i) => (
-                <RecipeCardSkeleton key={i} />
-              ))}
-            </div>
-          ) : filteredRecipes?.length === 0 ? (
-            <div className="text-center py-16">
-              {hasActiveFilters ? (
-                <div className="flex flex-col items-center gap-4">
-                  <SearchX className="h-12 w-12 text-muted-foreground" />
-                  <p className="text-lg text-muted-foreground">
-                    No recipes match your search.
-                  </p>
-                  <Button variant="outline" onClick={clearFilters}>
-                    Clear filters
-                  </Button>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center gap-4">
-                  <UtensilsCrossed className="h-12 w-12 text-muted-foreground" />
-                  <Authenticated>
-                    <p className="text-lg text-muted-foreground">
-                      No recipes yet. Be the first to share one!
-                    </p>
-                    <Link href="/create">
-                      <Button>
-                        <Plus className="mr-2 h-4 w-4" />
-                        Create a recipe
-                      </Button>
-                    </Link>
-                  </Authenticated>
-                  <Unauthenticated>
-                    <p className="text-lg text-muted-foreground">
-                      No public recipes found yet.
-                    </p>
-                  </Unauthenticated>
-                </div>
-              )}
-            </div>
-          ) : (
-            <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-                {filteredRecipes?.map((recipe) => (
-                  <RecipeCard
-                    key={recipe._id}
-                    recipe={recipe}
-                    action={
-                      <Authenticated>
-                        <LikeButton
-                          isFavorite={recipe.isFavorite || false}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            toggleFavorite({ id: recipe._id });
-                          }}
-                        />
-                      </Authenticated>
-                    }
-                  />
-                ))}
-              </div>
-
-              {status === "CanLoadMore" && (
-                <div className="flex justify-center py-8">
-                  <Button variant="outline" onClick={() => loadMore(9)} disabled={isLoading}>
-                    {isLoading && (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    )}
-                    Load more
-                  </Button>
-                </div>
-              )}
-            </>
-          )}
+                <X className="size-4" />
+              </button>
+            )}
+          </div>
+          <Button
+            variant="outline"
+            className="relative h-14 gap-2 px-5 max-sm:w-14 max-sm:px-0"
+            onClick={() => setFiltersOpen(true)}
+            aria-label={activeFilterCount ? `Filters, ${activeFilterCount} active` : "Filters"}
+          >
+            <SlidersHorizontal className="size-5" />
+            <span className="hidden sm:inline">Filters</span>
+            {activeFilterCount > 0 && (
+              <Badge className="h-5 min-w-5 rounded-full px-1.5 max-sm:absolute max-sm:-right-1 max-sm:-top-1">
+                {activeFilterCount}
+              </Badge>
+            )}
+          </Button>
         </div>
+        <p id="home-search-help" className="mt-2.5 pl-5 text-sm text-muted-foreground">
+          Separate ingredients with commas to see what you can make: <em>eggs, feta, tomatoes</em>
+        </p>
       </div>
+
+      {activeFilterCount > 0 && (
+        <div className="mt-5 flex flex-wrap items-center gap-2">
+          {difficulty !== "all" && (
+            <FilterChip label={difficulty} onRemove={() => setDifficulty("all")} />
+          )}
+          {maxTime !== MAX_TIME_ANY && (
+            <FilterChip label={`≤ ${maxTime} min`} onRemove={() => setMaxTime(MAX_TIME_ANY)} />
+          )}
+          {favoritesOnly && (
+            <FilterChip label="Favorites" onRemove={() => setFavoritesOnly(false)} />
+          )}
+          {myRecipesOnly && (
+            <FilterChip label="My recipes" onRemove={() => setMyRecipesOnly(false)} />
+          )}
+          {selectedTags.map((tag) => (
+            <FilterChip
+              key={tag}
+              label={tag}
+              onRemove={() => setSelectedTags(selectedTags.filter((t) => t !== tag))}
+            />
+          ))}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={clearFilters}
+            className="h-7 px-2.5 text-muted-foreground"
+          >
+            Clear all
+          </Button>
+        </div>
+      )}
+
+      <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
+        <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-sm">
+          <SheetHeader>
+            <SheetTitle className="font-display text-xl">Filters</SheetTitle>
+          </SheetHeader>
+          <div className="px-4">
+            <RecipeFilters {...filterProps} />
+          </div>
+          <SheetFooter className="flex-row">
+            {activeFilterCount > 0 && (
+              <Button variant="outline" className="flex-1" onClick={clearFilters}>
+                Reset
+              </Button>
+            )}
+            <Button className="flex-1" onClick={() => setFiltersOpen(false)}>
+              Done
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+
+      {pantryTerms ? (
+        <PantryResults terms={pantryTerms} />
+      ) : status === "LoadingFirstPage" ? (
+        browsing ? <ResultsSkeleton /> : <DiscoverSkeleton />
+      ) : filteredRecipes.length === 0 ? (
+        <EmptyState filtered={browsing} onClear={clearFilters} />
+      ) : browsing ? (
+        <section className="mt-8">
+          <p className="text-sm text-muted-foreground">
+            {filteredRecipes.length}
+            {status === "CanLoadMore" ? "+" : ""}{" "}
+            {filteredRecipes.length === 1 ? "recipe" : "recipes"}
+            {debouncedSearch && <> for &ldquo;{debouncedSearch}&rdquo;</>}
+          </p>
+          <RecipeGrid recipes={filteredRecipes} />
+        </section>
+      ) : (
+        <Discover recipes={filteredRecipes} onOpenShelf={openShelf} />
+      )}
+
+      {!pantryTerms && status === "CanLoadMore" && filteredRecipes.length > 0 && (
+        <div className="flex justify-center pt-10">
+          <Button variant="outline" size="lg" onClick={() => loadMore(PAGE_SIZE)} disabled={isLoading}>
+            {isLoading && <Loader2 className="animate-spin" />}
+            Load more
+          </Button>
+        </div>
+      )}
+
       <InstallDialog
         open={showInstallDialog}
         onOpenChange={setShowInstallDialog}
@@ -384,6 +354,287 @@ function HomeContent() {
   );
 }
 
+type Shelf = { id: string; title: string; recipes: Recipe[] };
+
+/** The unfiltered home: a feature, then shelves, then everything. */
+function Discover({
+  recipes,
+  onOpenShelf,
+}: {
+  recipes: Recipe[];
+  onOpenShelf: (shelf: Shelf) => void;
+}) {
+  const { isAuthenticated } = useConvexAuth();
+  const { user } = useUser();
+
+  const shelves = useMemo<Shelf[]>(() => {
+    const tagCounts = new Map<string, number>();
+    for (const r of recipes) for (const t of r.tags ?? []) tagCounts.set(t, (tagCounts.get(t) ?? 0) + 1);
+    const topTags = [...tagCounts.entries()]
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .slice(0, 2)
+      .map(([t]) => t);
+    const list: Shelf[] = [
+      { id: "quick", title: "Quick weeknights", recipes: recipes.filter((r) => r.cookingTime && r.cookingTime <= 30) },
+      ...(isAuthenticated
+        ? [
+            { id: "mine", title: "Your recipes", recipes: recipes.filter((r) => r.userId === user?.id) },
+            { id: "favorites", title: "Favorites", recipes: recipes.filter((r) => r.isFavorite) },
+          ]
+        : []),
+      ...topTags.map((t) => ({ id: `tag:${t}`, title: t, recipes: recipes.filter((r) => r.tags?.includes(t)) })),
+    ];
+    // A shelf is only worth showing with a few recipes on it.
+    return list.filter((s) => s.recipes.length >= 3);
+  }, [recipes, isAuthenticated, user?.id]);
+
+  return (
+    <>
+      <Feature recipes={recipes} />
+      <div className="mt-14 flex flex-col gap-14">
+        {shelves.map((shelf) => (
+          <ShelfRow key={shelf.id} shelf={shelf} onSeeAll={() => onOpenShelf(shelf)} />
+        ))}
+        <section>
+          <h2 className="font-display text-2xl font-bold tracking-tight">All recipes</h2>
+          <RecipeGrid recipes={recipes} />
+        </section>
+      </div>
+    </>
+  );
+}
+
+/** Tonight's planned dinner if there is one, otherwise the newest recipe with a photo. */
+function Feature({ recipes }: { recipes: Recipe[] }) {
+  const { isAuthenticated } = useConvexAuth();
+  const week = useQuery(api.mealPlans.getWeek, isAuthenticated ? {} : "skip");
+  const today = DAYS[(new Date().getDay() + 6) % 7];
+  const tonight = week?.find((m) => m.date === today && m.mealType.toLowerCase() === "dinner");
+  const planned = tonight && recipes.find((r) => r._id === tonight.recipeId);
+  const recipe = planned ?? recipes.find((r) => r.imageUrl) ?? recipes[0];
+  if (!recipe) return null;
+
+  return (
+    <section className="mt-12 grid overflow-hidden rounded-2xl border bg-card md:grid-cols-[1.4fr_1fr]">
+      <Link href={`/recipe/${recipe._id}`} tabIndex={-1} aria-hidden>
+        <RecipePhoto
+          src={recipe.imageUrl}
+          alt=""
+          priority
+          sizes="(max-width: 768px) 100vw, 60vw"
+          className="aspect-[16/10] h-full md:aspect-auto md:min-h-[22rem]"
+        />
+      </Link>
+      <div className="flex flex-col justify-center gap-4 p-6 md:p-10">
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
+          {planned ? "On the plan tonight" : "Newest recipe"}
+        </p>
+        <h2 className="font-display text-3xl font-bold leading-[1.05] tracking-tight md:text-4xl">
+          <Link href={`/recipe/${recipe._id}`} className="hover:underline decoration-primary decoration-2 underline-offset-4">
+            {recipe.title}
+          </Link>
+        </h2>
+        {recipe.description && (
+          <p className="line-clamp-3 max-w-[50ch] text-muted-foreground">{recipe.description}</p>
+        )}
+        <p className="text-sm text-muted-foreground">
+          {[formatMinutes(recipe.cookingTime), recipe.difficulty, recipe.authorName && `by ${recipe.authorName}`]
+            .filter(Boolean)
+            .join(" · ")}
+        </p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          <Authenticated>
+            <Button asChild size="lg">
+              <Link href={`/recipe/${recipe._id}/cook`}>
+                <Play />
+                Start cooking
+              </Link>
+            </Button>
+          </Authenticated>
+          <Authenticated>
+            <Button asChild size="lg" variant="ghost">
+              <Link href={`/recipe/${recipe._id}`}>View recipe</Link>
+            </Button>
+          </Authenticated>
+          <Unauthenticated>
+            <Button asChild size="lg">
+              <Link href={`/recipe/${recipe._id}`}>View recipe</Link>
+            </Button>
+          </Unauthenticated>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ShelfRow({ shelf, onSeeAll }: { shelf: Shelf; onSeeAll: () => void }) {
+  return (
+    <section>
+      <div className="flex items-baseline justify-between gap-4">
+        <h2 className="font-display text-2xl font-bold tracking-tight">{shelf.title}</h2>
+        <button
+          onClick={onSeeAll}
+          className="group flex shrink-0 items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground"
+        >
+          See all
+          <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+        </button>
+      </div>
+      <div className="shelf -mx-4 mt-5 flex snap-x snap-mandatory scroll-px-4 gap-4 overflow-x-auto px-4 pb-2">
+        {shelf.recipes.slice(0, 12).map((r) => (
+          <RecipeTile key={r._id} recipe={r} className="w-44 shrink-0 snap-start sm:w-56" />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function RecipeGrid({ recipes }: { recipes: Recipe[] }) {
+  return (
+    <div className="mt-6 grid grid-cols-2 gap-x-4 gap-y-8 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+      {recipes.map((r) => (
+        <RecipeTile key={r._id} recipe={r} />
+      ))}
+    </div>
+  );
+}
+
+function RecipeTile({ recipe, className }: { recipe: Recipe; className?: string }) {
+  const toggleFavorite = useMutation(api.recipes.toggleFavorite);
+  return (
+    <RecipeCard
+      recipe={recipe}
+      className={className}
+      action={
+        <Authenticated>
+          <LikeButton
+            isFavorite={recipe.isFavorite || false}
+            onClick={(e) => {
+              e.preventDefault();
+              toggleFavorite({ id: recipe._id });
+            }}
+          />
+        </Authenticated>
+      }
+    />
+  );
+}
+
+function PantryResults({ terms }: { terms: string[] }) {
+  const { isAuthenticated } = useConvexAuth();
+  const results = useQuery(api.recipes.searchByIngredients, isAuthenticated ? { ingredients: terms } : "skip");
+
+  if (!isAuthenticated) {
+    return (
+      <p className="mt-10 text-muted-foreground">
+        <Link href="/sign-in" className="font-medium text-foreground underline underline-offset-4">
+          Sign in
+        </Link>{" "}
+        to search by the ingredients you have.
+      </p>
+    );
+  }
+  if (results === undefined) return <ResultsSkeleton />;
+
+  return (
+    <section className="mt-10">
+      <p className="text-sm text-muted-foreground">
+        {results.length === 0
+          ? "No recipes use those ingredients yet."
+          : `${results.length} ${results.length === 1 ? "recipe uses" : "recipes use"} what you have, best matches first`}
+      </p>
+      <div className="mt-6 grid gap-4 md:grid-cols-2">
+        {results.map((r) => (
+          <Link
+            key={r._id}
+            href={`/recipe/${r._id}`}
+            className="grid grid-cols-[6.5rem_1fr] gap-4 rounded-xl border bg-card p-3 transition-colors hover:border-foreground/20"
+          >
+            <RecipePhoto src={r.imageUrl} alt="" sizes="104px" className="aspect-square rounded-lg" />
+            <div className="min-w-0 py-1">
+              <h3 className="font-display text-lg font-semibold leading-tight tracking-tight">{r.title}</h3>
+              <p className="mt-1 text-sm font-medium text-primary">
+                You have {r.matchCount} of {r.ingredients.length}
+              </p>
+              {r.missingIngredients.length > 0 && (
+                <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
+                  Missing: {r.missingIngredients.slice(0, 4).join(", ")}
+                  {r.missingIngredients.length > 4 && `, +${r.missingIngredients.length - 4} more`}
+                </p>
+              )}
+            </div>
+          </Link>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function EmptyState({ filtered, onClear }: { filtered: boolean; onClear: () => void }) {
+  return (
+    <div className="mt-12 flex flex-col items-center gap-4 rounded-2xl border border-dashed px-6 py-16 text-center">
+      {filtered ? (
+        <>
+          <SearchX className="size-10 text-muted-foreground" strokeWidth={1.5} />
+          <p className="font-display text-xl font-semibold">Nothing matches</p>
+          <p className="max-w-sm text-muted-foreground">
+            Try another word, or clear the filters. Listing ingredients? Separate them with commas.
+          </p>
+          <Button variant="outline" onClick={onClear}>
+            Clear filters
+          </Button>
+        </>
+      ) : (
+        <>
+          <UtensilsCrossed className="size-10 text-muted-foreground" strokeWidth={1.5} />
+          <Authenticated>
+            <p className="font-display text-xl font-semibold">Your cookbook is empty</p>
+            <p className="max-w-sm text-muted-foreground">Write a recipe, or import one from a link or photo.</p>
+            <div className="flex flex-wrap justify-center gap-2">
+              <Button asChild>
+                <Link href="/create">
+                  <Plus />
+                  Write a recipe
+                </Link>
+              </Button>
+              <Button asChild variant="outline">
+                <Link href="/import">Import one</Link>
+              </Button>
+            </div>
+          </Authenticated>
+          <Unauthenticated>
+            <p className="font-display text-xl font-semibold">No public recipes yet</p>
+          </Unauthenticated>
+        </>
+      )}
+    </div>
+  );
+}
+
+function DiscoverSkeleton() {
+  return (
+    <div className="mt-12">
+      <Skeleton className="h-80 rounded-2xl" />
+      <Skeleton className="mt-14 h-7 w-48" />
+      <div className="mt-5 flex gap-4 overflow-hidden">
+        {Array.from({ length: 5 }, (_, i) => (
+          <RecipeCardSkeleton key={i} className="w-44 shrink-0 sm:w-56" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ResultsSkeleton() {
+  return (
+    <div className="mt-14 grid grid-cols-2 gap-x-4 gap-y-8 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+      {Array.from({ length: 8 }, (_, i) => (
+        <RecipeCardSkeleton key={i} />
+      ))}
+    </div>
+  );
+}
+
 export default function Home() {
   return (
     <main className="min-h-screen bg-background">
@@ -391,12 +642,10 @@ export default function Home() {
       <meta name="description" content="Your personal digital cookbook" />
       <Suspense
         fallback={
-          <div className="container mx-auto p-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:ml-68">
-              {[...Array(6)].map((_, i) => (
-                <RecipeCardSkeleton key={i} />
-              ))}
-            </div>
+          <div className="container mx-auto px-4 pt-10">
+            <Skeleton className="h-12 w-80 max-w-full" />
+            <Skeleton className="mt-6 h-14 max-w-3xl rounded-full" />
+            <DiscoverSkeleton />
           </div>
         }
       >
@@ -408,14 +657,14 @@ export default function Home() {
 
 function FilterChip({ label, onRemove }: { label: string; onRemove: () => void }) {
   return (
-    <Badge variant="secondary" className="gap-1 pl-2 pr-1 py-0.5 font-normal">
+    <Badge variant="secondary" className="h-7 gap-1 rounded-full pl-3 pr-1 text-sm font-normal">
       {label}
       <button
         onClick={onRemove}
-        className="rounded-full p-0.5 hover:bg-foreground/10"
+        className="rounded-full p-1 hover:bg-foreground/10"
         aria-label={`Remove ${label} filter`}
       >
-        <X className="h-3 w-3" />
+        <X className="size-3" />
       </button>
     </Badge>
   );
@@ -438,16 +687,16 @@ function SignUpBanner() {
   if (dismissed) return null;
 
   return (
-    <div className="mb-4 flex items-center gap-3 rounded-lg bg-primary/10 px-4 py-2.5 text-sm">
+    <div className="mb-6 flex items-center gap-3 rounded-2xl bg-primary/10 px-4 py-2.5 text-sm">
       <p className="flex-1">
         <span className="font-medium">Browsing for free.</span>{" "}
         <span className="text-muted-foreground">
           Sign up to save favorites and share your own recipes.
         </span>
       </p>
-      <Link href="/sign-up">
-        <Button size="sm">Sign up</Button>
-      </Link>
+      <Button asChild size="sm">
+        <Link href="/sign-up">Sign up</Link>
+      </Button>
       <button
         onClick={() => {
           localStorage.setItem(BANNER_DISMISSED_KEY, "true");

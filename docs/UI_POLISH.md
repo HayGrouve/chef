@@ -131,12 +131,31 @@ These three were chosen from the product-exploration prototypes (draft PR #5). T
 |--------|--------|-------|
 | The right side of the navbar had controls of four sizes (36/32/32/28px), and the ⌘K pill showed only an icon plus keys. Now every control is 36px. The palette trigger looks like a search field ("Search recipes…" plus the shortcut) and sits next to the logo, because it didn't fit beside the centered nav. The header is a 3-column grid, so the centered nav can't overlap either side. The theme toggle is a quiet ghost icon placed next to the avatar. Between `md` and `lg`, "Add Recipe" is icon-only and nav links don't wrap. The auth-loading "Loading..." text is now an avatar skeleton. `Link`-wrapped buttons now use `asChild`, which removes the invalid `<a><button>` nesting. | ✅ | `components/navbar.tsx`, `components/command-palette/CommandPaletteTrigger.tsx`, `components/ui/mode-toggle.tsx` |
 
+## Round 9 — 2026-10-01 (Cookbook redesign)
+
+Three design directions were prototyped (Workspace, Cookbook, Spaces; draft PR #14). The user chose **Cookbook**, now applied to the whole app. The prototype code was not merged.
+
+| Change | Status | Files |
+|--------|--------|-------|
+| **Look.** Monochrome with one tomato red (`oklch(0.56 0.2 30)`, AA with white text; brighter in dark mode). Bricolage Grotesque headings (`font-display` utility), Geist body text. Shape rule: buttons are pills, containers 12px (`--radius: 0.75rem`), inputs slightly less. Red/orange/yellow one-offs (like buttons, Magic Fill icon, planner favorites, share image) now use the accent. | ✅ | `app/globals.css`, `app/layout.tsx`, `components/ui/button.tsx`, `components/ui/like-button.tsx`, `app/recipe/[id]/opengraph-image.tsx` |
+| **Geist was never applied.** The font variables were on `<body>` but Tailwind reads `--font-sans` on `<html>`, so the app rendered in the system font. They now sit on `<html>`. | ✅ | `app/layout.tsx` |
+| **Three sections: Cook, Plan, Shop.** Header: `chef.` wordmark, a segmented Cook/Plan/Shop control (Shop shows the list count), search (opens ⌘K), "Add recipe" menu (write it / import), theme, avatar. Phones: a 3-tab bar; Add is the + in the header. | ✅ | `components/navbar.tsx`, `components/mobile-nav.tsx` |
+| **Pantry folded into the Cook search.** Typing ingredients separated by commas ("eggs, feta") runs the pantry match (you have X of Y, what's missing). `/pantry` redirects to `/`; the ⌘K "What can I make?" entry goes there too. | ✅ | `app/page.tsx`, `app/pantry/page.tsx`, `components/command-palette/CommandPalette.tsx` |
+| **Cook home.** "What are we cooking?" search, a feature card (tonight's planned dinner, else the newest recipe with a photo), shelves (Quick weeknights, Your recipes, Favorites, top two tags; only shown with 3+ recipes), then All recipes with Load more. "See all" on a shelf applies that filter. Every existing filter is kept (difficulty, max time, favorites, my recipes, tags) in a Filters sheet with active chips and Clear all, and still synced to the URL. Sign-up banner and install prompt are unchanged. | ✅ | `app/page.tsx` |
+| **Recipe cards** are portrait photo tiles with the title underneath, plus the like button. Used on home and public profiles. | ✅ | `components/RecipeCard.tsx`, `components/RecipeCardSkeleton.tsx`, `app/profile/[userId]/page.tsx` |
+| **Recipe page**, magazine style: big title, description (still clamped to 3 lines), author, actions (Start cooking, Add to list with Undo, favorite, share, ⋯ edit/delete with confirmation), wide photo, a facts row (time, difficulty, kcal per serving, steps), sticky ingredients with **½×–3× scaling** (Add to list uses the scaled amounts), numbered method, and tags that link to a filtered Cook. | ✅ | `app/recipe/[id]/RecipeDetailClient.tsx` |
+| Plan, Shop, Create, Import, Profile and About use the display headings and the same top spacing. Clerk sign-in and the account menu drop their hard-coded orange theme and follow the app tokens (so they work in dark mode too). | ✅ | `app/meal-planner/page.tsx`, `app/shopping-list/page.tsx`, `app/create/page.tsx`, `components/import/SmartImport.tsx`, `app/about/page.tsx`, `app/ConvexClientProvider.tsx` |
+| Removed the unused palette triggers (the header has a search button now). | ✅ | ~~`components/command-palette/CommandPaletteTrigger.tsx`~~ |
+| Test data: `scripts/attach-demo-photos.sh` uploads real dish photos (Wikimedia Commons) to the seeded test recipes on dev, via test-user-only helpers in `convex/devSeed.ts`. | ✅ | `scripts/attach-demo-photos.sh`, `convex/devSeed.ts` |
+
 ## Backlog
 
 All items from the original audit are done. Ideas for a future round:
 
 - After editing a recipe, return to that recipe's page instead of home.
 - Meal planner: show which week/dates the day names refer to (the data model stores day names only).
+- Meal types are stored with mixed casing (`Breakfast` from the planner, `breakfast` from the seed); compare case-insensitively or normalize.
+- Shelves are built from the first page of recipes (24). With a large library, "Your recipes" or "Favorites" may look short until "See all" (which queries the server).
 
 ## Notes
 

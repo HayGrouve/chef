@@ -214,12 +214,12 @@ export default function ShoppingListPage() {
   const hasChecked = items.some((i) => i.isChecked);
 
   return (
-    <div className="container mx-auto p-4 max-w-2xl">
+    <div className="container mx-auto max-w-2xl px-4 pb-16 pt-6 md:pt-10">
       <title>CHEF | Shopping List</title>
       <meta name="description" content="Your shopping list for the week" />
 
       <div className="flex items-center justify-between gap-2 mb-4">
-        <h1 className="text-2xl font-bold">Shopping List</h1>
+        <h1 className="font-display text-3xl font-bold tracking-tight md:text-4xl">Shopping List</h1>
         {items.length > 0 && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
