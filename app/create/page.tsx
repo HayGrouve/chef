@@ -913,12 +913,12 @@ function CreateRecipeContent() {
   const [basics, photo, ingredients, steps, extras] = sections;
 
   return (
-    <div className="container mx-auto p-4 max-w-5xl">
+    <div className="container mx-auto max-w-5xl px-4 pb-4 pt-6 md:pt-10">
       <title>{editId ? "CHEF | Edit Recipe" : "CHEF | Create Recipe"}</title>
       <meta name="description" content="Create a new recipe with CHEF" />
 
       <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-2xl font-bold">
+        <h1 className="font-display text-3xl font-bold tracking-tight md:text-4xl">
           {editId ? "Edit recipe" : "New recipe"}
         </h1>
         {!editId && (

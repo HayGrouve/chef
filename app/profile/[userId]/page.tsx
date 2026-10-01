@@ -38,7 +38,7 @@ export default function PublicProfilePage() {
     <div className="container mx-auto p-4">
       <div className="mb-6 flex justify-between items-center">
         <Button variant="ghost" className="pl-0" onClick={() => router.push("/")}>
-          <ArrowLeft className="w-4 h-4 mr-2" /> Back to Home
+          <ArrowLeft className="w-4 h-4 mr-2" /> Back to Cook
         </Button>
         {isOwnProfile && (
             <Link href="/profile/edit">
@@ -57,23 +57,23 @@ export default function PublicProfilePage() {
                 <UserIcon className="w-12 h-12 text-muted-foreground" />
             )}
         </div>
-        <h1 className="text-3xl font-bold">{user.name}</h1>
+        <h1 className="font-display text-4xl font-bold tracking-tight">{user.name}</h1>
         {user.bio && <p className="text-muted-foreground mt-2 max-w-lg">{user.bio}</p>}
       </div>
 
       <div className="space-y-6">
-        <h2 className="text-2xl font-semibold border-b pb-2">Public Recipes</h2>
+        <h2 className="font-display text-2xl font-bold tracking-tight">Public recipes</h2>
         
         {recipes === undefined ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {[...Array(3)].map((_, i) => <RecipeCardSkeleton key={i} />)}
+            <div className="grid grid-cols-2 gap-x-4 gap-y-8 md:grid-cols-3 lg:grid-cols-4">
+                {[...Array(4)].map((_, i) => <RecipeCardSkeleton key={i} />)}
             </div>
         ) : recipes.length === 0 ? (
             <div className="py-12 text-center text-muted-foreground bg-muted/30 rounded-lg">
                 This chef hasn't published any recipes yet.
             </div>
         ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-8 md:grid-cols-3 lg:grid-cols-4">
                 {recipes.map((recipe) => (
                     <RecipeCard key={recipe._id} recipe={recipe} />
                 ))}

@@ -13,7 +13,7 @@ export default function AboutPage() {
             <ChefHat className="h-12 w-12 text-primary" />
           </div>
         </div>
-        <h1 className="text-4xl font-bold mb-4">About CHEF</h1>
+        <h1 className="font-display text-4xl font-bold tracking-tight md:text-5xl mb-4">About CHEF</h1>
         <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
           Your personal digital cookbook designed to make cooking simpler, more
           organized, and more enjoyable.
@@ -23,7 +23,7 @@ export default function AboutPage() {
       {/* Mission Section */}
       <div className="grid md:grid-cols-2 gap-12 items-center mb-20">
         <div>
-          <h2 className="text-3xl font-bold mb-4">Our Mission</h2>
+          <h2 className="font-display text-3xl font-bold tracking-tight mb-4">Our Mission</h2>
           <p className="text-muted-foreground leading-relaxed mb-6">
             We believe that cooking should be a joy, not a chore. In a world of
             endless recipe blogs and cluttered screenshots, CHEF provides a
@@ -47,7 +47,7 @@ export default function AboutPage() {
 
       {/* Features Grid */}
       <div className="mb-20">
-        <h2 className="text-3xl font-bold text-center mb-12">
+        <h2 className="font-display text-3xl font-bold tracking-tight text-center mb-12">
           Why Choose CHEF?
         </h2>
         <div className="grid md:grid-cols-3 gap-8">
@@ -86,7 +86,7 @@ export default function AboutPage() {
 
       {/* CTA Section */}
       <div className="bg-primary text-primary-foreground rounded-2xl p-12 text-center">
-        <h2 className="text-3xl font-bold mb-4">Ready to Start Cooking?</h2>
+        <h2 className="font-display text-3xl font-bold tracking-tight mb-4">Ready to Start Cooking?</h2>
         <p className="text-lg opacity-90 mb-8 max-w-xl mx-auto">
           Join thousands of home cooks organizing their kitchen life with CHEF.
         </p>

@@ -124,7 +124,7 @@ export function MealSelector({
                         </span>
                       )}
                       {recipe.isFavorite && (
-                        <span className="flex items-center gap-1 text-red-500">
+                        <span className="flex items-center gap-1 text-primary">
                           <Heart className="h-3 w-3 fill-current" />
                         </span>
                       )}

@@ -60,10 +60,11 @@ type Overview = FunctionReturnType<typeof api.commandPalette.suggestions>;
 type Meal = NonNullable<Overview>["meals"][number];
 
 const NAV: { href: string; label: string; icon: LucideIcon; keywords: string }[] = [
-  { href: "/", label: "Recipes", icon: ChefHat, keywords: "home feed browse" },
-  { href: "/meal-planner", label: "Meal planner", icon: Calendar, keywords: "plan week planner" },
-  { href: "/shopping-list", label: "Shopping list", icon: ShoppingCart, keywords: "shop groceries buy" },
-  { href: "/pantry", label: "Pantry", icon: Refrigerator, keywords: "fridge have stock" },
+  { href: "/", label: "Cook", icon: ChefHat, keywords: "recipes home feed browse" },
+  { href: "/meal-planner", label: "Plan", icon: Calendar, keywords: "meal planner week" },
+  { href: "/shopping-list", label: "Shop", icon: ShoppingCart, keywords: "shopping list groceries buy" },
+  // Pantry search now lives in the Cook search box (comma-separated ingredients).
+  { href: "/", label: "What can I make?", icon: Refrigerator, keywords: "pantry fridge have ingredients" },
   { href: "/create", label: "New recipe", icon: PlusSquare, keywords: "create write" },
   { href: "/import", label: "Import recipe", icon: Sparkles, keywords: "paste link url photo ai" },
 ];
@@ -359,7 +360,7 @@ function RootPage({
       {navItems.length > 0 && (
         <CommandGroup heading="Go to">
           {navItems.map(({ href, label, icon: Icon }) => (
-            <CommandItem key={href} value={`go:${href}`} onSelect={() => onGo(href)}>
+            <CommandItem key={label} value={`go:${label}`} onSelect={() => onGo(href)}>
               <Icon />
               {label}
             </CommandItem>

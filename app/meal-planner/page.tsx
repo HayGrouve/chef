@@ -405,11 +405,11 @@ export default function MealPlannerPage() {
   };
 
   return (
-    <div className="container mx-auto p-4">
+    <div className="container mx-auto px-4 pb-16 pt-6 md:pt-10">
       <title>CHEF | Meal Planner</title>
       <meta name="description" content="Plan your weekly meals with ease" />
       <div className="flex items-center justify-between gap-2 mb-6">
-        <h1 className="text-2xl font-bold">Meal Planner</h1>
+        <h1 className="font-display text-3xl font-bold tracking-tight md:text-4xl">Meal Planner</h1>
 
         <div className="flex items-center gap-2">
           <Button
@@ -421,7 +421,7 @@ export default function MealPlannerPage() {
             {isGenerating ? (
               <Loader2 className="h-4 w-4 animate-spin sm:mr-2" />
             ) : (
-              <Sparkles className="h-4 w-4 text-yellow-500 sm:mr-2" />
+              <Sparkles className="h-4 w-4 text-primary sm:mr-2" />
             )}
             <span className="hidden sm:inline">
               {isGenerating ? "Generating..." : "Magic Fill"}

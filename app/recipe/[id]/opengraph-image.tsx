@@ -57,14 +57,14 @@ export default async function Image({
               </div>
             )}
             {/* Overlay gradient for text readability if needed, or just a clean cut */}
-            <div tw="absolute inset-0 border-r-4 border-orange-500"></div>
+            <div tw="absolute inset-0 border-r-4 border-[#d02e1e]"></div>
           </div>
 
           {/* Right Side: Content */}
           <div tw="flex flex-col w-1/2 h-full p-8 justify-between bg-zinc-900 text-white">
             <div tw="flex flex-col">
               <div tw="flex items-center mb-4">
-                <span tw="text-orange-500 font-bold text-lg tracking-widest uppercase">
+                <span tw="text-[#d02e1e] font-bold text-lg tracking-widest uppercase">
                   CHEF RECIPE
                 </span>
                 {recipe.difficulty && (
@@ -92,7 +92,7 @@ export default async function Image({
                   {recipe.authorName ? `By ${recipe.authorName}` : "Community Recipe"}
                 </span>
               </div>
-              <div tw="flex items-center px-4 py-2 bg-orange-500 text-white rounded-full text-lg font-bold">
+              <div tw="flex items-center px-4 py-2 bg-[#d02e1e] text-white rounded-full text-lg font-bold">
                 View Recipe
               </div>
             </div>

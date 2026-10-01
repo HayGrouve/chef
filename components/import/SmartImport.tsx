@@ -183,7 +183,7 @@ export function SmartImport({ initialUrl, initialText }: { initialUrl?: string; 
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-2xl font-bold">
+        <h1 className="font-display text-3xl font-bold tracking-tight md:text-4xl">
           {phase.name === "review" ? "Check the recipe" : "Import a recipe"}
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
