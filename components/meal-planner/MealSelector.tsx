@@ -50,9 +50,9 @@ export function MealSelector({
 
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent className="w-[400px] sm:w-[540px] flex flex-col h-full">
+      <SheetContent className="flex h-full w-full flex-col sm:max-w-[540px]">
         <SheetHeader className="px-6 pt-6 pb-0 mb-0">
-          <SheetTitle>Select Meal</SheetTitle>
+          <SheetTitle>Pick a recipe</SheetTitle>
           <SheetDescription>
             {currentDate && currentMealType
               ? `Adding for ${currentMealType} on ${currentDate}`
@@ -62,9 +62,13 @@ export function MealSelector({
 
         <div className="flex flex-col gap-4 px-6">
           <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search recipes..."
+              type="search"
+              name="q"
+              autoComplete="off"
+              aria-label="Search recipes"
+              placeholder="Search recipes…"
               className="pl-8"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -77,14 +81,15 @@ export function MealSelector({
               checked={favoritesOnly}
               onCheckedChange={setFavoritesOnly}
             />
-            <Label htmlFor="favorites-mode">Favorites Only</Label>
+            <Label htmlFor="favorites-mode">Favorites only</Label>
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-6 pb-6">
+        <div className="flex-1 overflow-y-auto overscroll-contain px-6 pb-6">
           {status === "LoadingFirstPage" ? (
             <div className="flex justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              <span className="sr-only">Loading recipes…</span>
             </div>
           ) : results.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
@@ -93,47 +98,50 @@ export function MealSelector({
           ) : (
             <div className="space-y-3 pb-4">
               {results.map((recipe) => (
-                <div
+                <button
+                  type="button"
                   key={recipe._id}
-                  className="flex items-center gap-3 p-2 border rounded-lg hover:bg-accent cursor-pointer transition-colors"
+                  className="flex w-full items-center gap-3 rounded-lg border p-2 text-left transition-colors hover:bg-accent"
                   onClick={() => onSelect(recipe._id)}
                 >
-                  <div className="h-16 w-16 relative rounded-md overflow-hidden shrink-0 bg-muted">
+                  <span className="relative block h-16 w-16 shrink-0 overflow-hidden rounded-md bg-muted">
                     {recipe.imageUrl ? (
                       <Image
                         src={recipe.imageUrl}
-                        alt={recipe.title}
+                        alt=""
                         fill
+                        sizes="64px"
                         className="object-cover"
                       />
                     ) : (
-                      <div className="flex items-center justify-center h-full w-full">
+                      <span className="flex h-full w-full items-center justify-center">
                         <ChefHat className="h-8 w-8 text-muted-foreground/50" />
-                      </div>
+                      </span>
                     )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h4 className="font-medium leading-none mb-1 truncate">
+                  </span>
+                  <span className="block min-w-0 flex-1">
+                    <span className="mb-1 block truncate font-medium leading-none">
                       {recipe.title}
-                    </h4>
-                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                    </span>
+                    <span className="flex items-center gap-3 text-xs text-muted-foreground">
                       {recipe.cookingTime && (
                         <span className="flex items-center gap-1">
                           <Clock className="h-3 w-3" />
-                          {recipe.cookingTime}m
+                          {recipe.cookingTime}&nbsp;min
                         </span>
                       )}
                       {recipe.isFavorite && (
                         <span className="flex items-center gap-1 text-primary">
                           <Heart className="h-3 w-3 fill-current" />
+                          <span className="sr-only">Favorite</span>
                         </span>
                       )}
                       {recipe.authorName && (
                         <span className="truncate">by {recipe.authorName}</span>
                       )}
-                    </div>
-                  </div>
-                </div>
+                    </span>
+                  </span>
+                </button>
               ))}
 
               {status === "CanLoadMore" && (
@@ -146,7 +154,7 @@ export function MealSelector({
                   {isLoading ? (
                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
                   ) : null}
-                  Load More
+                  Load more
                 </Button>
               )}
             </div>

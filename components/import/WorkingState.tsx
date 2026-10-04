@@ -63,8 +63,11 @@ export function WorkingState({
       <div className="flex items-center justify-between gap-3 rounded-xl border bg-card p-4 shadow-xs">
         <div className="flex min-w-0 items-center gap-3">
           <Loader2 className="h-5 w-5 shrink-0 animate-spin text-primary" />
-          <p key={status} role="status" className="truncate text-sm font-medium animate-in fade-in">
-            {status}
+          {/* One live region for the whole run; only its text changes, so each message is read. */}
+          <p role="status" className="truncate text-sm font-medium">
+            <span key={status} className="motion-safe:animate-in fade-in">
+              {status}
+            </span>
           </p>
         </div>
         <Button variant="ghost" size="sm" onClick={onCancel}>

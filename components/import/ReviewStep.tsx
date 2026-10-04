@@ -130,7 +130,9 @@ export function ReviewStep({ editor, onChange, onStartOver, onSaved }: Props) {
           : null;
     if (firstError) {
       setShowErrors(true);
-      document.getElementById(firstError)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      const section = document.getElementById(firstError);
+      section?.scrollIntoView({ behavior: "smooth", block: "start" });
+      section?.querySelector<HTMLElement>("input, textarea")?.focus({ preventScroll: true });
       return;
     }
 
@@ -187,11 +189,14 @@ export function ReviewStep({ editor, onChange, onStartOver, onSaved }: Props) {
             <Label htmlFor="import-title">Title</Label>
             <Input
               id="import-title"
+              name="title"
+              autoComplete="off"
               value={form.title}
               onChange={(e) => setForm({ title: e.target.value })}
               aria-invalid={showErrors && !!errors.title}
+              aria-describedby={showErrors && errors.title ? "import-title-error" : undefined}
             />
-            {showErrors && errors.title && <FieldError>{errors.title}</FieldError>}
+            {showErrors && errors.title && <FieldError id="import-title-error">{errors.title}</FieldError>}
           </div>
           <div className="space-y-2">
             <Label htmlFor="import-description">Description</Label>
@@ -199,7 +204,7 @@ export function ReviewStep({ editor, onChange, onStartOver, onSaved }: Props) {
               id="import-description"
               value={form.description}
               onChange={(e) => setForm({ description: e.target.value })}
-              placeholder="A sentence or two about the dish"
+              placeholder="A sentence or two about the dish…"
             />
           </div>
         </div>
@@ -223,21 +228,25 @@ export function ReviewStep({ editor, onChange, onStartOver, onSaved }: Props) {
         <ListEditor
           rows={form.ingredients}
           onRowsChange={(ingredients) => setForm({ ingredients })}
-          placeholder="e.g., 200g spaghetti"
+          placeholder="e.g., 200g spaghetti…"
           noun="ingredient"
+          errorId={showErrors && errors.ingredients ? "import-ingredients-error" : undefined}
         />
-        {showErrors && errors.ingredients && <FieldError>{errors.ingredients}</FieldError>}
+        {showErrors && errors.ingredients && (
+          <FieldError id="import-ingredients-error">{errors.ingredients}</FieldError>
+        )}
       </FormSection>
 
       <FormSection meta={sections.steps} index={3}>
         <ListEditor
           rows={form.steps}
           onRowsChange={(steps) => setForm({ steps })}
-          placeholder="e.g., Bring a large pot of salted water to the boil."
+          placeholder="e.g., Bring a large pot of salted water to the boil…"
           noun="step"
           multiline
+          errorId={showErrors && errors.steps ? "import-steps-error" : undefined}
         />
-        {showErrors && errors.steps && <FieldError>{errors.steps}</FieldError>}
+        {showErrors && errors.steps && <FieldError id="import-steps-error">{errors.steps}</FieldError>}
       </FormSection>
 
       <FormSection
@@ -252,7 +261,7 @@ export function ReviewStep({ editor, onChange, onStartOver, onSaved }: Props) {
         />
       </FormSection>
 
-      <div className="sticky bottom-16 z-10 -mx-4 flex items-center gap-2 border-t bg-background/95 px-4 py-3 backdrop-blur md:bottom-0">
+      <div data-sticky-actions className="sticky bottom-16 z-10 -mx-4 flex items-center gap-2 border-t bg-background/95 px-4 py-3 backdrop-blur md:bottom-0">
         <Button type="button" variant="ghost" onClick={onStartOver} disabled={saving}>
           <RotateCcw className="h-4 w-4" /> Start over
         </Button>
@@ -284,8 +293,12 @@ async function uploadImage(
   return storageId as Id<"_storage">;
 }
 
-function FieldError({ children }: { children: React.ReactNode }) {
-  return <p className="mt-2 text-sm text-destructive">{children}</p>;
+function FieldError({ id, children }: { id: string; children: React.ReactNode }) {
+  return (
+    <p id={id} className="mt-2 text-sm text-destructive">
+      {children}
+    </p>
+  );
 }
 
 // --- Provenance ----------------------------------------------------------------
@@ -313,7 +326,7 @@ function ProvenanceBanner({ editor }: { editor: Editor }) {
           )}
         >
           {exact ? <BadgeCheck className="h-3.5 w-3.5" /> : <Sparkles className="h-3.5 w-3.5" />}
-          {exact ? "Read from the page's recipe data" : "Extracted by AI"}
+          {exact ? "Read from the page’s recipe data" : "Extracted by AI"}
         </Badge>
         {origin && <span className="text-muted-foreground">{origin}</span>}
         {source && (
@@ -382,7 +395,7 @@ function PhotoEditor({
           e.target.value = "";
           if (!file) return;
           if (!file.type.startsWith("image/")) {
-            toast.error("That isn't an image.");
+            toast.error("That isn’t an image. Choose a photo instead.");
             return;
           }
           onImageChange({ kind: "file", file, previewUrl: URL.createObjectURL(file) });
@@ -396,14 +409,14 @@ function PhotoEditor({
               <div className="flex h-full flex-col items-center justify-center gap-1 p-4 text-center text-sm text-muted-foreground">
                 <ImageIcon className="h-6 w-6" />
                 {image.kind === "remote"
-                  ? "The site's photo can't be previewed here. We'll still try to copy it when you save."
+                  ? "The site’s photo can’t be previewed here. We’ll still try to copy it when you save."
                   : "Preview unavailable, but the photo will still be saved."}
               </div>
             ) : (
               // eslint-disable-next-line @next/next/no-img-element -- arbitrary remote hosts / blob previews
               <img
                 src={previewUrl}
-                alt="Recipe"
+                alt="Recipe photo preview"
                 referrerPolicy="no-referrer"
                 className="h-full w-full object-cover"
                 onError={() => setBrokenUrl(previewUrl)}
@@ -461,12 +474,15 @@ function ListEditor({
   placeholder,
   noun,
   multiline,
+  errorId,
 }: {
   rows: Row[];
   onRowsChange: (rows: Row[]) => void;
   placeholder: string;
   noun: string;
   multiline?: boolean;
+  /** Set when the list is invalid; links each row to the error message. */
+  errorId?: string;
 }) {
   const refs = useRef(new Map<number, HTMLTextAreaElement | HTMLInputElement>());
   const focus = (id: number) => requestAnimationFrame(() => refs.current.get(id)?.focus());
@@ -518,6 +534,8 @@ function ListEditor({
           value: row.value,
           placeholder,
           "aria-label": `${noun} ${index + 1}`,
+          "aria-invalid": errorId ? true : undefined,
+          "aria-describedby": errorId,
           onChange: (e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>) => update(row.id, e.target.value),
           onKeyDown: (e: React.KeyboardEvent) => onKeyDown(e, index, row),
           onPaste: (e: React.ClipboardEvent) => onPaste(e, index, row),
@@ -599,7 +617,7 @@ function ExtrasEditor({
             min={0}
             value={form.cookingTime}
             onChange={(e) => setForm({ cookingTime: e.target.value })}
-            placeholder="e.g., 30"
+            placeholder="30"
           />
         </div>
         <div className="space-y-2">
@@ -611,7 +629,7 @@ function ExtrasEditor({
             min={0}
             value={form.calories}
             onChange={(e) => setForm({ calories: e.target.value })}
-            placeholder="e.g., 500"
+            placeholder="500"
           />
           {estimatedCalories !== undefined && form.calories === String(estimatedCalories) && (
             <p className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -620,12 +638,12 @@ function ExtrasEditor({
           )}
         </div>
         <div className="col-span-2 space-y-2 md:col-span-1">
-          <Label>Difficulty</Label>
+          <Label htmlFor="import-difficulty">Difficulty</Label>
           <Select
             value={form.difficulty || undefined}
             onValueChange={(v) => setForm({ difficulty: v as Difficulty })}
           >
-            <SelectTrigger className="w-full">
+            <SelectTrigger id="import-difficulty" className="w-full">
               <SelectValue placeholder="Not set" />
             </SelectTrigger>
             <SelectContent>
@@ -637,8 +655,8 @@ function ExtrasEditor({
         </div>
       </div>
 
-      <div className="space-y-2">
-        <Label>Tags</Label>
+      <fieldset className="space-y-2">
+        <legend className="text-sm font-medium leading-none">Tags</legend>
         <div className="flex flex-wrap gap-1.5">
           {PREDEFINED_TAGS.map((tag) => {
             const on = form.tags.includes(tag);
@@ -660,7 +678,7 @@ function ExtrasEditor({
             );
           })}
         </div>
-      </div>
+      </fieldset>
 
       <div className="flex items-center justify-between gap-4 rounded-lg border p-3">
         <div>

@@ -79,7 +79,7 @@ export function InstallPwaButton({
         {children || (
           <>
             <Download className="h-4 w-4 mr-2" />
-            Install App
+            Install app
           </>
         )}
       </Button>

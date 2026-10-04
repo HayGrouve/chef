@@ -29,7 +29,7 @@ export function InstallDialog({
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent>
         <DrawerHeader>
-          <DrawerTitle>Install CHEF App</DrawerTitle>
+          <DrawerTitle>Install the CHEF app</DrawerTitle>
           <DrawerDescription>
             Add CHEF to your home screen for the best experience.
           </DrawerDescription>
@@ -57,11 +57,11 @@ export function InstallDialog({
           ) : (
             <div className="flex flex-col items-center gap-4 py-4">
               <p className="text-center text-muted-foreground">
-                Click the button below to install the app on your device.
+                Open CHEF from your home screen, like any other app.
               </p>
               <Button size="lg" onClick={onInstall} className="w-full max-w-sm">
                 <Download className="mr-2 h-4 w-4" />
-                Install App
+                Install app
               </Button>
             </div>
           )}
@@ -69,7 +69,7 @@ export function InstallDialog({
         <DrawerFooter className="flex flex-col items-center">
           {!isIOS && (
             <DrawerClose asChild>
-              <Button variant="outline" className="w-full max-w-sm">Not Now</Button>
+              <Button variant="outline" className="w-full max-w-sm">Not now</Button>
             </DrawerClose>
           )}
           {isIOS && (

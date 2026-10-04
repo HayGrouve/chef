@@ -27,7 +27,7 @@ export function MobileNav() {
   return (
     <nav
       aria-label="Sections"
-      className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background pb-safe md:hidden"
+      className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background pb-[env(safe-area-inset-bottom)] md:hidden"
     >
       <div className="grid h-16 grid-cols-3">
         {SECTIONS.map(({ href, label }) => {
@@ -47,12 +47,16 @@ export function MobileNav() {
               <span className="relative">
                 <Icon className="size-5" strokeWidth={1.75} />
                 {!!badge && (
-                  <span className="absolute -right-2.5 -top-1.5 min-w-4 rounded-full bg-primary px-1 text-center text-[10px] leading-4 text-primary-foreground">
+                  <span
+                    aria-hidden
+                    className="absolute -right-2.5 -top-1.5 min-w-4 rounded-full bg-primary px-1 text-center text-[10px] leading-4 text-primary-foreground"
+                  >
                     {badge > 99 ? "99+" : badge}
                   </span>
                 )}
               </span>
               {label}
+              {!!badge && <span className="sr-only">, {badge} to buy</span>}
             </Link>
           );
         })}

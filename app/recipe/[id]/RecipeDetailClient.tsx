@@ -3,7 +3,7 @@
 import { useQuery, useMutation, Authenticated, Unauthenticated } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Id } from "../../../convex/_generated/dataModel";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -15,9 +15,10 @@ import {
   Share2,
   Play,
   MoreHorizontal,
+  Loader2,
 } from "lucide-react";
 import Link from "next/link";
-import { useState, useEffect, useRef } from "react";
+import { Suspense, useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -38,7 +39,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { RecipePhoto, formatMinutes } from "@/components/RecipeCard";
 import { scaleIngredient } from "@/lib/recipe-text";
-import { cn } from "@/lib/utils";
+import { cn, pluralize } from "@/lib/utils";
 
 const SCALES = [
   { value: 0.5, label: "½×" },
@@ -50,6 +51,8 @@ const SCALES = [
 function RecipeDetailContent() {
   const params = useParams();
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const recipeId = params.id as Id<"recipes">;
 
   // Use getPublic for unauthenticated users, get for authenticated users
@@ -64,7 +67,18 @@ function RecipeDetailContent() {
   const addBatchToShoppingList = useMutation(api.shoppingList.addBatch);
   const removeBatchFromShoppingList = useMutation(api.shoppingList.removeBatch);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [scale, setScale] = useState(1);
+  const [adding, setAdding] = useState(false);
+
+  // The scale lives in the URL (?scale=2) so a scaled recipe can be shared.
+  const scaleParam = Number(searchParams.get("scale"));
+  const scale = SCALES.some((s) => s.value === scaleParam) ? scaleParam : 1;
+  const setScale = (value: number) => {
+    const next = new URLSearchParams(searchParams.toString());
+    if (value === 1) next.delete("scale");
+    else next.set("scale", String(value));
+    const query = next.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+  };
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" });
@@ -84,12 +98,14 @@ function RecipeDetailContent() {
   if (recipe === null) {
     return (
       <div className="container mx-auto max-w-md px-4 py-24 text-center">
-        <p className="font-display text-2xl font-bold">Recipe not found</p>
+        <h1 className="font-display text-2xl font-bold">Recipe not found</h1>
         <p className="mt-2 text-muted-foreground">
-          This recipe may be private or doesn&apos;t exist.
+          This recipe may be private or doesn’t exist.
         </p>
-        <Button variant="outline" className="mt-6" onClick={() => router.push("/")}>
-          <ArrowLeft /> Back to Cook
+        <Button asChild variant="outline" className="mt-6">
+          <Link href="/">
+            <ArrowLeft /> Back to Cook
+          </Link>
         </Button>
       </div>
     );
@@ -102,7 +118,7 @@ function RecipeDetailContent() {
   const facts = [
     { label: "Time", value: formatMinutes(recipe.cookingTime) },
     { label: "Difficulty", value: recipe.difficulty },
-    { label: "Per serving", value: recipe.calories ? `${recipe.calories} kcal` : null },
+    { label: "Per serving", value: recipe.calories ? `${recipe.calories}\u00A0kcal` : null },
     { label: "Steps", value: String(recipe.steps.length) },
   ].filter((f) => f.value);
 
@@ -113,22 +129,43 @@ function RecipeDetailContent() {
   };
 
   const handleAddToCart = async () => {
-    const ids = await addBatchToShoppingList({
-      ingredients,
-      recipeId: recipe._id,
-    });
-    toast.success(`Added ${ingredients.length} ingredients to your shopping list`, {
-      action: ids?.length
-        ? {
-            label: "Undo",
-            onClick: () => removeBatchFromShoppingList({ ids }),
-          }
-        : undefined,
-    });
+    setAdding(true);
+    try {
+      const ids = await addBatchToShoppingList({
+        ingredients,
+        recipeId: recipe._id,
+      });
+      toast.success(`Added ${pluralize(ingredients.length, "ingredient")} to your shopping list`, {
+        action: ids?.length
+          ? {
+              label: "Undo",
+              onClick: () => removeBatchFromShoppingList({ ids }),
+            }
+          : undefined,
+      });
+    } catch {
+      toast.error("Couldn’t add to your shopping list", { description: "Check your connection and try again." });
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  const goBack = () => {
+    // Opened directly (shared link, new tab): there's nothing to go back to.
+    if (window.history.length > 1) router.back();
+    else router.push("/");
   };
 
   const handleShare = async () => {
     const url = `${window.location.origin}/recipe/${recipe._id}`;
+    const copyLink = async () => {
+      try {
+        await navigator.clipboard.writeText(url);
+        toast.success("Link copied to clipboard");
+      } catch {
+        toast.error("Couldn’t copy the link", { description: "Copy it from the address bar instead." });
+      }
+    };
     const shareData = {
       title: `CHEF | ${recipe.title}`,
       text: recipe.description,
@@ -141,15 +178,11 @@ function RecipeDetailContent() {
         // Native share sheet opened, no need for feedback
       } catch (err) {
         // User cancelled or it failed, fallback to clipboard
-        if ((err as Error).name !== "AbortError") {
-          navigator.clipboard.writeText(url);
-          toast.success("Link copied to clipboard");
-        }
+        if ((err as Error).name !== "AbortError") await copyLink();
       }
     } else {
       // Fallback for desktop/unsupported browsers
-      navigator.clipboard.writeText(url);
-      toast.success("Link copied to clipboard");
+      await copyLink();
     }
   };
 
@@ -157,14 +190,14 @@ function RecipeDetailContent() {
     <article className="pb-16">
       <div className="container mx-auto max-w-5xl px-4 pt-6 md:pt-10">
         <button
-          onClick={() => router.back()}
+          onClick={goBack}
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="size-4" />
           Back
         </button>
 
-        <h1 className="mt-6 max-w-4xl break-words font-display text-4xl font-bold leading-[1.02] tracking-tight md:text-6xl">
+        <h1 className="mt-6 max-w-4xl text-balance break-words font-display text-4xl font-bold leading-[1.02] tracking-tight md:text-6xl">
           {recipe.title}
         </h1>
         {recipe.description && <ClampedText text={recipe.description} />}
@@ -192,10 +225,11 @@ function RecipeDetailContent() {
               size="lg"
               variant="outline"
               onClick={handleAddToCart}
+              disabled={adding}
               className="max-sm:w-10 max-sm:px-0"
               aria-label="Add to shopping list"
             >
-              <ShoppingBasket />
+              {adding ? <Loader2 className="animate-spin" /> : <ShoppingBasket />}
               <span className="max-sm:hidden">Add to list</span>
             </Button>
             <Button
@@ -394,5 +428,9 @@ function ClampedText({ text }: { text: string }) {
 }
 
 export default function RecipeDetailClient() {
-  return <RecipeDetailContent />;
+  return (
+    <Suspense>
+      <RecipeDetailContent />
+    </Suspense>
+  );
 }

@@ -148,6 +148,21 @@ Three design directions were prototyped (Workspace, Cookbook, Spaces; draft PR #
 | Removed the unused palette triggers (the header has a search button now). | ✅ | ~~`components/command-palette/CommandPaletteTrigger.tsx`~~ |
 | Test data: `scripts/attach-demo-photos.sh` uploads real dish photos (Wikimedia Commons) to the seeded test recipes on dev, via test-user-only helpers in `convex/devSeed.ts`. | ✅ | `scripts/attach-demo-photos.sh`, `convex/devSeed.ts` |
 
+## Round 10 — 2026-10-05 (Web Interface Guidelines)
+
+An audit of `app/` and `components/` (excluding the shadcn primitives in `components/ui`) against the Vercel Web Interface Guidelines, then fixes.
+
+| Change | Status | Files |
+|--------|--------|-------|
+| **Keyboard and screen readers.** Skip link plus a single `<main id="main">` in the layout. The create photo picker and meal-selector rows were `<div onClick>` and are now buttons. Icon-only controls have names (mobile Magic fill/Shop week, Paste, tag remove, row delete and reorder handles). Filter and import labels are tied to their Select/Slider (slider thumbs now take `aria-label`/`aria-labelledby`), and tag groups use `fieldset`/`legend`. The week grid is a real `<table>` with row and column headers. Cook Mode announces step changes; the import "working" status is one stable live region. | ✅ | `app/layout.tsx`, `app/create/page.tsx`, `components/meal-planner/MealSelector.tsx`, `app/meal-planner/page.tsx`, `components/RecipeFilters.tsx`, `components/ui/slider.tsx`, `components/import/*`, `components/cook/CookMode.tsx` |
+| **Meal planner without dragging.** The drag handle no longer wraps the recipe link (pointer drags start anywhere on the card; keyboard drags start from the thumbnail button). Each meal has a ⋯ menu with "Move to" a day and Remove. | ✅ | `app/meal-planner/page.tsx` |
+| **Undo instead of instant loss.** Removing a planned meal, removing a shopping item and "Clear checked" now show an Undo toast (shopping items come back through `ai.restoreShoppingListItems`). Leaving the create form with unsaved changes asks first, and reload/close triggers `beforeunload`. | ✅ | `app/meal-planner/page.tsx`, `app/shopping-list/page.tsx`, `app/create/page.tsx` |
+| **Forms.** Import submit buttons stay enabled and explain an empty field inline. Review-step errors focus the first bad field and are linked with `aria-describedby`. Autofocus only happens with a mouse (`hasFinePointer`), so phones don't pop the keyboard. Inputs get `name`/`autoComplete`/`spellCheck`/`inputMode`, and placeholders and loading text use `…`. | ✅ | `components/import/SourceStep.tsx`, `components/import/ReviewStep.tsx`, `app/create/page.tsx`, `app/profile/edit/page.tsx`, `app/shopping-list/page.tsx` |
+| **Motion and layout.** Confetti, pulse, ping and zoom respect reduced motion. Global `scroll-padding` keeps focused fields clear of the sticky header, tab bar and save bars (`data-sticky-actions`). `touch-action: manipulation`. Per-scheme `theme-color`. Popover and sheet widths no longer overflow phones; sheets get `overscroll-contain`. | ✅ | `app/globals.css`, `app/layout.tsx`, `components/cook/*`, `app/page.tsx` |
+| **State and copy.** Recipe scale is in the URL (`?scale=2`). Pluralization (`pluralize`), non-breaking spaces in `20 min`/`5 MB`, curly apostrophes, sentence case for stragglers, error toasts that say what to do next, and a fallback for Back when there's no history. | ✅ | `lib/utils.ts`, `app/recipe/[id]/RecipeDetailClient.tsx`, many |
+
+Not done: day abbreviations in the planner still use English `slice(0, 3)`, because the stored day keys are English and locale-formatting only the short names would mix languages and risk hydration mismatches.
+
 ## Backlog
 
 All items from the original audit are done. Ideas for a future round:

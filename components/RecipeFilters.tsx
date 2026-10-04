@@ -62,9 +62,9 @@ export function RecipeFilters({
   return (
     <div className="space-y-6">
       <div className="space-y-2">
-        <Label>Difficulty</Label>
+        <Label htmlFor="filter-difficulty">Difficulty</Label>
         <Select value={difficulty} onValueChange={setDifficulty}>
-          <SelectTrigger className="w-full">
+          <SelectTrigger id="filter-difficulty" className="w-full">
             <SelectValue placeholder="Any" />
           </SelectTrigger>
           <SelectContent>
@@ -78,9 +78,9 @@ export function RecipeFilters({
 
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <Label>Max time</Label>
+          <Label id="filter-max-time">Max time</Label>
           <span className="text-sm text-muted-foreground">
-            {maxTime === MAX_TIME_ANY ? "Any" : `${maxTime} min`}
+            {maxTime === MAX_TIME_ANY ? "Any" : `${maxTime}\u00A0min`}
           </span>
         </div>
         <Slider
@@ -88,6 +88,7 @@ export function RecipeFilters({
           onValueChange={(val) => setMaxTime(val[0])}
           max={MAX_TIME_ANY}
           step={5}
+          aria-labelledby="filter-max-time"
           className="py-1"
         />
       </div>
@@ -118,13 +119,15 @@ export function RecipeFilters({
       </Authenticated>
 
       {allTags.length > 0 && (
-        <div className="space-y-3">
-          <Label>Tags</Label>
+        <fieldset className="space-y-3">
+          <legend className="text-sm font-medium leading-none">Tags</legend>
           {allTags.length > 8 && (
             <div className="relative">
-              <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+              <Search className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
               <Input
-                placeholder="Filter tags..."
+                placeholder="Filter tags…"
+                aria-label="Filter tags"
+                autoComplete="off"
                 className="h-8 pl-8 text-sm"
                 value={tagSearch}
                 onChange={(e) => setTagSearch(e.target.value)}
@@ -140,7 +143,7 @@ export function RecipeFilters({
               )}
             </div>
           )}
-          <div className="max-h-[240px] overflow-y-auto space-y-2 pr-2 scrollbar-thin">
+          <div className="max-h-[240px] overflow-y-auto overscroll-contain space-y-2 pr-2 scrollbar-thin">
             {filteredTags.length === 0 ? (
               <p className="text-sm text-muted-foreground py-2 text-center">
                 No tags found
@@ -163,7 +166,7 @@ export function RecipeFilters({
               ))
             )}
           </div>
-        </div>
+        </fieldset>
       )}
     </div>
   );

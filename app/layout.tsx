@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Bricolage_Grotesque, Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import ConvexClientProvider from "./ConvexClientProvider";
@@ -60,6 +60,14 @@ export const metadata: Metadata = {
   },
 };
 
+// Matches --background in each theme.
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#fafafa" },
+    { media: "(prefers-color-scheme: dark)", color: "#0a0a0a" },
+  ],
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -81,9 +89,17 @@ export default function RootLayout({
             enableSystem
             disableTransitionOnChange
           >
+            <a
+              href="#main"
+              className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-full focus:bg-background focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:shadow-md"
+            >
+              Skip to content
+            </a>
             <Navbar />
             <div className="pb-16 md:pb-0 min-h-screen flex flex-col">
-              <div className="flex-1">{children}</div>
+              <main id="main" className="flex-1">
+                {children}
+              </main>
               <Footer />
             </div>
             <AuthenticatedMobileNav />

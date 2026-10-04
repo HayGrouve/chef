@@ -1,7 +1,7 @@
 "use client";
 
 // Smart Import: pick a source (link, text or photo).
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   AlertCircle,
@@ -21,7 +21,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { cn } from "@/lib/utils";
+import { cn, hasFinePointer } from "@/lib/utils";
 import { EXAMPLE_CAPTION, hostname, looksLikeUrl, suggestsPastingText, type SourceKind } from "./lib";
 
 export type SourceError = { kind: SourceKind; message: string };
@@ -87,7 +87,19 @@ export function SourceStep(props: Props) {
 
 // --- Link --------------------------------------------------------------------
 
+/** Focus on mount, but only with a mouse: on phones it would pop the keyboard over the page. */
+function useDesktopAutoFocus<T extends HTMLElement>() {
+  const ref = useRef<T>(null);
+  useEffect(() => {
+    if (hasFinePointer()) ref.current?.focus();
+  }, []);
+  return ref;
+}
+
 function LinkSource({ url, onUrlChange, onTextChange, onTabChange, onTextContextUrlChange, error, onImport }: Props) {
+  const inputRef = useDesktopAutoFocus<HTMLInputElement>();
+  const [empty, setEmpty] = useState(false);
+
   const pasteFromClipboard = async () => {
     try {
       const clip = (await navigator.clipboard.readText()).trim();
@@ -98,7 +110,7 @@ function LinkSource({ url, onUrlChange, onTextChange, onTabChange, onTextContext
         // Not a link, but it could be the recipe itself
         onTextChange(clip);
         onTabChange("text");
-        toast("That looked like recipe text, so it's in the Text tab.");
+        toast("That looked like recipe text, so it’s in the Text tab.");
       } else {
         onUrlChange(clip);
       }
@@ -113,27 +125,49 @@ function LinkSource({ url, onUrlChange, onTextChange, onTabChange, onTextContext
   return (
     <form
       className="space-y-3"
+      noValidate
       onSubmit={(e) => {
         e.preventDefault();
-        if (url.trim()) onImport("link");
+        if (url.trim()) return onImport("link");
+        setEmpty(true);
+        inputRef.current?.focus();
       }}
     >
       <div className="flex gap-2">
         <Input
+          ref={inputRef}
           type="url"
           inputMode="url"
+          name="url"
+          autoComplete="off"
+          spellCheck={false}
           value={url}
-          onChange={(e) => onUrlChange(e.target.value)}
+          onChange={(e) => {
+            setEmpty(false);
+            onUrlChange(e.target.value);
+          }}
           placeholder="https://…"
           aria-label="Recipe link"
+          aria-invalid={empty || undefined}
+          aria-describedby={empty ? "link-empty" : undefined}
           className="h-10"
-          autoFocus
         />
-        <Button type="button" variant="outline" className="h-10 shrink-0" onClick={pasteFromClipboard}>
+        <Button
+          type="button"
+          variant="outline"
+          className="h-10 shrink-0"
+          onClick={pasteFromClipboard}
+          aria-label="Paste link"
+        >
           <ClipboardPaste className="h-4 w-4" />
           <span className="hidden sm:inline">Paste</span>
         </Button>
       </div>
+      {empty && (
+        <p id="link-empty" className="text-sm text-destructive">
+          Paste a link to a recipe first.
+        </p>
+      )}
       <p className="text-xs text-muted-foreground">
         Works with most recipe sites. Instagram and TikTok links work when the caption has the recipe.
       </p>
@@ -156,7 +190,7 @@ function LinkSource({ url, onUrlChange, onTextChange, onTabChange, onTextContext
         </ErrorCallout>
       )}
 
-      <Button type="submit" className="w-full" disabled={!url.trim()}>
+      <Button type="submit" className="w-full">
         Import <ArrowRight className="h-4 w-4" />
       </Button>
     </form>
@@ -168,13 +202,18 @@ function LinkSource({ url, onUrlChange, onTextChange, onTabChange, onTextContext
 function TextSource({ text, onTextChange, textContextUrl, onTextContextUrlChange, error, cooldown, onImport }: Props) {
   const wait = cooldown.text;
   const textError = error?.kind === "text" ? error : null;
+  const textareaRef = useDesktopAutoFocus<HTMLTextAreaElement>();
+  const [empty, setEmpty] = useState(false);
 
   return (
     <form
       className="space-y-3"
       onSubmit={(e) => {
         e.preventDefault();
-        if (text.trim() && !wait) onImport("text");
+        if (wait) return;
+        if (text.trim()) return onImport("text");
+        setEmpty(true);
+        textareaRef.current?.focus();
       }}
     >
       {textContextUrl && (
@@ -193,8 +232,8 @@ function TextSource({ text, onTextChange, textContextUrl, onTextContextUrlChange
           </p>
           <button
             type="button"
-            aria-label="Dismiss"
-            className="text-muted-foreground hover:text-foreground"
+            aria-label="Dismiss this tip"
+            className="-m-1 rounded-full p-1 text-muted-foreground hover:bg-foreground/10 hover:text-foreground"
             onClick={() => onTextContextUrlChange(null)}
           >
             <X className="h-4 w-4" />
@@ -203,13 +242,24 @@ function TextSource({ text, onTextChange, textContextUrl, onTextContextUrlChange
       )}
 
       <Textarea
+        ref={textareaRef}
+        name="text"
         value={text}
-        onChange={(e) => onTextChange(e.target.value)}
-        placeholder="Paste a recipe from a message, note or caption"
+        onChange={(e) => {
+          setEmpty(false);
+          onTextChange(e.target.value);
+        }}
+        placeholder="Paste a recipe from a message, note or caption…"
         aria-label="Recipe text"
+        aria-invalid={empty || undefined}
+        aria-describedby={empty ? "text-empty" : undefined}
         className="min-h-44 max-h-[50vh]"
-        autoFocus
       />
+      {empty && (
+        <p id="text-empty" className="text-sm text-destructive">
+          Paste the recipe text first, or try the example.
+        </p>
+      )}
       <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
         <span>AI sorts it into ingredients and steps.</span>
         {!text.trim() && (
@@ -229,7 +279,7 @@ function TextSource({ text, onTextChange, textContextUrl, onTextContextUrlChange
 
       {textError && <ErrorCallout message={textError.message} />}
 
-      <ImportButton wait={wait} disabled={!text.trim()} label="Read recipe" />
+      <ImportButton wait={wait} label="Read recipe" />
     </form>
   );
 }
@@ -246,7 +296,7 @@ function PhotoSource({ photo, onPhotoChange, error, cooldown, onImport }: Props)
   const pick = (file: File | undefined) => {
     if (!file) return;
     if (!file.type.startsWith("image/")) {
-      toast.error("That isn't an image. Choose a photo instead.");
+      toast.error("That isn’t an image. Choose a photo instead.");
       return;
     }
     onPhotoChange(file);
@@ -285,7 +335,7 @@ function PhotoSource({ photo, onPhotoChange, error, cooldown, onImport }: Props)
       {photo ? (
         <div className="relative overflow-hidden rounded-lg border bg-muted/40">
           {/* eslint-disable-next-line @next/next/no-img-element -- local blob preview */}
-          <img src={photo.previewUrl} alt="Selected recipe photo" className="mx-auto max-h-80 object-contain" />
+          <img src={photo.previewUrl} alt="Selected recipe photo" className="mx-auto h-80 w-full object-contain" />
           <div className="absolute right-2 top-2 flex gap-2">
             <Button type="button" size="sm" variant="secondary" onClick={() => libraryRef.current?.click()}>
               Change
@@ -338,17 +388,18 @@ function PhotoSource({ photo, onPhotoChange, error, cooldown, onImport }: Props)
 
       {photoError && <ErrorCallout message={photoError.message} />}
 
-      {photo && <ImportButton wait={wait} disabled={false} label="Read recipe" />}
+      {photo && <ImportButton wait={wait} label="Read recipe" />}
     </form>
   );
 }
 
 // --- Shared ------------------------------------------------------------------
 
-function ImportButton({ wait, disabled, label }: { wait: number; disabled: boolean; label: string }) {
+function ImportButton({ wait, label }: { wait: number; label: string }) {
   return (
     <div className="space-y-1.5">
-      <Button type="submit" className="w-full" disabled={disabled || wait > 0}>
+      {/* Only the rate limit disables it; empty input is explained on submit. */}
+      <Button type="submit" className="w-full" disabled={wait > 0}>
         {wait > 0 ? (
           <>
             <Timer className="h-4 w-4" /> Ready again in {wait}s

@@ -14,6 +14,7 @@ import type { FunctionReturnType } from "convex/server";
 import { useUser } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { pluralize } from "@/lib/utils";
 import { RecipeCard, RecipePhoto, formatMinutes } from "@/components/RecipeCard";
 import { RecipeCardSkeleton } from "@/components/RecipeCardSkeleton";
 import {
@@ -216,19 +217,22 @@ function HomeContent() {
       </Unauthenticated>
 
       <div className="max-w-3xl">
-        <h1 className="font-display text-4xl font-bold tracking-tight md:text-5xl">
+        <h1 className="text-balance font-display text-4xl font-bold tracking-tight md:text-5xl">
           What are we cooking?
         </h1>
         <div className="mt-6 flex gap-2">
           <div className="relative flex-1">
             <Search className="pointer-events-none absolute left-5 top-1/2 size-5 -translate-y-1/2 text-muted-foreground" />
             <input
+              type="search"
+              name="q"
+              autoComplete="off"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search, or list ingredients"
+              placeholder="Search, or list ingredients…"
               aria-label="Search recipes, or list ingredients you have"
               aria-describedby="home-search-help"
-              className="h-14 w-full rounded-full border bg-card pl-13 pr-12 text-base shadow-sm outline-none transition-shadow placeholder:text-muted-foreground focus-visible:ring-[3px] focus-visible:ring-ring/40"
+              className="h-14 w-full rounded-full border bg-card pl-13 pr-12 text-base shadow-sm outline-none transition-shadow placeholder:text-muted-foreground focus-visible:ring-[3px] focus-visible:ring-ring/40 [&::-webkit-search-cancel-button]:appearance-none"
             />
             {search && (
               <button
@@ -293,7 +297,7 @@ function HomeContent() {
       )}
 
       <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
-        <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-sm">
+        <SheetContent side="right" className="w-full overflow-y-auto overscroll-contain sm:max-w-sm">
           <SheetHeader>
             <SheetTitle className="font-display text-xl">Filters</SheetTitle>
           </SheetHeader>
@@ -321,7 +325,7 @@ function HomeContent() {
         <EmptyState filtered={browsing} onClear={clearFilters} />
       ) : browsing ? (
         <section className="mt-8">
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground" aria-live="polite">
             {filteredRecipes.length}
             {status === "CanLoadMore" ? "+" : ""}{" "}
             {filteredRecipes.length === 1 ? "recipe" : "recipes"}
@@ -429,7 +433,7 @@ function Feature({ recipes }: { recipes: Recipe[] }) {
         <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
           {planned ? "On the plan tonight" : "Newest recipe"}
         </p>
-        <h2 className="font-display text-3xl font-bold leading-[1.05] tracking-tight md:text-4xl">
+        <h2 className="text-balance break-words font-display text-3xl font-bold leading-[1.05] tracking-tight md:text-4xl">
           <Link href={`/recipe/${recipe._id}`} className="hover:underline decoration-primary decoration-2 underline-offset-4">
             {recipe.title}
           </Link>
@@ -493,7 +497,9 @@ function RecipeGrid({ recipes }: { recipes: Recipe[] }) {
   return (
     <div className="mt-6 grid grid-cols-2 gap-x-4 gap-y-8 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
       {recipes.map((r) => (
-        <RecipeTile key={r._id} recipe={r} />
+        // Skip rendering off-screen tiles; the grid grows with every "Load more".
+        // The padding keeps focus rings inside the contained box.
+        <RecipeTile key={r._id} recipe={r} className="-m-1 p-1 [contain-intrinsic-size:auto_22rem] [content-visibility:auto]" />
       ))}
     </div>
   );
@@ -538,10 +544,10 @@ function PantryResults({ terms }: { terms: string[] }) {
 
   return (
     <section className="mt-10">
-      <p className="text-sm text-muted-foreground">
+      <p className="text-sm text-muted-foreground" aria-live="polite">
         {results.length === 0
           ? "No recipes use those ingredients yet."
-          : `${results.length} ${results.length === 1 ? "recipe uses" : "recipes use"} what you have, best matches first`}
+          : `${pluralize(results.length, "recipe uses", "recipes use")} what you have, best matches first`}
       </p>
       <div className="mt-6 grid gap-4 md:grid-cols-2">
         {results.map((r) => (
@@ -552,7 +558,7 @@ function PantryResults({ terms }: { terms: string[] }) {
           >
             <RecipePhoto src={r.imageUrl} alt="" sizes="104px" className="aspect-square rounded-lg" />
             <div className="min-w-0 py-1">
-              <h3 className="font-display text-lg font-semibold leading-tight tracking-tight">{r.title}</h3>
+              <h3 className="line-clamp-2 break-words font-display text-lg font-semibold leading-tight tracking-tight">{r.title}</h3>
               <p className="mt-1 text-sm font-medium text-primary">
                 You have {r.matchCount} of {r.ingredients.length}
               </p>
@@ -637,7 +643,7 @@ function ResultsSkeleton() {
 
 export default function Home() {
   return (
-    <main className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background">
       <title>CHEF | Home</title>
       <meta name="description" content="Your personal digital cookbook" />
       <Suspense
@@ -651,7 +657,7 @@ export default function Home() {
       >
         <HomeContent />
       </Suspense>
-    </main>
+    </div>
   );
 }
 
@@ -702,8 +708,8 @@ function SignUpBanner() {
           localStorage.setItem(BANNER_DISMISSED_KEY, "true");
           setDismissed(true);
         }}
-        className="text-muted-foreground hover:text-foreground"
-        aria-label="Dismiss"
+        className="-m-1.5 rounded-full p-1.5 text-muted-foreground hover:bg-foreground/10 hover:text-foreground"
+        aria-label="Dismiss sign-up banner"
       >
         <X className="h-4 w-4" />
       </button>
