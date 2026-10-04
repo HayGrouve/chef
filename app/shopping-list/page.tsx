@@ -33,7 +33,7 @@ import {
 } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { cn, pluralize } from "@/lib/utils";
 import { Id } from "../../convex/_generated/dataModel";
 
 type AggregatedItem = {
@@ -60,7 +60,6 @@ export default function ShoppingListPage() {
   const addItem = useMutation(api.shoppingList.add);
   const toggleBatch = useMutation(api.shoppingList.toggleBatch);
   const removeBatch = useMutation(api.shoppingList.removeBatch);
-  const clearChecked = useMutation(api.shoppingList.clearChecked);
   const clearAll = useMutation(api.shoppingList.clearAll);
   const organizeShoppingList = useAction(api.ai.organizeShoppingList);
   const restoreShoppingListItems = useMutation(api.ai.restoreShoppingListItems);
@@ -103,7 +102,10 @@ export default function ShoppingListPage() {
       );
     } catch (error: any) {
       console.error("Failed to organize:", error);
-      toast.error(error.data || error.message || "Failed to organize shopping list.");
+      const reason = typeof error?.data === "string" ? error.data : null;
+      toast.error("Couldn’t organize the list", {
+        description: reason ?? "Try again in a minute. Your list hasn’t changed.",
+      });
     } finally {
       setIsOrganizing(false);
     }
@@ -126,6 +128,34 @@ export default function ShoppingListPage() {
   const handleSetGroupBy = (value: "category" | "recipe") => {
     setGroupBy(value);
     localStorage.setItem("shoppingListGroupBy", value);
+  };
+
+  // Snapshot items before deleting them so the toast can put them back.
+  const removeWithUndo = async (ids: Id<"shoppingList">[], message: string) => {
+    const doomed = (items ?? []).filter((i) => ids.includes(i._id));
+    await removeBatch({ ids });
+    toast.success(message, {
+      action: {
+        label: "Undo",
+        onClick: () =>
+          void restoreShoppingListItems({
+            items: doomed.map((i) => ({
+              id: i._id,
+              item: {
+                ingredient: i.ingredient,
+                isChecked: i.isChecked,
+                recipeId: i.recipeId,
+                category: i.category,
+              },
+            })),
+          }),
+      },
+    });
+  };
+
+  const handleClearChecked = () => {
+    const ids = (items ?? []).filter((i) => i.isChecked).map((i) => i._id);
+    if (ids.length) void removeWithUndo(ids, `Cleared ${pluralize(ids.length, "checked item")}`);
   };
 
   const handleAddItem = async (e: React.FormEvent) => {
@@ -219,7 +249,7 @@ export default function ShoppingListPage() {
       <meta name="description" content="Your shopping list for the week" />
 
       <div className="flex items-center justify-between gap-2 mb-4">
-        <h1 className="font-display text-3xl font-bold tracking-tight md:text-4xl">Shopping List</h1>
+        <h1 className="font-display text-3xl font-bold tracking-tight md:text-4xl">Shopping list</h1>
         {items.length > 0 && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -230,7 +260,7 @@ export default function ShoppingListPage() {
             <DropdownMenuContent align="end">
               <DropdownMenuItem
                 disabled={!hasChecked}
-                onSelect={() => clearChecked()}
+                onSelect={handleClearChecked}
               >
                 <Eraser className="h-4 w-4" />
                 Clear checked
@@ -249,9 +279,12 @@ export default function ShoppingListPage() {
 
       <form onSubmit={handleAddItem} className="flex gap-2 mb-4">
         <Input
+          name="item"
+          autoComplete="off"
+          aria-label="Add an item"
           value={newItem}
           onChange={(e) => setNewItem(e.target.value)}
-          placeholder="Add item (e.g. Milk, Eggs)"
+          placeholder="Add an item, e.g. milk…"
         />
         <Button type="submit" size="icon" aria-label="Add item">
           <Plus className="w-4 h-4" />
@@ -273,6 +306,7 @@ export default function ShoppingListPage() {
                   variant="ghost"
                   size="sm"
                   onClick={() => handleSetGroupBy(value)}
+                  aria-pressed={groupBy === value}
                   className={cn(
                     "h-7",
                     groupBy === value &&
@@ -298,7 +332,7 @@ export default function ShoppingListPage() {
                   <Sparkles className="w-4 h-4 mr-2" />
                 )}
                 {isOrganizing
-                  ? "Organizing..."
+                  ? "Organizing…"
                   : cooldown > 0
                   ? `Wait ${cooldown}s`
                   : "Organize"}
@@ -341,7 +375,7 @@ export default function ShoppingListPage() {
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 text-muted-foreground hover:text-destructive md:opacity-0 md:group-hover:opacity-100 focus-visible:opacity-100"
-                        onClick={() => removeBatch({ ids: item.ids })}
+                        onClick={() => removeWithUndo(item.ids, `Removed ${item.ingredient}`)}
                         aria-label={`Remove ${item.ingredient}`}
                       >
                         <Trash2 className="w-4 h-4" />

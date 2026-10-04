@@ -16,8 +16,8 @@ export default async function ImportPage({
   const first = (v?: string | string[]) => (Array.isArray(v) ? v[0] : v);
 
   return (
-    <main className="container mx-auto max-w-3xl px-4 pb-16 pt-6 md:pt-10">
+    <div className="container mx-auto max-w-3xl px-4 pb-16 pt-6 md:pt-10">
       <SmartImport initialUrl={first(params.url)} initialText={first(params.text)} />
-    </main>
+    </div>
   );
 }

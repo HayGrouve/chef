@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { api } from "../convex/_generated/api";
-import { openCommandPalette } from "./command-palette/shared";
+import { openCommandPalette, useModKey } from "./command-palette/shared";
 
 export const SECTIONS = [
   { href: "/", label: "Cook" },
@@ -39,6 +39,7 @@ export function isSectionActive(href: string, pathname: string) {
 export function Navbar() {
   const pathname = usePathname();
   const shoppingListCount = useQuery(api.shoppingList.getBadgeCount);
+  const modKey = useModKey() ?? "Ctrl";
 
   if (pathname?.endsWith("/cook")) return null;
 
@@ -85,7 +86,7 @@ export function Navbar() {
               className="text-muted-foreground"
               onClick={() => openCommandPalette()}
               aria-label="Search and quick actions"
-              title="Search and quick actions (Ctrl K)"
+              title={`Search and quick actions (${modKey}\u00A0K)`}
             >
               <Search />
             </Button>
@@ -123,7 +124,7 @@ function AddRecipeMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button className="max-md:size-9 max-md:px-0" aria-label="Add a recipe">
+        <Button className="max-md:size-9 max-md:px-0" aria-label="Add recipe">
           <Plus />
           <span className="hidden md:inline">Add recipe</span>
         </Button>

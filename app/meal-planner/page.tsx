@@ -9,6 +9,10 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -18,7 +22,7 @@ import {
   Sparkles,
   MoreHorizontal,
   Loader2,
-  X,
+  CalendarArrowUp,
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -45,7 +49,7 @@ import {
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
-import { cn } from "@/lib/utils";
+import { cn, pluralize } from "@/lib/utils";
 
 type PlannedMeal = Doc<"mealPlans"> & {
   recipeTitle?: string;
@@ -86,15 +90,18 @@ function useIsDesktop() {
 function DraggableMeal({
   meal,
   onRemove,
+  onMove,
 }: {
   meal: PlannedMeal;
-  onRemove: (id: Id<"mealPlans">) => void;
+  onRemove: (meal: PlannedMeal) => void;
+  onMove: (meal: PlannedMeal, day: string) => void;
 }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } =
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, isDragging } =
     useDraggable({
       id: meal._id,
       data: { meal },
     });
+  const title = meal.recipeTitle ?? "meal";
 
   const style = transform
     ? {
@@ -112,23 +119,29 @@ function DraggableMeal({
         isDragging && "opacity-60 shadow-lg"
       )}
     >
-      {/* Drag handle wraps the content so the remove button is not draggable */}
+      {/* Pointer drags start anywhere on the card; keyboard drags only from the
+          thumbnail button (the activator), so Enter on the link still navigates. */}
       <div
         {...listeners}
-        {...attributes}
         className="flex min-w-0 flex-1 items-center gap-2 touch-none cursor-grab active:cursor-grabbing"
       >
-        <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded bg-muted pointer-events-none">
+        <button
+          type="button"
+          ref={setActivatorNodeRef}
+          {...attributes}
+          aria-label={`Move ${title}`}
+          className="relative h-9 w-9 shrink-0 overflow-hidden rounded bg-muted"
+        >
           {meal.recipeImage && (
             <Image
               src={meal.recipeImage}
               alt=""
               fill
               sizes="36px"
-              className="object-cover"
+              className="pointer-events-none object-cover"
             />
           )}
-        </div>
+        </button>
         <Link
           href={`/recipe/${meal.recipeId}`}
           className="text-sm font-medium leading-tight line-clamp-2 hover:underline"
@@ -136,13 +149,38 @@ function DraggableMeal({
           {meal.recipeTitle}
         </Link>
       </div>
-      <button
-        onClick={() => onRemove(meal._id)}
-        className="absolute right-1 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:text-destructive md:opacity-0 md:group-hover:opacity-100 focus-visible:opacity-100"
-        aria-label={`Remove ${meal.recipeTitle ?? "meal"}`}
-      >
-        <X className="h-3.5 w-3.5" />
-      </button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            className="absolute right-1 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground md:opacity-0 md:group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
+            aria-label={`Options for ${title}`}
+          >
+            <MoreHorizontal className="h-3.5 w-3.5" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          {/* The non-drag way to move a meal; it keeps its meal type, like dropping on a day tab. */}
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <CalendarArrowUp className="h-4 w-4" />
+              Move to
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent>
+              {WEEK_DAYS.filter((d) => d !== meal.date).map((d) => (
+                <DropdownMenuItem key={d} onSelect={() => onMove(meal, d)}>
+                  {d}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem variant="destructive" onSelect={() => onRemove(meal)}>
+            <Trash2 className="h-4 w-4" />
+            Remove
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }
@@ -153,13 +191,15 @@ function MealSlot({
   meals,
   onAdd,
   onRemove,
+  onMove,
   showLabel,
 }: {
   day: string;
   mealType: string;
   meals: PlannedMeal[];
   onAdd: () => void;
-  onRemove: (id: Id<"mealPlans">) => void;
+  onRemove: (meal: PlannedMeal) => void;
+  onMove: (meal: PlannedMeal, day: string) => void;
   showLabel?: boolean;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: `${day}:${mealType}` });
@@ -178,7 +218,7 @@ function MealSlot({
         </span>
       )}
       {meals.map((meal) => (
-        <DraggableMeal key={meal._id} meal={meal} onRemove={onRemove} />
+        <DraggableMeal key={meal._id} meal={meal} onRemove={onRemove} onMove={onMove} />
       ))}
       <button
         onClick={onAdd}
@@ -223,6 +263,7 @@ function DayTab({
         isOver && "ring-2 ring-primary"
       )}
       aria-pressed={isSelected}
+      aria-label={[day, isToday && "today", hasMeals && "has meals"].filter(Boolean).join(", ")}
     >
       <span className={cn(isToday && !isSelected && "text-primary")}>
         {day.slice(0, 3)}
@@ -284,7 +325,21 @@ export default function MealPlannerPage() {
     setIsAddDialogOpen(true);
   };
 
-  const handleRemove = (id: Id<"mealPlans">) => removeMeal({ id });
+  const handleRemove = async (meal: PlannedMeal) => {
+    await removeMeal({ id: meal._id });
+    toast.success(`Removed ${meal.recipeTitle ?? "meal"}`, {
+      action: {
+        label: "Undo",
+        onClick: () =>
+          void addMeal({ date: meal.date, mealType: meal.mealType, recipeId: meal.recipeId }),
+      },
+    });
+  };
+
+  const handleMove = async (meal: PlannedMeal, day: string) => {
+    await moveMeal({ id: meal._id, date: day, mealType: meal.mealType });
+    toast.success(`Moved to ${day}`);
+  };
 
   const handleAddMeal = async (recipeId: string) => {
     if (selectedDate && selectedMealType) {
@@ -348,7 +403,9 @@ export default function MealPlannerPage() {
         console.warn("AI returned 0 meals, falling back to random generation.");
         const fallbackResult = await autoGenerate({});
         if (fallbackResult) {
-          toast.info(`AI returned empty. Fallback used: ${fallbackResult.message}`);
+          toast.info(fallbackResult.message, {
+            description: "AI couldn’t suggest anything, so recipes were picked at random.",
+          });
         }
       }
     } catch (error: any) {
@@ -357,10 +414,14 @@ export default function MealPlannerPage() {
       try {
         const fallbackResult = await autoGenerate({});
         if (fallbackResult) {
-          toast.info(`AI unavailable. Fallback used: ${fallbackResult.message}`);
+          toast.info(fallbackResult.message, {
+            description: "AI planning isn’t available right now, so recipes were picked at random.",
+          });
         }
-      } catch (fallbackError) {
-        toast.error("Both AI and fallback generation failed.");
+      } catch {
+        toast.error("Couldn’t fill the week", {
+          description: "Try again in a minute, or add meals one at a time.",
+        });
       }
     } finally {
       setIsGenerating(false);
@@ -386,7 +447,7 @@ export default function MealPlannerPage() {
 
     const ids = await addBatchToShoppingList({ ingredients: ingredientsToAdd });
     toast.success(
-      `Added ${ingredientsToAdd.length} ingredients to your shopping list`,
+      `Added ${pluralize(ingredientsToAdd.length, "ingredient")} to your shopping list`,
       {
         action: ids?.length
           ? {
@@ -409,7 +470,7 @@ export default function MealPlannerPage() {
       <title>CHEF | Meal Planner</title>
       <meta name="description" content="Plan your weekly meals with ease" />
       <div className="flex items-center justify-between gap-2 mb-6">
-        <h1 className="font-display text-3xl font-bold tracking-tight md:text-4xl">Meal Planner</h1>
+        <h1 className="font-display text-3xl font-bold tracking-tight md:text-4xl">Meal planner</h1>
 
         <div className="flex items-center gap-2">
           <Button
@@ -423,13 +484,14 @@ export default function MealPlannerPage() {
             ) : (
               <Sparkles className="h-4 w-4 text-primary sm:mr-2" />
             )}
-            <span className="hidden sm:inline">
-              {isGenerating ? "Generating..." : "Magic Fill"}
+            {/* Icon-only on phones, but the text stays in the accessible name. */}
+            <span className="sr-only sm:not-sr-only">
+              {isGenerating ? "Generating…" : "Magic fill"}
             </span>
           </Button>
           <Button size="sm" onClick={handleAddToShoppingList}>
             <ShoppingCart className="h-4 w-4 sm:mr-2" />
-            <span className="hidden sm:inline">Shop Week</span>
+            <span className="sr-only sm:not-sr-only">Shop week</span>
           </Button>
           {mealPlans && mealPlans.length > 0 && (
             <DropdownMenu>
@@ -462,45 +524,53 @@ export default function MealPlannerPage() {
         <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
           {isDesktop ? (
             <div className="rounded-lg border">
-              <div className="grid grid-cols-[8rem_repeat(3,1fr)] border-b bg-muted/40 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                <div className="px-3 py-2" />
-                {MEAL_TYPES.map((type) => (
-                  <div key={type} className="px-3 py-2">
-                    {type}
-                  </div>
-                ))}
-              </div>
-              {WEEK_DAYS.map((day) => (
-                <div
-                  key={day}
-                  className="grid grid-cols-[8rem_repeat(3,1fr)] border-b last:border-b-0"
-                >
-                  <div
-                    className={cn(
-                      "px-3 py-3 text-sm font-semibold",
-                      day === today && "text-primary"
-                    )}
-                  >
-                    {day}
-                    {day === today && (
-                      <span className="block text-xs font-normal text-muted-foreground">
-                        Today
-                      </span>
-                    )}
-                  </div>
-                  {MEAL_TYPES.map((type) => (
-                    <div key={type} className="border-l p-1">
-                      <MealSlot
-                        day={day}
-                        mealType={type}
-                        meals={mealsFor(day, type)}
-                        onAdd={() => openAdd(day, type)}
-                        onRemove={handleRemove}
-                      />
-                    </div>
+              <table className="w-full table-fixed border-collapse">
+                <caption className="sr-only">Meals planned this week</caption>
+                <thead className="border-b bg-muted/40 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  <tr>
+                    <th scope="col" className="w-32 px-3 py-2">
+                      <span className="sr-only">Day</span>
+                    </th>
+                    {MEAL_TYPES.map((type) => (
+                      <th key={type} scope="col" className="px-3 py-2 font-semibold">
+                        {type}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {WEEK_DAYS.map((day) => (
+                    <tr key={day} className="border-b last:border-b-0">
+                      <th
+                        scope="row"
+                        className={cn(
+                          "px-3 py-3 text-left align-top text-sm font-semibold",
+                          day === today && "text-primary"
+                        )}
+                      >
+                        {day}
+                        {day === today && (
+                          <span className="block text-xs font-normal text-muted-foreground">
+                            Today
+                          </span>
+                        )}
+                      </th>
+                      {MEAL_TYPES.map((type) => (
+                        <td key={type} className="border-l p-1 align-top">
+                          <MealSlot
+                            day={day}
+                            mealType={type}
+                            meals={mealsFor(day, type)}
+                            onAdd={() => openAdd(day, type)}
+                            onRemove={handleRemove}
+                            onMove={handleMove}
+                          />
+                        </td>
+                      ))}
+                    </tr>
                   ))}
-                </div>
-              ))}
+                </tbody>
+              </table>
             </div>
           ) : (
             <div className="space-y-4">
@@ -533,12 +603,13 @@ export default function MealPlannerPage() {
                     meals={mealsFor(mobileDay, type)}
                     onAdd={() => openAdd(mobileDay, type)}
                     onRemove={handleRemove}
+                    onMove={handleMove}
                     showLabel
                   />
                 ))}
               </div>
               <p className="text-xs text-muted-foreground">
-                Tip: drag a meal onto another day to move it.
+                Tip: drag a meal onto another day, or use its ⋯ menu, to move it.
               </p>
             </div>
           )}
@@ -559,7 +630,7 @@ export default function MealPlannerPage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Clear Meal Plan?</AlertDialogTitle>
+            <AlertDialogTitle>Clear the meal plan?</AlertDialogTitle>
             <AlertDialogDescription>
               This will remove all meals from your weekly plan. This action
               cannot be undone.
@@ -583,7 +654,7 @@ export default function MealPlannerPage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Auto-Generate Meal Plan</AlertDialogTitle>
+            <AlertDialogTitle>Fill the week automatically?</AlertDialogTitle>
             <AlertDialogDescription>
               This will use AI to intelligently fill empty slots with varied recipes from your collection and public recipes. Continue?
             </AlertDialogDescription>

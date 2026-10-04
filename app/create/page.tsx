@@ -79,7 +79,17 @@ import {
 
 import { compressImage } from "@/lib/image-utils";
 import { PREDEFINED_TAGS } from "@/lib/constants";
-import { cn } from "@/lib/utils";
+import { cn, hasFinePointer, pluralize } from "@/lib/utils";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Collapsible,
   CollapsibleContent,
@@ -91,6 +101,11 @@ import {
 type SectionFormProps = { form: UseFormReturn<RecipeFormValues> };
 
 function BasicsFields({ form }: SectionFormProps) {
+  // Start in the title field, but only with a mouse: on phones it would pop the keyboard.
+  useEffect(() => {
+    if (hasFinePointer()) form.setFocus("title");
+  }, [form]);
+
   return (
     <div className="space-y-6">
       <FormField
@@ -101,9 +116,9 @@ function BasicsFields({ form }: SectionFormProps) {
             <FormLabel>Title</FormLabel>
             <FormControl>
               <Input
-                placeholder="e.g., Spaghetti Carbonara"
+                placeholder="e.g., Spaghetti carbonara…"
+                autoComplete="off"
                 {...field}
-                autoFocus
               />
             </FormControl>
             <FormMessage />
@@ -119,7 +134,7 @@ function BasicsFields({ form }: SectionFormProps) {
             <FormLabel>Description</FormLabel>
             <FormControl>
               <Textarea
-                placeholder="A brief description of your dish..."
+                placeholder="A brief description of your dish…"
                 {...field}
               />
             </FormControl>
@@ -143,37 +158,40 @@ function PhotoField({
 
   return (
     <div>
-      <div
-        className="border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center cursor-pointer hover:bg-accent/50 transition-colors"
+      <button
+        type="button"
+        className="group flex w-full flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 transition-colors hover:bg-accent/50"
         onClick={() => fileInputRef.current?.click()}
+        aria-label={imagePreview ? "Change photo" : undefined}
       >
         {imagePreview ? (
-          <div className="relative w-full max-w-sm aspect-video rounded-md overflow-hidden">
+          <span className="relative block aspect-video w-full max-w-sm overflow-hidden rounded-md">
             <Image
               src={imagePreview}
-              alt="Preview"
+              alt=""
               fill
+              sizes="384px"
               className="object-cover"
             />
-            <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-              <span className="text-white font-medium">Change Image</span>
-            </div>
-          </div>
+            <span className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+              <span className="font-medium text-white">Change photo</span>
+            </span>
+          </span>
         ) : (
-          <div className="text-center space-y-2 text-muted-foreground">
-            <Upload className="w-10 h-10 mx-auto" />
-            <p>Click to upload an image</p>
-            <p className="text-xs">PNG, JPG or WEBP, up to 5MB</p>
-          </div>
+          <span className="block space-y-2 text-center text-muted-foreground">
+            <Upload className="mx-auto h-10 w-10" />
+            <span className="block">Choose a photo</span>
+            <span className="block text-xs">PNG, JPG or WEBP, up to 5&nbsp;MB</span>
+          </span>
         )}
-        <Input
-          ref={fileInputRef}
-          type="file"
-          className="hidden"
-          accept="image/png, image/jpeg, image/jpg, image/webp"
-          onChange={onImageChange}
-        />
-      </div>
+      </button>
+      <Input
+        ref={fileInputRef}
+        type="file"
+        className="hidden"
+        accept="image/png, image/jpeg, image/jpg, image/webp"
+        onChange={onImageChange}
+      />
     </div>
   );
 }
@@ -189,11 +207,12 @@ function ExtrasFields({ form }: SectionFormProps) {
           name="cookingTime"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Cooking Time (mins)</FormLabel>
+              <FormLabel>Cooking time (min)</FormLabel>
               <FormControl>
                 <Input
                   type="number"
-                  placeholder="e.g., 30"
+                  inputMode="numeric"
+                  placeholder="30"
                   {...field}
                   value={field.value ?? ""}
                   onChange={(e) => field.onChange(e.target.value)}
@@ -212,7 +231,8 @@ function ExtrasFields({ form }: SectionFormProps) {
               <FormControl>
                 <Input
                   type="number"
-                  placeholder="e.g., 500"
+                  inputMode="numeric"
+                  placeholder="500"
                   {...field}
                   value={field.value ?? ""}
                   onChange={(e) => field.onChange(e.target.value)}
@@ -262,15 +282,15 @@ function ExtrasFields({ form }: SectionFormProps) {
                     className="w-full justify-between"
                   >
                     {field.value && field.value.length > 0
-                      ? `${field.value.length} tags selected`
-                      : "Select tags..."}
+                      ? `${pluralize(field.value.length, "tag")} selected`
+                      : "Select tags…"}
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
                 </FormControl>
               </PopoverTrigger>
-              <PopoverContent className="w-[400px] p-0">
+              <PopoverContent className="w-(--radix-popover-trigger-width) p-0">
                 <Command>
-                  <CommandInput placeholder="Search tags..." />
+                  <CommandInput placeholder="Search tags…" />
                   <CommandList>
                     <CommandEmpty>No tag found.</CommandEmpty>
                     <CommandGroup className="max-h-64 overflow-auto">
@@ -307,11 +327,12 @@ function ExtrasFields({ form }: SectionFormProps) {
                 <Badge key={tag} variant="secondary">
                   {tag}
                   <Button
+                    type="button"
                     variant="ghost"
                     size="icon"
-                    className="h-4 w-4 ml-1 p-0 hover:bg-transparent"
-                    onClick={(e) => {
-                      e.preventDefault(); // Prevent form submit
+                    className="-mr-1 ml-0.5 h-5 w-5 rounded-full p-0 hover:bg-foreground/10"
+                    aria-label={`Remove ${tag} tag`}
+                    onClick={() => {
                       const newTags = field.value?.filter((t) => t !== tag);
                       field.onChange(newTags);
                     }}
@@ -349,10 +370,12 @@ function ExtrasFields({ form }: SectionFormProps) {
 
 interface SortableRowProps {
   id: string;
+  /** Accessible name for the drag handle, e.g. "Reorder ingredient 3". */
+  handleLabel: string;
   children: React.ReactNode;
 }
 
-function SortableRow({ id, children }: SortableRowProps) {
+function SortableRow({ id, handleLabel, children }: SortableRowProps) {
   const {
     attributes,
     listeners,
@@ -373,12 +396,13 @@ function SortableRow({ id, children }: SortableRowProps) {
     <div
       ref={setNodeRef}
       style={style}
-      className={cn("flex items-start gap-2", isDragging && "opacity-50")}
+      className={cn("flex items-start gap-2", isDragging && "select-none opacity-50")}
     >
       <div
         {...attributes}
         {...listeners}
-        className="mt-4 text-muted-foreground cursor-grab hover:text-foreground active:cursor-grabbing touch-none"
+        aria-label={handleLabel}
+        className="mt-4 rounded text-muted-foreground cursor-grab hover:text-foreground active:cursor-grabbing touch-none"
       >
         <GripVertical className="w-4 h-4" />
       </div>
@@ -450,7 +474,11 @@ function ListSection({
               </div>
             )}
             {fields.map((field, index) => (
-              <SortableRow key={field.id} id={field.id}>
+              <SortableRow
+                key={field.id}
+                id={field.id}
+                handleLabel={`Reorder ${label.toLowerCase()} ${index + 1}`}
+              >
                 <span className="mt-3 text-sm font-medium text-muted-foreground w-6 text-center">
                   {index + 1}.
                 </span>
@@ -462,6 +490,7 @@ function ListSection({
                       <FormControl>
                         <Textarea
                           {...field}
+                          aria-label={`${label} ${index + 1}`}
                           placeholder={placeholder}
                           className="min-h-12 resize-y"
                           onKeyDown={handleKeyDown}
@@ -477,6 +506,7 @@ function ListSection({
                   onClick={() => remove(index)}
                   className="mt-1 text-muted-foreground hover:text-destructive"
                   type="button"
+                  aria-label={`Remove ${label.toLowerCase()} ${index + 1}`}
                 >
                   <Trash2 className="w-4 h-4" />
                 </Button>
@@ -607,14 +637,14 @@ function SectionNav({
   const done = required.filter((s) => s.status === "done").length;
 
   return (
-    <nav className="sticky top-24 space-y-4">
+    <nav aria-label="Form sections" className="sticky top-24 space-y-4">
       <div>
         <p className="text-sm font-medium">
           {done} of {required.length} required
         </p>
         <div className="mt-2 h-1.5 rounded-full bg-muted overflow-hidden">
           <div
-            className="h-full bg-primary transition-all"
+            className="h-full bg-primary transition-[width]"
             style={{ width: `${(done / required.length) * 100}%` }}
           />
         </div>
@@ -712,8 +742,8 @@ function CreateRecipeContent() {
       const validTypes = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
       if (!validTypes.includes(file.type)) {
         showAlert(
-          "Invalid File Type",
-          "Please upload a valid image file (PNG, JPEG, JPG, WEBP)."
+          "Unsupported file type",
+          "Choose a PNG, JPEG or WEBP image."
         );
         e.target.value = ""; // Reset input
         return;
@@ -721,7 +751,7 @@ function CreateRecipeContent() {
 
       // Validate file size (max 5MB)
       if (file.size > 5 * 1024 * 1024) {
-        showAlert("File Too Large", "Please upload an image smaller than 5MB.");
+        showAlert("File too large", "Choose an image smaller than 5\u00A0MB.");
         e.target.value = ""; // Reset input
         return;
       }
@@ -754,6 +784,21 @@ function CreateRecipeContent() {
   const [extrasOpen, setExtrasOpen] = useState(false);
   const values = useWatch({ control: form.control });
 
+  // Warn before throwing away edits: on reload/close, and on Cancel.
+  const { isDirty, isSubmitSuccessful } = form.formState;
+  const hasUnsavedChanges = (isDirty || imageFile !== null) && !isSubmitSuccessful;
+  const [confirmLeave, setConfirmLeave] = useState(false);
+  useEffect(() => {
+    if (!hasUnsavedChanges) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [hasUnsavedChanges]);
+  const leave = () => {
+    if (window.history.length > 1) router.back();
+    else router.push(editId ? `/recipe/${editId}` : "/");
+  };
+
   const scrollToSection = (id: string) =>
     document
       .getElementById(id)
@@ -774,8 +819,11 @@ function CreateRecipeContent() {
     e?.preventDefault();
     pruneEmptyRows();
     if (!imagePreview && !editId) {
-      showAlert("Image Required", "Please upload an image for your recipe.");
+      showAlert("Photo required", "Add a photo of the dish to save the recipe.");
       scrollToSection("section-photo");
+      document
+        .querySelector<HTMLElement>("#section-photo button")
+        ?.focus({ preventScroll: true });
       // Still validate so all other errors are shown at once
       form.trigger();
       return;
@@ -805,7 +853,7 @@ function CreateRecipeContent() {
       }
 
       if (!storageId && !editId) {
-        showAlert("Missing Image", "Please select an image for the recipe.");
+        showAlert("Photo required", "Add a photo of the dish to save the recipe.");
         return;
       }
 
@@ -843,7 +891,7 @@ function CreateRecipeContent() {
       router.push("/");
     } catch (error) {
       console.error("Failed to save recipe:", error);
-      showAlert("Error", "Failed to save recipe. Please try again.");
+      showAlert("Couldn’t save the recipe", "Check your connection and try again. Your changes are still here.");
     }
   };
 
@@ -863,9 +911,9 @@ function CreateRecipeContent() {
   const hasRows = (rows?: { value?: string }[]) =>
     !!rows?.some((r) => r.value?.trim());
   const extrasSummary = [
-    values.cookingTime ? `${values.cookingTime} min` : null,
+    values.cookingTime ? `${values.cookingTime}\u00A0min` : null,
     values.difficulty,
-    values.calories ? `${values.calories} kcal` : null,
+    values.calories ? `${values.calories}\u00A0kcal` : null,
     values.tags?.length
       ? `${values.tags.length} tag${values.tags.length > 1 ? "s" : ""}`
       : null,
@@ -953,7 +1001,7 @@ function CreateRecipeContent() {
               <ListSection
                 form={form}
                 name="ingredients"
-                placeholder="e.g., 200g Spaghetti"
+                placeholder="e.g., 200g spaghetti…"
                 label="Ingredient"
               />
             </FormSection>
@@ -962,7 +1010,7 @@ function CreateRecipeContent() {
               <ListSection
                 form={form}
                 name="steps"
-                placeholder="e.g., Bring a large pot of salted water to a boil."
+                placeholder="e.g., Bring a large pot of salted water to a boil…"
                 label="Step"
               />
             </FormSection>
@@ -979,11 +1027,11 @@ function CreateRecipeContent() {
               <ExtrasFields form={form} />
             </FormSection>
 
-            <div className="sticky bottom-16 md:bottom-0 z-10 -mx-4 px-4 py-3 border-t bg-background/95 backdrop-blur flex items-center justify-end gap-2">
+            <div data-sticky-actions className="sticky bottom-16 md:bottom-0 z-10 -mx-4 px-4 py-3 border-t bg-background/95 backdrop-blur flex items-center justify-end gap-2">
               <Button
                 type="button"
                 variant="ghost"
-                onClick={() => router.back()}
+                onClick={() => (hasUnsavedChanges ? setConfirmLeave(true) : leave())}
                 disabled={isSubmitting}
               >
                 Cancel
@@ -995,7 +1043,7 @@ function CreateRecipeContent() {
                   <CheckCircle2 className="w-4 h-4 mr-2" />
                 )}
                 {isSubmitting
-                  ? "Saving..."
+                  ? "Saving…"
                   : editId
                     ? "Save changes"
                     : "Create recipe"}
@@ -1004,6 +1052,28 @@ function CreateRecipeContent() {
           </form>
         </Form>
       </div>
+
+      <AlertDialog open={confirmLeave} onOpenChange={setConfirmLeave}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Discard your changes?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {editId
+                ? "Your edits to this recipe haven’t been saved."
+                : "This recipe hasn’t been saved yet."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep editing</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={leave}
+              className="bg-destructive text-white hover:bg-destructive/90"
+            >
+              Discard
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

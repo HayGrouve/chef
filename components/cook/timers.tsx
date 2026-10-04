@@ -209,7 +209,7 @@ function TimerCard({ timer, api }: { timer: CookTimer; api: CookTimersApi }) {
       aria-live={done ? "assertive" : "off"}
       className={cn(
         "flex w-64 shrink-0 items-center gap-2 rounded-lg border bg-card py-1.5 pl-3 pr-1 shadow-sm",
-        done && "border-primary bg-primary text-primary-foreground ring-4 ring-primary/30 animate-pulse"
+        done && "border-primary bg-primary text-primary-foreground ring-4 ring-primary/30 motion-safe:animate-pulse"
       )}
     >
       {done ? <BellRing className="h-4 w-4 shrink-0" /> : <TimerIcon className="h-4 w-4 shrink-0 text-muted-foreground" />}

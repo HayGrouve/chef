@@ -40,6 +40,7 @@ export default function AboutPage() {
             src="/mission.png"
             alt="Cooking with CHEF"
             fill
+            sizes="(max-width: 768px) 100vw, 448px"
             className="object-cover"
           />
         </div>
@@ -90,11 +91,9 @@ export default function AboutPage() {
         <p className="text-lg opacity-90 mb-8 max-w-xl mx-auto">
           Join thousands of home cooks organizing their kitchen life with CHEF.
         </p>
-        <Link href="/sign-up">
-          <Button size="lg" variant="secondary" className="font-semibold">
-            Get Started for Free
-          </Button>
-        </Link>
+        <Button asChild size="lg" variant="secondary" className="font-semibold">
+          <Link href="/sign-up">Get started for free</Link>
+        </Button>
       </div>
     </div>
   );

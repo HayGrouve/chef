@@ -189,7 +189,7 @@ export function SmartImport({ initialUrl, initialText }: { initialUrl?: string; 
         <p className="mt-1 text-sm text-muted-foreground">
           {phase.name === "review"
             ? "Fix anything that looks off, then save it to your cookbook."
-            : "Paste a link, some text or a photo. You'll review everything before it's saved."}
+            : "Paste a link, some text or a photo. You’ll review everything before it’s saved."}
         </p>
       </header>
 

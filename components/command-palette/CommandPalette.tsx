@@ -43,7 +43,7 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
+import { cn, pluralize } from "@/lib/utils";
 import {
   DAYS,
   Kbd,
@@ -165,7 +165,7 @@ export function CommandPalette() {
   const addIngredients = (recipe: RecipeRef, ingredients: string[]) =>
     run(async () => {
       const ids = await addItems({ ingredients, recipeId: recipe._id });
-      toast.success(`Added ${ids.length} ingredients to shopping list`, {
+      toast.success(`Added ${pluralize(ids.length, "ingredient")} to shopping list`, {
         description: recipe.title,
         action: { label: "Undo", onClick: () => void removeItems({ ids }).catch(fail) },
       });
@@ -429,7 +429,7 @@ function RootPage({
                 <UtensilsCrossed />
                 <span className="truncate">{r.title}</span>
                 {r.cookingTime ? (
-                  <CommandShortcut className="tracking-normal">{r.cookingTime} min</CommandShortcut>
+                  <CommandShortcut className="tracking-normal">{r.cookingTime}{"\u00A0"}min</CommandShortcut>
                 ) : null}
               </CommandItem>
             ))}
@@ -465,7 +465,7 @@ function RootPage({
               <UtensilsCrossed />
               <span className="truncate">{r.title}</span>
               <CommandShortcut className="tracking-normal">
-                {r.own ? (r.cookingTime ? `${r.cookingTime} min` : "") : `by ${r.authorName ?? "someone"}`}
+                {r.own ? (r.cookingTime ? `${r.cookingTime}\u00A0min` : "") : `by ${r.authorName ?? "someone"}`}
               </CommandShortcut>
             </CommandItem>
           ))}

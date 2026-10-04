@@ -57,7 +57,7 @@ import {
   segmentStep,
   type StepSegment,
 } from "@/lib/recipe-text";
-import { cn } from "@/lib/utils";
+import { cn, pluralize } from "@/lib/utils";
 import { remainingSeconds, TimerTray, useCookTimers, type CookTimer } from "./timers";
 import { speak, useVoiceCommands, useVoiceSupported, type VoiceCommand } from "./voice";
 
@@ -239,7 +239,7 @@ function TimerChip({
         state === "idle" && "bg-primary/10 text-primary hover:bg-primary/20",
         state === "running" && "bg-primary text-primary-foreground",
         state === "paused" && "bg-primary/20 text-primary",
-        state === "done" && "animate-pulse bg-primary text-primary-foreground"
+        state === "done" && "motion-safe:animate-pulse bg-primary text-primary-foreground"
       )}
     >
       <Clock className="h-[0.8em] w-[0.8em] shrink-0" />
@@ -281,7 +281,14 @@ function ManualTimerButton({ onStart }: { onStart: (minutes: number) => void }) 
           <p className="text-sm font-medium">New timer</p>
           <div className="flex flex-wrap gap-1.5">
             {[1, 3, 5, 10, 15, 30].map((m) => (
-              <Button key={m} type="button" variant="outline" size="sm" onClick={() => start(m)}>
+              <Button
+                key={m}
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => start(m)}
+                aria-label={pluralize(m, "minute")}
+              >
                 {m}m
               </Button>
             ))}
@@ -347,10 +354,10 @@ function VoiceToggle({
 }
 
 function formatMinutes(total: number) {
-  if (total < 60) return `${total} min`;
+  if (total < 60) return `${total}\u00A0min`;
   const h = Math.floor(total / 60);
   const m = total % 60;
-  return m ? `${h} h ${m} min` : `${h} h`;
+  return m ? `${h}\u00A0h ${m}\u00A0min` : `${h}\u00A0h`;
 }
 
 // --- Session ----------------------------------------------------------------
@@ -367,7 +374,7 @@ function CookSession({ recipe }: { recipe: Recipe }) {
   const timers = useCookTimers(initial.timers, recipe.title);
   const wakeLockFailed = useWakeLock();
   const voiceSupported = useVoiceSupported();
-  const mainRef = useRef<HTMLElement>(null);
+  const mainRef = useRef<HTMLDivElement>(null);
 
   const total = recipe.steps.length;
   const onOverview = step < 0;
@@ -406,7 +413,7 @@ function CookSession({ recipe }: { recipe: Recipe }) {
   }, [step]);
 
   useEffect(() => {
-    if (finished) confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+    if (finished) confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, disableForReducedMotion: true });
   }, [finished]);
 
   const next = useCallback(() => {
@@ -612,10 +619,14 @@ function CookSession({ recipe }: { recipe: Recipe }) {
           </Button>
         </div>
         <Progress value={progress} className="h-1 rounded-none" />
+        {/* Steps also change by swipe, keyboard and voice: announce where we are. */}
+        <p className="sr-only" aria-live="polite">
+          {finished ? "Finished" : onOverview ? "Get ready" : `Step ${step + 1} of ${total}`}
+        </p>
         {voiceOn && (
-          <div className="flex items-center gap-2 bg-muted/50 px-4 py-1 text-xs text-muted-foreground">
+          <div role="status" className="flex items-center gap-2 bg-muted/50 px-4 py-1 text-xs text-muted-foreground">
             <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-60" />
+              <span className="absolute inline-flex h-full w-full rounded-full motion-safe:animate-ping bg-primary opacity-60" />
               <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
             </span>
             <span>Listening</span>
@@ -632,7 +643,7 @@ function CookSession({ recipe }: { recipe: Recipe }) {
 
       <div className="flex min-h-0 flex-1">
         {/* Current step */}
-        <main
+        <div
           ref={mainRef}
           onPointerDown={onPointerDown}
           onPointerUp={onPointerUp}
@@ -641,7 +652,7 @@ function CookSession({ recipe }: { recipe: Recipe }) {
         >
           <div className="mx-auto w-full max-w-2xl px-5 py-8 sm:px-8 lg:py-12">
             {finished ? (
-              <div className="flex flex-col items-center py-4 text-center animate-in fade-in zoom-in duration-500">
+              <div className="flex flex-col items-center py-4 text-center motion-safe:animate-in fade-in zoom-in duration-500">
                 <div className="relative mb-8 aspect-video w-full max-w-md overflow-hidden rounded-xl shadow-2xl ring-4 ring-primary/20">
                   {recipe.imageUrl ? (
                     <Image
@@ -756,7 +767,7 @@ function CookSession({ recipe }: { recipe: Recipe }) {
                 {currentIngredients.length > 0 && (
                   <section className="mt-10">
                     <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                      You&apos;ll need
+                      You’ll need
                       {scale !== 1 && <span className="ml-2 normal-case text-primary">scaled {scaleLabel(scale)}</span>}
                     </h3>
                     <IngredientChecklist
@@ -771,7 +782,7 @@ function CookSession({ recipe }: { recipe: Recipe }) {
               </article>
             )}
           </div>
-        </main>
+        </div>
 
       </div>
 
@@ -815,7 +826,7 @@ function CookSession({ recipe }: { recipe: Recipe }) {
             </SheetDescription>
             <ScaleControl value={scale} onChange={setScale} className="mt-2" />
           </SheetHeader>
-          <div className="flex-1 overflow-y-auto p-4">
+          <div className="flex-1 overflow-y-auto overscroll-contain p-4">
             <IngredientChecklist
               lines={scaledLines}
               checked={checked}
@@ -845,7 +856,7 @@ export function CookMode({ id }: { id: string }) {
     return (
       <div className="flex h-dvh items-center justify-center" aria-busy="true">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        <span className="sr-only">Loading recipe</span>
+        <span className="sr-only">Loading recipe…</span>
       </div>
     );
   }

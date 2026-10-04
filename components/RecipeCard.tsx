@@ -17,10 +17,10 @@ export interface RecipeCardData {
 
 export function formatMinutes(minutes?: number) {
   if (!minutes) return null;
-  if (minutes < 60) return `${minutes} min`;
+  if (minutes < 60) return `${minutes}\u00A0min`;
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
-  return m ? `${h} h ${m} min` : `${h} h`;
+  return m ? `${h}\u00A0h ${m}\u00A0min` : `${h}\u00A0h`;
 }
 
 /** A portrait photo tile: the photo carries the card, text sits underneath. */
@@ -48,7 +48,7 @@ export function RecipeCard({
           sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 260px"
           className="aspect-[4/5] rounded-xl"
         />
-        <h3 className="mt-3 line-clamp-2 font-display text-lg font-semibold leading-tight tracking-tight decoration-primary decoration-2 underline-offset-4 group-hover:underline">
+        <h3 className="mt-3 line-clamp-2 text-pretty font-display text-lg font-semibold leading-tight tracking-tight decoration-primary decoration-2 underline-offset-4 group-hover:underline">
           {recipe.title}
         </h3>
         {meta && <p className="mt-1 text-sm text-muted-foreground">{meta}</p>}
