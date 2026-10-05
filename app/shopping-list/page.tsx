@@ -1,5 +1,6 @@
 "use client";
 
+import { once } from "@/hooks/use-single-flight";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { Button } from "@/components/ui/button";
@@ -95,7 +96,7 @@ export default function ShoppingListPage() {
             originals.length > 0
               ? {
                   label: "Undo",
-                  onClick: () => restoreShoppingListItems({ items: originals }),
+                  onClick: once(() => restoreShoppingListItems({ items: originals })),
                 }
               : undefined,
         }
@@ -137,8 +138,9 @@ export default function ShoppingListPage() {
     toast.success(message, {
       action: {
         label: "Undo",
-        onClick: () =>
-          void restoreShoppingListItems({
+        // Undo re-creates deleted rows, so a double click must not run it twice
+        onClick: once(() =>
+          restoreShoppingListItems({
             items: doomed.map((i) => ({
               id: i._id,
               item: {
@@ -148,7 +150,8 @@ export default function ShoppingListPage() {
                 category: i.category,
               },
             })),
-          }),
+          })
+        ),
       },
     });
   };
@@ -160,9 +163,15 @@ export default function ShoppingListPage() {
 
   const handleAddItem = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (newItem.trim()) {
-      await addItem({ ingredient: newItem.trim() });
-      setNewItem("");
+    const ingredient = newItem.trim();
+    if (!ingredient) return;
+    // Clear first so a quick second Enter doesn't add the same item again
+    setNewItem("");
+    try {
+      await addItem({ ingredient });
+    } catch {
+      setNewItem(ingredient);
+      toast.error("Couldn’t add that item", { description: "Check your connection and try again." });
     }
   };
 
@@ -360,7 +369,7 @@ export default function ShoppingListPage() {
                       <label
                         htmlFor={item.id}
                         className={cn(
-                          "flex-1 cursor-pointer py-1.5",
+                          "min-w-0 flex-1 cursor-pointer py-1.5 [overflow-wrap:anywhere]",
                           item.isChecked && "line-through text-muted-foreground"
                         )}
                       >

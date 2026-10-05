@@ -96,7 +96,8 @@ export default function RootLayout({
               Skip to content
             </a>
             <Navbar />
-            <div className="pb-16 md:pb-0 min-h-screen flex flex-col">
+            {/* pb-16 clears the mobile tab bar, which cook mode hides */}
+            <div className="pb-16 md:pb-0 has-[[data-cook-mode]]:pb-0 min-h-screen flex flex-col">
               <main id="main" className="flex-1">
                 {children}
               </main>

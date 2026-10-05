@@ -42,7 +42,7 @@ async function requireUserId(ctx: { auth: { getUserIdentity: () => Promise<{ sub
 
 // --- Fetching -------------------------------------------------------------
 
-function parsePublicUrl(raw: string): URL {
+export function parsePublicUrl(raw: string): URL {
   let url: URL;
   try {
     url = new URL(raw.trim());
@@ -52,37 +52,68 @@ function parsePublicUrl(raw: string): URL {
   if (url.protocol !== "https:" && url.protocol !== "http:") {
     throw new ConvexError("Only http and https links can be imported.");
   }
-  const host = url.hostname.toLowerCase();
+  // A trailing dot ("localhost.") is the same host; strip it before comparing
+  const host = url.hostname.toLowerCase().replace(/\.+$/, "");
   const privateHost =
     host === "localhost" ||
+    host.endsWith(".localhost") ||
     host.endsWith(".local") ||
     host.endsWith(".internal") ||
-    host === "0.0.0.0" ||
     host.startsWith("[") ||
-    /^127\./.test(host) ||
-    /^10\./.test(host) ||
-    /^192\.168\./.test(host) ||
-    /^169\.254\./.test(host) ||
-    /^172\.(1[6-9]|2\d|3[01])\./.test(host);
+    isReservedIPv4(host);
   if (privateHost) throw new ConvexError("That link can't be imported.");
   return url;
 }
+
+/**
+ * Loopback, private, link-local, CGNAT, benchmarking and other non-public
+ * IPv4 ranges. Hostnames that merely resolve to these (DNS rebinding) can't be
+ * caught here: the Convex runtime has no DNS lookup.
+ */
+function isReservedIPv4(host: string): boolean {
+  const match = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (!match) return false;
+  const [a, b, c] = match.slice(1).map(Number);
+  return (
+    a === 0 ||
+    a === 10 ||
+    a === 127 ||
+    (a === 100 && b >= 64 && b <= 127) ||
+    (a === 169 && b === 254) ||
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && b === 0 && c === 0) ||
+    (a === 192 && b === 168) ||
+    (a === 198 && (b === 18 || b === 19)) ||
+    a >= 224
+  );
+}
+
+const MAX_REDIRECTS = 5;
 
 async function fetchWithLimit(url: URL, maxBytes: number, accept: string) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 15_000);
   try {
-    const response = await fetch(url.toString(), {
-      signal: controller.signal,
-      redirect: "follow",
-      headers: {
-        Accept: accept,
-        // Many recipe sites block unknown clients
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36",
-        "Accept-Language": "en-US,en;q=0.9",
-      },
-    });
+    // Follow redirects by hand so every hop gets the same public-host check
+    let target = url;
+    let response: Response;
+    for (let hop = 0; ; hop++) {
+      response = await fetch(target.toString(), {
+        signal: controller.signal,
+        redirect: "manual",
+        headers: {
+          Accept: accept,
+          // Many recipe sites block unknown clients
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36",
+          "Accept-Language": "en-US,en;q=0.9",
+        },
+      });
+      const location = response.headers.get("location");
+      if (response.status < 300 || response.status >= 400 || !location) break;
+      if (hop >= MAX_REDIRECTS) throw new ConvexError("That link redirects too many times.");
+      target = parsePublicUrl(new URL(location, target).toString());
+    }
     if (!response.ok) {
       throw new ConvexError(
         `The site refused the request (HTTP ${response.status}). Try copying the recipe text instead.`

@@ -65,7 +65,8 @@ export default function PublicProfilePage() {
       <div className="flex flex-col items-center mb-10 text-center">
         <div className="w-24 h-24 rounded-full bg-muted flex items-center justify-center overflow-hidden mb-4 relative">
             {user.avatarUrl ? (
-                <Image src={user.avatarUrl} alt={user.name} fill sizes="96px" className="object-cover" />
+                // Avatars can be any https link, not just the hosts next.config allows
+                <Image src={user.avatarUrl} alt={user.name} fill sizes="96px" className="object-cover" unoptimized />
             ) : (
                 <UserIcon className="w-12 h-12 text-muted-foreground" />
             )}

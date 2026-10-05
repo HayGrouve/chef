@@ -2,6 +2,20 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { canReadRecipe } from "./access";
 
+const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+const MEAL_TYPES = ["breakfast", "lunch", "dinner"];
+// Several meals per slot are fine, but keep the week bounded
+const MAX_PLANNED_MEALS = 100;
+
+/** Rejects slots the planner can't show; stored meal types are lowercase. */
+export function validSlot(date: string, mealType: string) {
+  const type = mealType.toLowerCase();
+  if (!DAYS.includes(date) || !MEAL_TYPES.includes(type)) {
+    throw new Error("Invalid meal slot");
+  }
+  return { date, mealType: type };
+}
+
 // Get the static weekly plan
 export const getWeek = query({
   args: {},
@@ -49,14 +63,21 @@ export const add = mutation({
     if (!identity) {
       throw new Error("Unauthenticated");
     }
+    const slot = validSlot(args.date, args.mealType);
+    const planned = await ctx.db
+      .query("mealPlans")
+      .withIndex("by_user_date", (q) => q.eq("userId", identity.subject))
+      .take(MAX_PLANNED_MEALS);
+    if (planned.length >= MAX_PLANNED_MEALS) {
+      throw new Error("Your week is full. Remove some meals first.");
+    }
     const recipe = await ctx.db.get(args.recipeId);
     if (!canReadRecipe(recipe, identity.subject)) {
       throw new Error("Recipe not found");
     }
     return await ctx.db.insert("mealPlans", {
       userId: identity.subject,
-      date: args.date,
-      mealType: args.mealType,
+      ...slot,
       recipeId: args.recipeId,
     });
   },
@@ -79,10 +100,7 @@ export const move = mutation({
       throw new Error("Unauthorized");
     }
 
-    await ctx.db.patch(args.id, {
-      date: args.date,
-      mealType: args.mealType,
-    });
+    await ctx.db.patch(args.id, validSlot(args.date, args.mealType));
   },
 });
 
@@ -154,6 +172,10 @@ export const autoGenerate = mutation({
           });
         }
       }
+    }
+
+    if (newPlans.length === 0) {
+      return { count: 0, message: "Your week is already fully planned!" };
     }
 
     await Promise.all(newPlans.map((plan) => ctx.db.insert("mealPlans", plan)));

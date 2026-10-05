@@ -9,17 +9,18 @@ const isPublicRoute = createRouteMatcher([
   "/terms",
   "/privacy",
   "/recipe(.*)",
+  "/profile/(.*)",
+]);
+
+const isProtectedRoute = createRouteMatcher([
+  // Cooking needs an account; the rest of a recipe page is public
+  "/recipe/(.*)/cook(.*)",
+  // Public profiles are readable by anyone, but editing your own isn't
+  "/profile/edit(.*)",
 ]);
 
 export default clerkMiddleware(async (auth, request) => {
-  // Exclude /cook routes from public access
-  const pathname = request.nextUrl.pathname;
-  if (pathname.includes("/cook")) {
-    await auth.protect();
-    return;
-  }
-  
-  if (!isPublicRoute(request)) {
+  if (isProtectedRoute(request) || !isPublicRoute(request)) {
     await auth.protect();
   }
 });

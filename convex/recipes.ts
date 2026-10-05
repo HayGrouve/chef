@@ -1,10 +1,124 @@
-import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { v, ConvexError } from "convex/values";
+import { mutation, query, internalMutation, MutationCtx } from "./_generated/server";
 import { paginationOptsValidator } from "convex/server";
-import { PREDEFINED_TAGS } from "../lib/constants";
+import { Id } from "./_generated/dataModel";
+import { PREDEFINED_TAGS, RECIPE_LIMITS } from "../lib/constants";
 import { internal } from "./_generated/api";
 import { pantryTermMatches } from "./ingredientMatch";
 import { canReadRecipe } from "./access";
+
+type RecipeInput = {
+  title: string;
+  format?: string;
+  description: string;
+  ingredients: string[];
+  steps: string[];
+  tags?: string[];
+  cookingTime?: number;
+  difficulty?: string;
+  calories?: number;
+};
+
+/** Trims and validates recipe fields; the client validates too, but can be bypassed. */
+function cleanRecipeInput<T extends RecipeInput>(args: T): T {
+  const fail = (message: string): never => {
+    throw new ConvexError(message);
+  };
+  const L = RECIPE_LIMITS;
+  const title = args.title.trim();
+  if (!title) fail("Give the recipe a title.");
+  if (title.length > L.title) fail(`Keep the title under ${L.title} characters.`);
+  const description = args.description.trim();
+  if (description.length > L.description) {
+    fail(`Keep the description under ${L.description} characters.`);
+  }
+  const lines = (list: string[], what: string, max: number, maxLength: number) => {
+    const cleaned = list.map((line) => line.trim()).filter(Boolean);
+    if (cleaned.length === 0) fail(`Add at least one ${what}.`);
+    if (cleaned.length > max) fail(`A recipe can have at most ${max} ${what}s.`);
+    if (cleaned.some((line) => line.length > maxLength)) {
+      fail(`Keep each ${what} under ${maxLength} characters.`);
+    }
+    return cleaned;
+  };
+  const ingredients = lines(args.ingredients, "ingredient", L.ingredients, L.ingredientLength);
+  const steps = lines(args.steps, "step", L.steps, L.stepLength);
+  const inRange = (value: number | undefined, min: number, max: number) =>
+    value === undefined || (Number.isFinite(value) && value >= min && value <= max);
+  if (!inRange(args.cookingTime, 1, L.cookingTime)) {
+    fail(`Cooking time must be between 1 and ${L.cookingTime} minutes.`);
+  }
+  if (!inRange(args.calories, 0, L.calories)) {
+    fail(`Calories must be between 0 and ${L.calories}.`);
+  }
+  if (args.difficulty !== undefined && !["Easy", "Medium", "Hard"].includes(args.difficulty)) {
+    fail("Difficulty must be Easy, Medium or Hard.");
+  }
+  if (args.format !== undefined && args.format.length > 50) fail("Invalid image format.");
+  if (args.tags && !args.tags.every((tag) => (PREDEFINED_TAGS as readonly string[]).includes(tag))) {
+    fail("Invalid tags provided");
+  }
+  return {
+    ...args,
+    title,
+    description,
+    ingredients,
+    steps,
+    tags: args.tags && Array.from(new Set(args.tags)),
+    cookingTime: args.cookingTime === undefined ? undefined : Math.round(args.cookingTime),
+    calories: args.calories === undefined ? undefined : Math.round(args.calories),
+  };
+}
+
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+
+/**
+ * Storage ids aren't tied to an uploader, and every recipe query returns its
+ * storageId, so an image may only ever belong to one recipe. Otherwise anyone
+ * could attach someone else's photo and then delete it with their own recipe.
+ */
+async function assertImageAvailable(
+  ctx: MutationCtx,
+  storageId: string,
+  recipeId?: Id<"recipes">
+) {
+  if (!storageId) return;
+  const fileId = ctx.db.system.normalizeId("_storage", storageId);
+  const file = fileId && (await ctx.db.system.get(fileId));
+  if (!file) {
+    throw new ConvexError("That image upload is invalid. Try adding the photo again.");
+  }
+  // Upload URLs accept any file; only images may become recipe photos
+  const notImage = file.contentType !== undefined && !file.contentType.startsWith("image/");
+  if (notImage || file.size > MAX_IMAGE_BYTES) {
+    throw new ConvexError("Recipe photos must be images under 10 MB.");
+  }
+  const users = await ctx.db
+    .query("recipes")
+    .withIndex("by_storageId", (q) => q.eq("storageId", storageId))
+    .take(2);
+  if (users.some((recipe) => recipe._id !== recipeId)) {
+    throw new ConvexError("That image belongs to another recipe.");
+  }
+}
+
+/** Deletes a recipe image unless another recipe still uses it. */
+async function deleteImageIfUnused(
+  ctx: MutationCtx,
+  storageId: string,
+  recipeId: Id<"recipes">
+) {
+  const fileId = storageId ? ctx.db.system.normalizeId("_storage", storageId) : null;
+  if (!fileId) return;
+  const users = await ctx.db
+    .query("recipes")
+    .withIndex("by_storageId", (q) => q.eq("storageId", storageId))
+    .take(2);
+  if (users.some((recipe) => recipe._id !== recipeId)) return;
+  if (await ctx.db.system.get(fileId)) {
+    await ctx.storage.delete(fileId);
+  }
+}
 
 // Generate an upload URL for storing recipe images
 export const generateUploadUrl = mutation(async (ctx) => {
@@ -30,20 +144,14 @@ export const create = mutation({
     difficulty: v.optional(v.string()),
     calories: v.optional(v.number()),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, rawArgs) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
       throw new Error("Unauthenticated");
     }
 
-    if (args.tags) {
-      const validTags = args.tags.every((tag) =>
-        (PREDEFINED_TAGS as unknown as string[]).includes(tag)
-      );
-      if (!validTags) {
-        throw new Error("Invalid tags provided");
-      }
-    }
+    const args = cleanRecipeInput(rawArgs);
+    await assertImageAvailable(ctx, args.storageId);
 
     const user = await ctx.db
       .query("users")
@@ -84,13 +192,13 @@ export const update = mutation({
     difficulty: v.optional(v.string()),
     calories: v.optional(v.number()),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, rawArgs) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
       throw new Error("Unauthenticated");
     }
 
-    const recipe = await ctx.db.get(args.id);
+    const recipe = await ctx.db.get(rawArgs.id);
     if (!recipe) {
       throw new Error("Recipe not found");
     }
@@ -99,13 +207,10 @@ export const update = mutation({
       throw new Error("Unauthorized");
     }
 
-    if (args.tags) {
-      const validTags = args.tags.every((tag) =>
-        (PREDEFINED_TAGS as unknown as string[]).includes(tag)
-      );
-      if (!validTags) {
-        throw new Error("Invalid tags provided");
-      }
+    const args = cleanRecipeInput(rawArgs);
+    const imageChanged = !!args.storageId && args.storageId !== recipe.storageId;
+    if (imageChanged) {
+      await assertImageAvailable(ctx, args.storageId!, args.id);
     }
 
     const user = await ctx.db
@@ -132,7 +237,7 @@ export const update = mutation({
     };
 
     // Only update storageId if a new one is provided
-    if (args.storageId) {
+    if (imageChanged) {
       updates.storageId = args.storageId;
       updates.format = args.format;
     }
@@ -146,6 +251,9 @@ export const update = mutation({
     }
 
     await ctx.db.patch(args.id, updates);
+    if (imageChanged) {
+      await deleteImageIfUnused(ctx, recipe.storageId, args.id);
+    }
     if (ingredientsChanged) {
       await ctx.scheduler.runAfter(0, internal.ai.tagRecipeIngredients, {
         recipeId: args.id,
@@ -184,6 +292,11 @@ export const list = query({
     const identity = await ctx.auth.getUserIdentity();
     const userId = identity?.subject;
 
+    // Signed-out visitors have no favorites or recipes of their own
+    if ((args.favoritesOnly || args.myRecipesOnly) && !userId) {
+      return { page: [], isDone: true, continueCursor: "" };
+    }
+
     // If filtering by favorites only, we need to query the favorites table first
     if (args.favoritesOnly && userId) {
       // Note: Pagination with this approach is tricky because we need to paginate the favorites table,
@@ -205,10 +318,9 @@ export const list = query({
         })
       );
 
-      // Filter nulls (deleted recipes) and apply other filters in memory (since we can't easily combine index query)
-      let filteredRecipes = recipes.filter(
-        (r): r is NonNullable<typeof r> => r !== null
-      );
+      // Drop deleted recipes and ones that went private since they were
+      // favorited, then apply other filters in memory (since we can't easily combine index query)
+      let filteredRecipes = recipes.filter((r) => canReadRecipe(r, userId));
 
       if (args.search) {
         const searchLower = args.search.toLowerCase();
@@ -344,7 +456,7 @@ export const list = query({
 
       queryBuilder = queryBuilder.order("desc");
 
-      if (args.difficulty) {
+      if (args.difficulty && args.difficulty !== "all") {
         queryBuilder = queryBuilder.filter((q: any) =>
           q.eq(q.field("difficulty"), args.difficulty)
         );
@@ -435,13 +547,16 @@ export const listAll = query({
 });
 
 // Get a public recipe by ID
+// Both getters take any string: ids come straight from the URL, and a
+// malformed one should read as "not found" rather than throw.
 export const getPublic = query({
-  args: { id: v.id("recipes") },
+  args: { id: v.string() },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     const userId = identity?.subject;
 
-    const recipe = await ctx.db.get(args.id);
+    const id = ctx.db.normalizeId("recipes", args.id);
+    const recipe = id && (await ctx.db.get(id));
     if (!recipe || !recipe.isPublic) {
       return null;
     }
@@ -472,12 +587,13 @@ export const getPublic = query({
 
 // Get a recipe by ID
 export const get = query({
-  args: { id: v.id("recipes") },
+  args: { id: v.string() },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     const userId = identity?.subject;
 
-    const recipe = await ctx.db.get(args.id);
+    const id = ctx.db.normalizeId("recipes", args.id);
+    const recipe = id && (await ctx.db.get(id));
     // Private recipes are only visible to their owner
     if (!canReadRecipe(recipe, userId)) {
       return null;
@@ -625,11 +741,6 @@ export const toggleFavorite = mutation({
       throw new Error("Unauthenticated");
     }
 
-    const recipe = await ctx.db.get(args.id);
-    if (!recipe) {
-      throw new Error("Recipe not found");
-    }
-
     // Check if already favorited
     const existingFavorite = await ctx.db
       .query("favorites")
@@ -639,8 +750,13 @@ export const toggleFavorite = mutation({
       .unique();
 
     if (existingFavorite) {
+      // Unfavoriting always works, even if the recipe has since gone private
       await ctx.db.delete(existingFavorite._id);
     } else {
+      const recipe = await ctx.db.get(args.id);
+      if (!canReadRecipe(recipe, identity.subject)) {
+        throw new Error("Recipe not found");
+      }
       await ctx.db.insert("favorites", {
         userId: identity.subject,
         recipeId: args.id,
@@ -667,19 +783,38 @@ export const remove = mutation({
       throw new Error("Unauthorized");
     }
 
-    // Also delete associated favorites?
-    // Ideally yes, to keep DB clean.
-    // Note: The index is "by_user_recipe": ["userId", "recipeId"].
-    // Querying by just "recipeId" efficiently requires an index starting with "recipeId".
-    // Without it, we can't efficiently delete all favorites for this recipe.
-    // For now, we will skip deleting favorites to avoid full table scans.
-    // In a production app, we should add an index on "recipeId" to the favorites table.
+    // Other people's favorites, plans and list items are cleaned up in the
+    // background, in batches: anyone can reference a public recipe, so there
+    // may be more rows than one mutation is allowed to touch.
+    await ctx.scheduler.runAfter(0, internal.recipes.cleanupReferences, { recipeId: args.id });
 
-    // Delete the image from storage if it exists
-    if (recipe.storageId) {
-      await ctx.storage.delete(recipe.storageId);
-    }
+    await deleteImageIfUnused(ctx, recipe.storageId, recipe._id);
 
     return await ctx.db.delete(args.id);
+  },
+});
+
+const CLEANUP_BATCH = 200;
+
+/**
+ * Removes favorites and meal plans that point at a deleted recipe. Shopping-list
+ * items stay (people may still need to buy them) but lose the link. Runs in
+ * batches and reschedules itself until nothing is left.
+ */
+export const cleanupReferences = internalMutation({
+  args: { recipeId: v.id("recipes") },
+  handler: async (ctx, { recipeId }) => {
+    const [favorites, plans, items] = await Promise.all([
+      ctx.db.query("favorites").withIndex("by_recipe", (q) => q.eq("recipeId", recipeId)).take(CLEANUP_BATCH),
+      ctx.db.query("mealPlans").withIndex("by_recipe", (q) => q.eq("recipeId", recipeId)).take(CLEANUP_BATCH),
+      ctx.db.query("shoppingList").withIndex("by_recipe", (q) => q.eq("recipeId", recipeId)).take(CLEANUP_BATCH),
+    ]);
+    for (const favorite of favorites) await ctx.db.delete(favorite._id);
+    for (const plan of plans) await ctx.db.delete(plan._id);
+    for (const item of items) await ctx.db.patch(item._id, { recipeId: undefined });
+
+    if ([favorites, plans, items].some((rows) => rows.length === CLEANUP_BATCH)) {
+      await ctx.scheduler.runAfter(0, internal.recipes.cleanupReferences, { recipeId });
+    }
   },
 });

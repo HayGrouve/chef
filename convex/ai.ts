@@ -9,6 +9,9 @@ import {
 import { internal } from "./_generated/api";
 import { generateJson } from "./gemini";
 import { Doc, Id } from "./_generated/dataModel";
+import { readableRecipeId } from "./access";
+import { assertRoomFor, cleanItem, MAX_LIST_ITEMS } from "./shoppingList";
+import { validSlot } from "./mealPlans";
 
 // --- Rate Limiting ---
 
@@ -134,11 +137,10 @@ export const insertGeneratedMeals = internalMutation({
         if (!recipe) continue;
         if (recipe.userId !== args.userId && !recipe.isPublic) continue;
 
-        // Insert the valid meal plan
+        // Insert the valid meal plan (validSlot throws on made-up days/meals)
         await ctx.db.insert("mealPlans", {
           userId: args.userId,
-          date: meal.date,
-          mealType: meal.mealType,
+          ...validSlot(meal.date, meal.mealType),
           recipeId: recipeId,
         });
         insertedCount++;
@@ -333,19 +335,28 @@ export const restoreShoppingListItems = mutation({
       throw new ConvexError("Unauthenticated");
     }
     const userId = identity.subject;
+    if (args.items.length > MAX_LIST_ITEMS) {
+      throw new ConvexError("Too many items to restore.");
+    }
 
-    for (const { id, item } of args.items) {
+    for (const { id, item: snapshot } of args.items) {
+      const item = { ...snapshot, ingredient: cleanItem(snapshot.ingredient) };
       const existing = await ctx.db.get(id);
       if (existing) {
         if (existing.userId !== userId) continue;
         await ctx.db.patch(id, {
           ingredient: item.ingredient,
-          recipeId: item.recipeId,
+          recipeId: await readableRecipeId(ctx, item.recipeId, userId),
           category: item.category,
         });
       } else {
         // Item was merged away; recreate it
-        await ctx.db.insert("shoppingList", { ...item, userId });
+        await assertRoomFor(ctx, userId, 1);
+        await ctx.db.insert("shoppingList", {
+          ...item,
+          recipeId: await readableRecipeId(ctx, item.recipeId, userId),
+          userId,
+        });
       }
     }
   },

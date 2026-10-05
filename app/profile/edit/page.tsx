@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "convex/react";
+import { ConvexError } from "convex/values";
 import { api } from "../../../convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,7 +44,10 @@ export default function EditProfilePage() {
     } catch (error) {
       console.error("Failed to update profile:", error);
       toast.error("Couldn’t save your profile", {
-        description: "Check your connection and try again. Your changes are still here.",
+        description:
+          error instanceof ConvexError && typeof error.data === "string"
+            ? error.data
+            : "Check your connection and try again. Your changes are still here.",
       });
     } finally {
       setIsSaving(false);

@@ -163,16 +163,28 @@ An audit of `app/` and `components/` (excluding the shadcn primitives in `compon
 
 Not done: day abbreviations in the planner still use English `slice(0, 3)`, because the stored day keys are English and locale-formatting only the short names would mix languages and risk hydration mismatches.
 
+## Round 11 — 2026-10-05 (QA audit)
+
+A full Guest/Host QA pass. The complete findings, including the security fixes, are in [QA_REPORT.md](QA_REPORT.md). UI-facing changes:
+
+| Change | Status | Files |
+|--------|--------|-------|
+| **Clear dead ends.** Branded 404 and root error pages. Meals whose recipe went private read "Recipe no longer available". `/create?edit=` for a recipe you don't own says so instead of showing a form. Public profiles open while signed out. "Sign in to cook" returns to cook mode. | ✅ | `app/not-found.tsx`, `app/error.tsx`, `app/meal-planner/page.tsx`, `app/create/page.tsx`, `middleware.ts`, `app/recipe/[id]/RecipeDetailClient.tsx` |
+| **No accidental duplicates or lost work.** Planning a meal, Shop week, adding a list item and every Undo are single-flight (`hooks/use-single-flight.ts`). The edit form no longer resets on live updates. Saving offline explains itself. Undecodable photos are rejected. Server validation messages reach the toast. | ✅ | `app/meal-planner/page.tsx`, `app/shopping-list/page.tsx`, `app/create/page.tsx`, `app/profile/edit/page.tsx` |
+| **Layout.** Cook mode is exactly one screen (no footer, no tab-bar padding). Long unbreakable words wrap on the recipe page and the shopping list. Planner drops go where the pointer is. | ✅ | `components/footer.tsx`, `app/layout.tsx`, `components/cook/CookMode.tsx`, `app/recipe/[id]/RecipeDetailClient.tsx`, `app/shopping-list/page.tsx` |
+
 ## Backlog
 
 All items from the original audit are done. Ideas for a future round:
 
 - After editing a recipe, return to that recipe's page instead of home.
 - Meal planner: show which week/dates the day names refer to (the data model stores day names only).
-- Meal types are stored with mixed casing (`Breakfast` from the planner, `breakfast` from the seed); compare case-insensitively or normalize.
+- Meal types are now normalized to lowercase by the server (Round 11); existing dev and prod rows were already lowercase.
 - Shelves are built from the first page of recipes (24). With a large library, "Your recipes" or "Favorites" may look short until "See all" (which queries the server).
 
 ## Notes
+
+- Round 11 adds indexes (`recipes.by_storageId`, `by_recipe` on favorites/mealPlans/shoppingList); `npx convex deploy` builds them. Run `pnpm test` for the Convex regression suite.
 
 - Convex backend changes need a deploy (`npx convex deploy`, or `npx convex dev` for the dev deployment): `addBatch` returns ids (for Undo), the new `recipes.ingredientKeys` field, the ingredient tagging actions, and the Gemini 3.8 Flash switch. After deploying, run `npx convex run ai:backfillIngredientKeys` once.
 - `convex/shoppingList.ts` changed (`addBatch` returns ids). Until Convex functions are redeployed, Undo is simply hidden, so nothing breaks.

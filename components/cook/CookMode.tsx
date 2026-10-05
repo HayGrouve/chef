@@ -250,11 +250,14 @@ function TimerChip({
   );
 }
 
+const MAX_TIMER_MINUTES = 24 * 60;
+
 function ManualTimerButton({ onStart }: { onStart: (minutes: number) => void }) {
   const [open, setOpen] = useState(false);
   const [minutes, setMinutes] = useState("5");
   const start = (m: number) => {
-    if (!Number.isFinite(m) || m <= 0) return;
+    // Cap at a day: huge values overflow the countdown display
+    if (!Number.isFinite(m) || m <= 0 || m > MAX_TIMER_MINUTES) return;
     onStart(m);
     setOpen(false);
   };
@@ -298,6 +301,7 @@ function ManualTimerButton({ onStart }: { onStart: (minutes: number) => void }) 
               type="number"
               inputMode="decimal"
               min="0.5"
+              max={MAX_TIMER_MINUTES}
               step="0.5"
               value={minutes}
               onChange={(e) => setMinutes(e.target.value)}
@@ -555,7 +559,7 @@ function CookSession({ recipe }: { recipe: Recipe }) {
   const runningCount = timers.timers.filter((t) => t.status !== "done").length;
 
   return (
-    <div className="flex h-dvh flex-col bg-background">
+    <div data-cook-mode className="flex h-dvh flex-col bg-background">
       {/* Header */}
       <header className="shrink-0 border-b bg-background">
         <div className="flex items-center gap-1 px-2 py-2 sm:gap-2 sm:px-4">
