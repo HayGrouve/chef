@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { InstallPwaButton } from "./install-pwa-button";
 
 const links = [
@@ -10,6 +11,9 @@ const links = [
 ];
 
 export function Footer() {
+  const pathname = usePathname();
+  // Cook mode is a full-screen view; a footer below it only invites stray scrolling
+  if (pathname?.endsWith("/cook")) return null;
   return (
     <footer className="border-t bg-background">
       <div className="container mx-auto px-4 py-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">

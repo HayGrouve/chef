@@ -35,6 +35,7 @@ export default defineSchema({
     ingredientKeys: v.optional(v.array(v.array(v.string()))),
   })
     .index("by_userId", ["userId"])
+    .index("by_storageId", ["storageId"])
     .searchIndex("search_recipes", {
       searchField: "searchText",
       filterFields: ["userId", "isPublic", "difficulty"],
@@ -47,23 +48,30 @@ export default defineSchema({
     recipeId: v.id("recipes"),
   })
     .index("by_user_recipe", ["userId", "recipeId"])
-    .index("by_user", ["userId"]),
+    .index("by_user", ["userId"])
+    .index("by_recipe", ["recipeId"]),
   shoppingList: defineTable({
     userId: v.string(),
     ingredient: v.string(),
     isChecked: v.boolean(),
     recipeId: v.optional(v.id("recipes")), // Optional link back to recipe
     category: v.optional(v.string()),
-  }).index("by_user", ["userId"]),
+  })
+    .index("by_user", ["userId"])
+    .index("by_recipe", ["recipeId"]),
   mealPlans: defineTable({
     userId: v.string(),
     date: v.string(), // YYYY-MM-DD
     mealType: v.string(), // breakfast, lunch, dinner
     recipeId: v.id("recipes"),
-  }).index("by_user_date", ["userId", "date"]),
+  })
+    .index("by_user_date", ["userId", "date"])
+    .index("by_recipe", ["recipeId"]),
   rateLimits: defineTable({
     userId: v.string(),
     action: v.string(),
     lastCalledAt: v.number(),
+    // Calls made in the window starting at lastCalledAt (quota-style limits)
+    count: v.optional(v.number()),
   }).index("by_user_action", ["userId", "action"]),
 });

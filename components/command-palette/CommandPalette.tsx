@@ -524,7 +524,7 @@ function RecipePage({
       id: "shop",
       label: "Add ingredients to shopping list",
       icon: ShoppingCart,
-      hint: full ? `${count} items` : "",
+      hint: full ? pluralize(count, "item") : "",
       disabled: !full || count === 0,
       onSelect: () => full && onAddIngredients(full.ingredients),
     },

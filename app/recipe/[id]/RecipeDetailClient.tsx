@@ -244,7 +244,7 @@ function RecipeDetailContent() {
           </Authenticated>
           <Unauthenticated>
             <Button asChild size="lg">
-              <Link href="/sign-in">
+              <Link href={`/sign-in?redirect_url=${encodeURIComponent(`${pathname}/cook`)}`}>
                 <Play />
                 Sign in to cook
               </Link>
@@ -303,7 +303,7 @@ function RecipeDetailContent() {
       </div>
 
       <div className="container mx-auto mt-14 grid max-w-5xl gap-12 px-4 md:grid-cols-[18rem_1fr]">
-        <section className="md:sticky md:top-24 md:self-start">
+        <section className="min-w-0 md:sticky md:top-24 md:self-start">
           <div className="flex items-center justify-between gap-3">
             <h2 className="font-display text-2xl font-bold tracking-tight">Ingredients</h2>
             <div className="flex rounded-full bg-muted p-0.5" role="group" aria-label="Scale ingredients">
@@ -326,13 +326,13 @@ function RecipeDetailContent() {
             {ingredients.map((line, i) => (
               <li key={i} className="flex gap-3 leading-snug">
                 <span className="mt-2 size-1.5 shrink-0 rounded-full bg-primary" aria-hidden />
-                {line}
+                <span className="min-w-0 [overflow-wrap:anywhere]">{line}</span>
               </li>
             ))}
           </ul>
         </section>
 
-        <section>
+        <section className="min-w-0">
           <h2 className="font-display text-2xl font-bold tracking-tight">Method</h2>
           <ol className="mt-6 flex flex-col gap-8">
             {recipe.steps.map((step, i) => (
@@ -340,7 +340,7 @@ function RecipeDetailContent() {
                 <span className="font-display text-3xl font-bold leading-none tabular-nums text-primary">
                   {i + 1}
                 </span>
-                <p className="max-w-[60ch] pt-1 text-[1.0625rem] leading-relaxed">{step}</p>
+                <p className="min-w-0 max-w-[60ch] pt-1 text-[1.0625rem] leading-relaxed [overflow-wrap:anywhere]">{step}</p>
               </li>
             ))}
           </ol>

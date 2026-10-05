@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useId, Suspense } from "react";
 import { useMutation, useQuery } from "convex/react";
+import { ConvexError } from "convex/values";
 import { api } from "../../convex/_generated/api";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,7 @@ import {
   ChevronsUpDown,
   GripVertical,
   Sparkles,
+  ArrowLeft,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -709,8 +711,12 @@ function CreateRecipeContent() {
     mode: "onTouched",
   });
 
+  // Load the recipe into the form once. Later live updates (a save from
+  // another tab, background ingredient tagging) must not wipe unsaved edits.
+  const loadedRecipeId = useRef<string | null>(null);
   useEffect(() => {
-    if (existingRecipe) {
+    if (existingRecipe && loadedRecipeId.current !== existingRecipe._id) {
+      loadedRecipeId.current = existingRecipe._id;
       form.reset({
         title: existingRecipe.title,
         description: existingRecipe.description,
@@ -765,14 +771,11 @@ function CreateRecipeContent() {
         };
         reader.readAsDataURL(compressed);
       } catch (error) {
+        // Compression decodes the image, so failing here means the file isn't
+        // a readable image (e.g. a renamed text file); don't upload it
         console.error("Image compression failed:", error);
-        // Fallback to original file
-        setImageFile(file);
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          setImagePreview(reader.result as string);
-        };
-        reader.readAsDataURL(file);
+        showAlert("Couldn’t read that image", "Choose a different PNG, JPEG or WEBP photo.");
+        e.target.value = "";
       }
     }
   };
@@ -837,7 +840,16 @@ function CreateRecipeContent() {
     })();
   };
 
+  const submitting = useRef(false);
   const onSubmit = async (data: RecipeFormValues) => {
+    // Same-tick double clicks get past the isSubmitting state; this ref doesn't
+    if (submitting.current) return;
+    // Convex queues mutations while offline, which would leave "Saving…" hanging
+    if (!navigator.onLine) {
+      showAlert("You’re offline", "Reconnect to save. Your changes are still here.");
+      return;
+    }
+    submitting.current = true;
     try {
       let storageId = existingRecipe?.storageId;
 
@@ -853,6 +865,7 @@ function CreateRecipeContent() {
       }
 
       if (!storageId && !editId) {
+        submitting.current = false;
         showAlert("Photo required", "Add a photo of the dish to save the recipe.");
         return;
       }
@@ -890,8 +903,14 @@ function CreateRecipeContent() {
 
       router.push("/");
     } catch (error) {
+      submitting.current = false;
       console.error("Failed to save recipe:", error);
-      showAlert("Couldn’t save the recipe", "Check your connection and try again. Your changes are still here.");
+      showAlert(
+        "Couldn’t save the recipe",
+        error instanceof ConvexError && typeof error.data === "string"
+          ? error.data
+          : "Check your connection and try again. Your changes are still here."
+      );
     }
   };
 
@@ -902,6 +921,23 @@ function CreateRecipeContent() {
         <Skeleton className="h-10 w-full" />
         <Skeleton className="h-24 w-full" />
         <Skeleton className="aspect-video w-full max-w-sm" />
+      </div>
+    );
+  }
+
+  // Missing, private, or someone else's: there's nothing here you can edit
+  if (editId && (!existingRecipe || !existingRecipe.isOwner)) {
+    return (
+      <div className="container mx-auto max-w-md px-4 py-24 text-center">
+        <h1 className="font-display text-2xl font-bold">Can’t edit this recipe</h1>
+        <p className="mt-2 text-muted-foreground">
+          It doesn’t exist, or it belongs to someone else.
+        </p>
+        <Button asChild variant="outline" className="mt-6">
+          <Link href={existingRecipe ? `/recipe/${editId}` : "/"}>
+            <ArrowLeft /> {existingRecipe ? "Back to recipe" : "Back to Cook"}
+          </Link>
+        </Button>
       </div>
     );
   }

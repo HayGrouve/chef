@@ -8,6 +8,8 @@ import { api, internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { PREDEFINED_TAGS } from "../lib/constants";
 import { arrayBufferToBase64, generateJsonFromParts, GeminiPart } from "./gemini";
+import { parsePublicUrl } from "./publicUrl";
+import { IMPORT_FETCH_QUOTA } from "./rateLimit";
 
 export type RecipeDraft = {
   title: string;
@@ -42,63 +44,35 @@ async function requireUserId(ctx: { auth: { getUserIdentity: () => Promise<{ sub
 
 // --- Fetching -------------------------------------------------------------
 
-function parsePublicUrl(raw: string): URL {
-  let url: URL;
-  try {
-    url = new URL(raw.trim());
-  } catch {
-    throw new ConvexError("That doesn't look like a link. Paste the full address, starting with https://");
+/**
+ * Fetches a public page or image for the signed-in user. The quota is taken
+ * before any network request, so import can't be used as an open fetch proxy.
+ * The request itself runs in Node (safeFetch.ts), which checks DNS answers.
+ */
+async function fetchWithLimit(
+  ctx: ActionCtx,
+  userId: string,
+  url: URL,
+  maxBytes: number,
+  accept: string
+) {
+  const quota = await ctx.runMutation(internal.rateLimit.consume, {
+    userId,
+    action: "importFetch",
+    ...IMPORT_FETCH_QUOTA,
+  });
+  if (!quota.ok) {
+    // Same wording as checkRateLimit, so the import UI shows its countdown
+    throw new ConvexError(
+      `Rate limit exceeded. Please wait ${Math.ceil(quota.retryAfterMs / 1000)} seconds.`
+    );
   }
-  if (url.protocol !== "https:" && url.protocol !== "http:") {
-    throw new ConvexError("Only http and https links can be imported.");
-  }
-  const host = url.hostname.toLowerCase();
-  const privateHost =
-    host === "localhost" ||
-    host.endsWith(".local") ||
-    host.endsWith(".internal") ||
-    host === "0.0.0.0" ||
-    host.startsWith("[") ||
-    /^127\./.test(host) ||
-    /^10\./.test(host) ||
-    /^192\.168\./.test(host) ||
-    /^169\.254\./.test(host) ||
-    /^172\.(1[6-9]|2\d|3[01])\./.test(host);
-  if (privateHost) throw new ConvexError("That link can't be imported.");
-  return url;
-}
-
-async function fetchWithLimit(url: URL, maxBytes: number, accept: string) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 15_000);
-  try {
-    const response = await fetch(url.toString(), {
-      signal: controller.signal,
-      redirect: "follow",
-      headers: {
-        Accept: accept,
-        // Many recipe sites block unknown clients
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36",
-        "Accept-Language": "en-US,en;q=0.9",
-      },
-    });
-    if (!response.ok) {
-      throw new ConvexError(
-        `The site refused the request (HTTP ${response.status}). Try copying the recipe text instead.`
-      );
-    }
-    const length = Number(response.headers.get("content-length") ?? 0);
-    if (length > maxBytes) throw new ConvexError("That page is too large to import.");
-    const buffer = await response.arrayBuffer();
-    if (buffer.byteLength > maxBytes) throw new ConvexError("That page is too large to import.");
-    return { buffer, contentType: response.headers.get("content-type") ?? "" };
-  } catch (error) {
-    if (error instanceof ConvexError) throw error;
-    throw new ConvexError("Couldn't reach that page. Check the link or paste the recipe text instead.");
-  } finally {
-    clearTimeout(timer);
-  }
+  const { bytes, contentType } = await ctx.runAction(internal.safeFetch.fetchPublic, {
+    url: url.toString(),
+    maxBytes,
+    accept,
+  });
+  return { buffer: bytes, contentType };
 }
 
 // --- HTML helpers ---------------------------------------------------------
@@ -504,7 +478,7 @@ export const fromUrl = action({
   handler: async (ctx, args): Promise<RecipeDraft> => {
     const userId = await requireUserId(ctx);
     const url = parsePublicUrl(args.url);
-    const { buffer } = await fetchWithLimit(url, MAX_PAGE_BYTES, "text/html,application/xhtml+xml");
+    const { buffer } = await fetchWithLimit(ctx, userId, url, MAX_PAGE_BYTES, "text/html,application/xhtml+xml");
     const html = new TextDecoder().decode(buffer);
 
     // 1. Structured data: exact and free
@@ -597,7 +571,7 @@ export const save = action({
     imageStorageId: v.optional(v.id("_storage")),
   },
   handler: async (ctx, args): Promise<{ recipeId: Id<"recipes">; imageSaved: boolean }> => {
-    await requireUserId(ctx);
+    const userId = await requireUserId(ctx);
     const title = args.title.trim();
     const ingredients = args.ingredients.map((s) => s.trim()).filter(Boolean);
     const steps = args.steps.map((s) => s.trim()).filter(Boolean);
@@ -610,6 +584,8 @@ export const save = action({
     if (!storageId && args.imageUrl) {
       try {
         const { buffer, contentType } = await fetchWithLimit(
+          ctx,
+          userId,
           parsePublicUrl(args.imageUrl),
           MAX_IMAGE_BYTES,
           "image/*"

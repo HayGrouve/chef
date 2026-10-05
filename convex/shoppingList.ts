@@ -1,7 +1,34 @@
-import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { v, ConvexError } from "convex/values";
+import { mutation, query, MutationCtx } from "./_generated/server";
 import { getCategory } from "./categories";
-import { canReadRecipe } from "./access";
+import { canReadRecipe, readableRecipeId } from "./access";
+
+export const MAX_ITEM_LENGTH = 300;
+export const MAX_BATCH = 200;
+export const MAX_LIST_ITEMS = 1000;
+
+/** Trims an item and rejects empty or oversized ones. */
+export function cleanItem(ingredient: string) {
+  const cleaned = ingredient.trim();
+  if (!cleaned) throw new ConvexError("Item can't be empty.");
+  if (cleaned.length > MAX_ITEM_LENGTH) {
+    throw new ConvexError(`Keep items under ${MAX_ITEM_LENGTH} characters.`);
+  }
+  return cleaned;
+}
+
+/** Keeps a list small enough that reading and clearing it stays within limits. */
+export async function assertRoomFor(ctx: MutationCtx, userId: string, count: number) {
+  const existing = await ctx.db
+    .query("shoppingList")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .take(MAX_LIST_ITEMS);
+  if (existing.length + count > MAX_LIST_ITEMS) {
+    throw new ConvexError(
+      `Your shopping list is full (${MAX_LIST_ITEMS} items). Clear some items first.`
+    );
+  }
+}
 
 // List all shopping list items for the authenticated user
 export const list = query({
@@ -74,12 +101,14 @@ export const add = mutation({
     if (!identity) {
       throw new Error("Unauthenticated");
     }
+    const ingredient = cleanItem(args.ingredient);
+    await assertRoomFor(ctx, identity.subject, 1);
     return await ctx.db.insert("shoppingList", {
       userId: identity.subject,
-      ingredient: args.ingredient,
+      ingredient,
       isChecked: false,
-      recipeId: args.recipeId,
-      category: getCategory(args.ingredient),
+      recipeId: await readableRecipeId(ctx, args.recipeId, identity.subject),
+      category: getCategory(ingredient),
     });
   },
 });
@@ -99,13 +128,19 @@ export const addBatch = mutation({
     // Note: For now we don't do complex merging on the server side to keep it simple
     // We just insert new items. Complex merging requires more robust parsing logic.
     // Returns the inserted ids so the client can offer "Undo".
+    if (args.ingredients.length > MAX_BATCH) {
+      throw new ConvexError(`Add at most ${MAX_BATCH} items at a time.`);
+    }
+    const ingredients = args.ingredients.map(cleanItem);
+    await assertRoomFor(ctx, identity.subject, ingredients.length);
+    const recipeId = await readableRecipeId(ctx, args.recipeId, identity.subject);
     return await Promise.all(
-      args.ingredients.map((ingredient) =>
+      ingredients.map((ingredient) =>
         ctx.db.insert("shoppingList", {
           userId: identity.subject,
           ingredient,
           isChecked: false,
-          recipeId: args.recipeId,
+          recipeId,
           category: getCategory(ingredient),
         })
       )

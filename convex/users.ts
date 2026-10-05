@@ -1,5 +1,23 @@
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import { mutation, query } from "./_generated/server";
+
+const MAX_BIO = 500;
+
+function isHttpsUrl(value: string) {
+  try {
+    return value.length <= 1000 && new URL(value).protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function isClerkImage(url: string) {
+  try {
+    return new URL(url).hostname === "img.clerk.com";
+  } catch {
+    return false;
+  }
+}
 
 export const get = query({
   args: { userId: v.string() },
@@ -56,10 +74,16 @@ export const update = mutation({
       throw new Error("User not found");
     }
 
-    await ctx.db.patch(user._id, {
-      bio: args.bio,
-      avatarUrl: args.avatarUrl,
-    });
+    const bio = args.bio.trim();
+    if (bio.length > MAX_BIO) {
+      throw new ConvexError(`Keep your bio under ${MAX_BIO} characters.`);
+    }
+    const avatarUrl = args.avatarUrl?.trim() || undefined;
+    if (avatarUrl && !isHttpsUrl(avatarUrl)) {
+      throw new ConvexError("The avatar must be an https:// image link.");
+    }
+
+    await ctx.db.patch(user._id, { bio, avatarUrl });
   },
 });
 
@@ -79,13 +103,20 @@ export const store = mutation({
       )
       .unique();
 
+    // Clerk accounts don't always have a name (e.g. email-only sign-up)
+    const name = identity.name || identity.email?.split("@")[0] || "Cook";
+
     if (user !== null) {
+      // Keep an avatar the user set on their profile; only follow the
+      // Clerk picture while they haven't chosen their own.
+      const usesClerkAvatar = !user.avatarUrl || isClerkImage(user.avatarUrl);
+      const avatarUrl = usesClerkAvatar ? identity.pictureUrl : user.avatarUrl;
       // If we've seen this identity before but the name or userId has changed/missing, patch the value.
-      if (user.name !== identity.name || user.userId !== identity.subject || user.avatarUrl !== identity.pictureUrl) {
-        await ctx.db.patch(user._id, { 
-            name: identity.name!,
-            userId: identity.subject,
-            avatarUrl: identity.pictureUrl
+      if (user.name !== name || user.userId !== identity.subject || user.avatarUrl !== avatarUrl) {
+        await ctx.db.patch(user._id, {
+          name,
+          userId: identity.subject,
+          avatarUrl,
         });
       }
       return user._id;
@@ -93,7 +124,7 @@ export const store = mutation({
 
     // If it's a new identity, create a new `User`.
     return await ctx.db.insert("users", {
-      name: identity.name!,
+      name,
       email: identity.email,
       tokenIdentifier: identity.tokenIdentifier,
       userId: identity.subject,
