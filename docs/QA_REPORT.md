@@ -18,8 +18,8 @@ Everything ran against the **dev** Convex deployment (`hearty-kookabura-538`) an
 | | |
 |---|---|
 | Checks performed | ~260, approximate, counted from the agents' reports |
-| Fixed in this branch | 2 P1, 19 P2, 11 P3 |
-| Open | 2 P2 and the P3 items under [Open issues](#open-issues) |
+| Fixed in this branch | 2 P1, 21 P2, 11 P3 |
+| Open | P3 items only, under [Open issues](#open-issues) |
 | Blocked / not tested | Real emails and notifications (the app has none), payments (none), Gemini-heavy flows beyond one run each |
 
 Overall health is good. The two P1s were both broken object-level authorization in Convex functions, and both are fixed. All four cross-role state transitions now behave correctly in the UI and the database:
@@ -28,7 +28,7 @@ Overall health is good. The two P1s were both broken object-level authorization 
 - public → deleted
 - a non-owner editing by URL
 
-The regression suite is `pnpm test` (vitest + convex-test, 16 tests).
+The regression suite is `pnpm test` (vitest + convex-test, 20 tests).
 
 ## Fixed
 
@@ -49,7 +49,9 @@ The regression suite is `pnpm test` (vitest + convex-test, 16 tests).
   - ≤ 1,000 items per list
   - ≤ 100 planned meals
 - **Server-side validation.** Recipes now enforce trimmed non-empty title/ingredients/steps, length and count limits, cooking time 1–2880, calories 0–20000, a difficulty enum, and a short `format`. The limits are shared with the form (`RECIPE_LIMITS`). Profiles: bio ≤ 500 and an https avatar URL. Recipe photos must be images under 10 MB.
-- **Import link filter.** It was bypassed by redirects, trailing dots (`localhost.`), `*.localhost`, and the CGNAT / benchmark / `192.0.0.x` ranges. Redirects are now followed by hand and every hop is re-checked.
+- **Import link filter.** It was bypassed by redirects, trailing dots (`localhost.`), `*.localhost`, the CGNAT / benchmark / `192.0.0.x` ranges, and hostnames that resolve to private addresses (`localtest.me`, `a.127.0.0.1.nip.io`). Every import fetch now runs in a Node action (`convex/safeFetch.ts`). It resolves DNS itself, refuses a host if *any* answer is a private or reserved IPv4/IPv6 address (including IPv4-mapped, NAT64 and 6to4), and connects only to the address it checked, which defeats DNS rebinding. Redirects are followed by hand and every hop is re-checked. Bodies are capped after decompression.
+- **Import was an open fetch proxy.** The page fetch ran before any rate limit, and the photo copy on save had none. Every outbound import fetch now draws from a per-user quota first (20 per 10 minutes, `convex/rateLimit.ts`). Past it, the user sees the existing countdown, and a save still succeeds without the photo.
+- **Unmetered Gemini on every save.** Each `recipes.create`, and each update that changes ingredients, scheduled a Gemini tagging call with no limit, so a script could burn the quota. Tagging is now capped at 30 per user per hour. Past that, the recipe saves untagged and pantry search falls back to plain-text matching; `ai:backfillIngredientKeys` can tag it later.
 - **Users with no name.** `users.store` threw for Clerk users without a name, so they never got a profile row. It now falls back to the email prefix.
 - **Custom avatars reverted.** They went back to the Clerk picture on every page load. They now stick.
 - **Bad avatar host crashed the profile.** An avatar on a host not listed in `next.config` crashed that user's public profile page for every visitor. Avatars now render without the `next/image` host check, and the server requires https.
@@ -83,16 +85,14 @@ The regression suite is `pnpm test` (vitest + convex-test, 16 tests).
 
 These are recommended next steps, roughly in priority order.
 
-1. **P2: unmetered Gemini on every create/update.** Each `recipes.create` (and each update that changes ingredients) schedules `ai.tagRecipeIngredients` with no rate limit, so a script can burn the Gemini quota. Fix: rate-limit tagging per user, or batch it.
-2. **P2: import is an unthrottled fetch proxy, and DNS rebinding isn't caught.** The page fetch runs before the rate limit. Hostnames that resolve to private IPs (e.g. `localtest.me`) pass, because the Convex runtime has no DNS lookup. Impact is limited by Convex's network. Fix: rate-limit before fetching, and move the fetch to a `"use node"` action that resolves and checks IPs.
-3. **P3: orphan uploads.**
+1. **P3: orphan uploads.**
    - `generateUploadUrl` accepts any file type and size. Files are only checked when they are attached.
    - Abandoned uploads are never cleaned up.
    - `importRecipe.fromPhoto` accepts any `_storage` id. Today those ids are only discoverable for public images.
-4. **P3: navigation guard.** Leaving a dirty create form through in-app links or browser Back loses it without asking. Only reload/close and Cancel are guarded.
-5. **P3: `recipes.update` replaces everything.** Omitting optional fields unsets them. The app always sends every field, but the API is easy to misuse.
-6. **P3: scaling.** `listAll`, `searchByIngredients`, `autoGenerate` and `getMealPlannerData` read whole tables and will hit Convex limits as data grows. The favorites page can come back short because filtering happens after pagination.
-7. **P3: polish.**
+2. **P3: navigation guard.** Leaving a dirty create form through in-app links or browser Back loses it without asking. Only reload/close and Cancel are guarded.
+3. **P3: `recipes.update` replaces everything.** Omitting optional fields unsets them. The app always sends every field, but the API is easy to misuse.
+4. **P3: scaling.** `listAll`, `searchByIngredients`, `autoGenerate` and `getMealPlannerData` read whole tables and will hit Convex limits as data grows. The favorites page can come back short because filtering happens after pagination.
+5. **P3: polish.**
    - generic `<title>` on create, planner, cook and profile pages
    - tap targets under 24px (footer links, planner ⋯, reorder handles)
    - the install drawer opens as a full-width sheet on desktop

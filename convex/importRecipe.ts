@@ -8,6 +8,8 @@ import { api, internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { PREDEFINED_TAGS } from "../lib/constants";
 import { arrayBufferToBase64, generateJsonFromParts, GeminiPart } from "./gemini";
+import { parsePublicUrl } from "./publicUrl";
+import { IMPORT_FETCH_QUOTA } from "./rateLimit";
 
 export type RecipeDraft = {
   title: string;
@@ -42,94 +44,35 @@ async function requireUserId(ctx: { auth: { getUserIdentity: () => Promise<{ sub
 
 // --- Fetching -------------------------------------------------------------
 
-export function parsePublicUrl(raw: string): URL {
-  let url: URL;
-  try {
-    url = new URL(raw.trim());
-  } catch {
-    throw new ConvexError("That doesn't look like a link. Paste the full address, starting with https://");
-  }
-  if (url.protocol !== "https:" && url.protocol !== "http:") {
-    throw new ConvexError("Only http and https links can be imported.");
-  }
-  // A trailing dot ("localhost.") is the same host; strip it before comparing
-  const host = url.hostname.toLowerCase().replace(/\.+$/, "");
-  const privateHost =
-    host === "localhost" ||
-    host.endsWith(".localhost") ||
-    host.endsWith(".local") ||
-    host.endsWith(".internal") ||
-    host.startsWith("[") ||
-    isReservedIPv4(host);
-  if (privateHost) throw new ConvexError("That link can't be imported.");
-  return url;
-}
-
 /**
- * Loopback, private, link-local, CGNAT, benchmarking and other non-public
- * IPv4 ranges. Hostnames that merely resolve to these (DNS rebinding) can't be
- * caught here: the Convex runtime has no DNS lookup.
+ * Fetches a public page or image for the signed-in user. The quota is taken
+ * before any network request, so import can't be used as an open fetch proxy.
+ * The request itself runs in Node (safeFetch.ts), which checks DNS answers.
  */
-function isReservedIPv4(host: string): boolean {
-  const match = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
-  if (!match) return false;
-  const [a, b, c] = match.slice(1).map(Number);
-  return (
-    a === 0 ||
-    a === 10 ||
-    a === 127 ||
-    (a === 100 && b >= 64 && b <= 127) ||
-    (a === 169 && b === 254) ||
-    (a === 172 && b >= 16 && b <= 31) ||
-    (a === 192 && b === 0 && c === 0) ||
-    (a === 192 && b === 168) ||
-    (a === 198 && (b === 18 || b === 19)) ||
-    a >= 224
-  );
-}
-
-const MAX_REDIRECTS = 5;
-
-async function fetchWithLimit(url: URL, maxBytes: number, accept: string) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 15_000);
-  try {
-    // Follow redirects by hand so every hop gets the same public-host check
-    let target = url;
-    let response: Response;
-    for (let hop = 0; ; hop++) {
-      response = await fetch(target.toString(), {
-        signal: controller.signal,
-        redirect: "manual",
-        headers: {
-          Accept: accept,
-          // Many recipe sites block unknown clients
-          "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36",
-          "Accept-Language": "en-US,en;q=0.9",
-        },
-      });
-      const location = response.headers.get("location");
-      if (response.status < 300 || response.status >= 400 || !location) break;
-      if (hop >= MAX_REDIRECTS) throw new ConvexError("That link redirects too many times.");
-      target = parsePublicUrl(new URL(location, target).toString());
-    }
-    if (!response.ok) {
-      throw new ConvexError(
-        `The site refused the request (HTTP ${response.status}). Try copying the recipe text instead.`
-      );
-    }
-    const length = Number(response.headers.get("content-length") ?? 0);
-    if (length > maxBytes) throw new ConvexError("That page is too large to import.");
-    const buffer = await response.arrayBuffer();
-    if (buffer.byteLength > maxBytes) throw new ConvexError("That page is too large to import.");
-    return { buffer, contentType: response.headers.get("content-type") ?? "" };
-  } catch (error) {
-    if (error instanceof ConvexError) throw error;
-    throw new ConvexError("Couldn't reach that page. Check the link or paste the recipe text instead.");
-  } finally {
-    clearTimeout(timer);
+async function fetchWithLimit(
+  ctx: ActionCtx,
+  userId: string,
+  url: URL,
+  maxBytes: number,
+  accept: string
+) {
+  const quota = await ctx.runMutation(internal.rateLimit.consume, {
+    userId,
+    action: "importFetch",
+    ...IMPORT_FETCH_QUOTA,
+  });
+  if (!quota.ok) {
+    // Same wording as checkRateLimit, so the import UI shows its countdown
+    throw new ConvexError(
+      `Rate limit exceeded. Please wait ${Math.ceil(quota.retryAfterMs / 1000)} seconds.`
+    );
   }
+  const { bytes, contentType } = await ctx.runAction(internal.safeFetch.fetchPublic, {
+    url: url.toString(),
+    maxBytes,
+    accept,
+  });
+  return { buffer: bytes, contentType };
 }
 
 // --- HTML helpers ---------------------------------------------------------
@@ -535,7 +478,7 @@ export const fromUrl = action({
   handler: async (ctx, args): Promise<RecipeDraft> => {
     const userId = await requireUserId(ctx);
     const url = parsePublicUrl(args.url);
-    const { buffer } = await fetchWithLimit(url, MAX_PAGE_BYTES, "text/html,application/xhtml+xml");
+    const { buffer } = await fetchWithLimit(ctx, userId, url, MAX_PAGE_BYTES, "text/html,application/xhtml+xml");
     const html = new TextDecoder().decode(buffer);
 
     // 1. Structured data: exact and free
@@ -628,7 +571,7 @@ export const save = action({
     imageStorageId: v.optional(v.id("_storage")),
   },
   handler: async (ctx, args): Promise<{ recipeId: Id<"recipes">; imageSaved: boolean }> => {
-    await requireUserId(ctx);
+    const userId = await requireUserId(ctx);
     const title = args.title.trim();
     const ingredients = args.ingredients.map((s) => s.trim()).filter(Boolean);
     const steps = args.steps.map((s) => s.trim()).filter(Boolean);
@@ -641,6 +584,8 @@ export const save = action({
     if (!storageId && args.imageUrl) {
       try {
         const { buffer, contentType } = await fetchWithLimit(
+          ctx,
+          userId,
           parsePublicUrl(args.imageUrl),
           MAX_IMAGE_BYTES,
           "image/*"

@@ -71,5 +71,7 @@ export default defineSchema({
     userId: v.string(),
     action: v.string(),
     lastCalledAt: v.number(),
+    // Calls made in the window starting at lastCalledAt (quota-style limits)
+    count: v.optional(v.number()),
   }).index("by_user_action", ["userId", "action"]),
 });

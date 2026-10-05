@@ -6,6 +6,7 @@ import { PREDEFINED_TAGS, RECIPE_LIMITS } from "../lib/constants";
 import { internal } from "./_generated/api";
 import { pantryTermMatches } from "./ingredientMatch";
 import { canReadRecipe } from "./access";
+import { TAGGING_QUOTA, takeQuota } from "./rateLimit";
 
 type RecipeInput = {
   title: string;
@@ -102,6 +103,21 @@ async function assertImageAvailable(
   }
 }
 
+/**
+ * Tags ingredients with canonical names for pantry matching, in the background.
+ * Each run is a Gemini call, so it's metered per user; past the quota the
+ * recipe is saved untagged and pantry search falls back to plain text matching
+ * (`ai:backfillIngredientKeys` can tag it later).
+ */
+async function scheduleTagging(ctx: MutationCtx, userId: string, recipeId: Id<"recipes">) {
+  const quota = await takeQuota(ctx, userId, "tagIngredients", TAGGING_QUOTA);
+  if (!quota.ok) {
+    console.warn(`Tagging quota reached for ${userId}; ${recipeId} saved untagged`);
+    return;
+  }
+  await ctx.scheduler.runAfter(0, internal.ai.tagRecipeIngredients, { recipeId });
+}
+
 /** Deletes a recipe image unless another recipe still uses it. */
 async function deleteImageIfUnused(
   ctx: MutationCtx,
@@ -170,8 +186,7 @@ export const create = mutation({
       searchText,
     };
     const recipeId = await ctx.db.insert("recipes", recipe);
-    // Tag ingredients with canonical names for pantry matching (runs in the background)
-    await ctx.scheduler.runAfter(0, internal.ai.tagRecipeIngredients, { recipeId });
+    await scheduleTagging(ctx, identity.subject, recipeId);
     return recipeId;
   },
 });
@@ -255,9 +270,7 @@ export const update = mutation({
       await deleteImageIfUnused(ctx, recipe.storageId, args.id);
     }
     if (ingredientsChanged) {
-      await ctx.scheduler.runAfter(0, internal.ai.tagRecipeIngredients, {
-        recipeId: args.id,
-      });
+      await scheduleTagging(ctx, identity.subject, args.id);
     }
   },
 });
