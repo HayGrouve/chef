@@ -71,6 +71,12 @@ const NAV: { href: string; label: string; icon: LucideIcon; keywords: string }[]
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const QUICK_ADD = /^\s*add\s+(.*)$/i;
+// "add to shopping list" is someone looking for the action, not an item
+const ADD_ACTION_PHRASES = ["to shopping list", "to the shopping list", "to my shopping list", "to list"];
+const isAddActionPhrase = (text: string) => {
+  const typed = text.trim().toLowerCase().replace(/\s+/g, " ");
+  return typed.length >= 2 && ADD_ACTION_PHRASES.some((phrase) => phrase.startsWith(typed));
+};
 
 export function CommandPalette() {
   const router = useRouter();
@@ -302,13 +308,14 @@ function RootPage({
   onStartAdd: () => void;
 }) {
   const { resolvedTheme, setTheme } = useTheme();
-  const quick = QUICK_ADD.exec(search);
+  const match = QUICK_ADD.exec(search);
+  const quick = match && !isAddActionPhrase(match[1]) ? match : null;
   const q = quick ? "" : search.trim();
   const debounced = useDebounced(q, 200);
   const args = debounced ? { search: debounced } : null;
 
-  // recipes.list only searches public recipes unless myRecipesOnly is set,
-  // so search "mine" and "everyone" separately and merge.
+  // Search "mine" separately so the user's own recipes rank first, then merge
+  // with everyone's (which also includes their own private matches).
   const mine = usePaginatedQuery(
     api.recipes.list,
     args ? { ...args, myRecipesOnly: true } : "skip",

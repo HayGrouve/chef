@@ -6,9 +6,10 @@ import {
   Unauthenticated,
   useConvexAuth,
   useMutation,
-  usePaginatedQuery,
   useQuery,
 } from "convex/react";
+// The feed is built from merged index streams, whose pages must be pinned
+import { usePaginatedQuery } from "convex-helpers/react";
 import { api } from "../convex/_generated/api";
 import type { FunctionReturnType } from "convex/server";
 import { useUser } from "@clerk/nextjs";

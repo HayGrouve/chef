@@ -34,3 +34,23 @@ test("batches and whole lists are capped so the list stays readable and clearabl
   await user.mutation(api.shoppingList.clearAll, {});
   expect(await user.query(api.shoppingList.list, {})).toHaveLength(0);
 });
+
+test("checking items sets their state, so repeated or stale requests don't undo each other", async () => {
+  const t = convexTest(schema, modules);
+  const user = t.withIdentity(USER);
+  const ids = await user.mutation(api.shoppingList.addBatch, { ingredients: ["milk", "milk"] });
+
+  await user.mutation(api.shoppingList.toggleBatch, { ids, isChecked: true });
+  await user.mutation(api.shoppingList.toggleBatch, { ids, isChecked: true });
+  let items = await user.query(api.shoppingList.list, {});
+  expect(items.map((i) => i.isChecked)).toEqual([true, true]);
+
+  await user.mutation(api.shoppingList.toggleBatch, { ids, isChecked: false });
+  items = await user.query(api.shoppingList.list, {});
+  expect(items.map((i) => i.isChecked)).toEqual([false, false]);
+
+  // Older clients omit isChecked and get a flip
+  await user.mutation(api.shoppingList.toggleBatch, { ids: [ids[0]] });
+  items = await user.query(api.shoppingList.list, {});
+  expect(items.map((i) => i.isChecked)).toEqual([true, false]);
+});

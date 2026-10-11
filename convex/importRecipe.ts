@@ -540,7 +540,12 @@ export const fromPhoto = action({
   args: { storageId: v.id("_storage") },
   handler: async (ctx, args): Promise<RecipeDraft> => {
     const userId = await requireUserId(ctx);
-    const blob = await ctx.storage.get(args.storageId);
+    // Only the caller's own uploads; recipe photo ids are visible to anyone
+    const othersImage = await ctx.runQuery(internal.recipes.isImageOfOtherUser, {
+      storageId: args.storageId,
+      userId,
+    });
+    const blob = othersImage ? null : await ctx.storage.get(args.storageId);
     if (!blob) throw new ConvexError("Upload failed. Try the photo again.");
     if (blob.size > MAX_IMAGE_BYTES) throw new ConvexError("That photo is too large (max 5 MB).");
     await ctx.runMutation(internal.ai.checkRateLimit, { userId, actionName: "importRecipePhoto" });

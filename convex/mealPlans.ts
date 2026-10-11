@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { canReadRecipe } from "./access";
+import { READABLE_RECIPES_LIMIT, readableRecipes } from "./feed";
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const MEAL_TYPES = ["breakfast", "lunch", "dinner"];
@@ -113,15 +114,7 @@ export const autoGenerate = mutation({
       throw new Error("Unauthenticated");
     }
 
-    const recipes = await ctx.db
-      .query("recipes")
-      .filter((q) =>
-        q.or(
-          q.eq(q.field("userId"), identity.subject),
-          q.eq(q.field("isPublic"), true)
-        )
-      )
-      .collect();
+    const recipes = await readableRecipes(ctx, identity.subject).take(READABLE_RECIPES_LIMIT);
 
     if (recipes.length === 0) {
       return {

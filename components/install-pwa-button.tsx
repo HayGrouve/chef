@@ -1,9 +1,17 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useSyncExternalStore } from "react";
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
 import { InstallDialog } from "./install-dialog";
+
+/** Chrome's install prompt event; not in the DOM typings yet. */
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>;
+}
+
+const subscribeNoop = () => () => {};
+const isIOSDevice = () => /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
 
 interface InstallPwaButtonProps {
   children?: React.ReactNode;
@@ -19,21 +27,17 @@ export function InstallPwaButton({
   size = "sm"
 }: InstallPwaButtonProps) {
   const [supportsPWA, setSupportsPWA] = useState(false);
-  const [promptInstall, setPromptInstall] = useState<any>(null);
-  const [isIOS, setIsIOS] = useState(false);
+  const [promptInstall, setPromptInstall] = useState<BeforeInstallPromptEvent | null>(null);
+  // Read on the client only, so the server render and hydration agree
+  const isIOS = useSyncExternalStore(subscribeNoop, isIOSDevice, () => false);
   const [showDialog, setShowDialog] = useState(false);
 
   useEffect(() => {
-    // Check if it's iOS
-    const userAgent = window.navigator.userAgent.toLowerCase();
-    const isIosDevice = /iphone|ipad|ipod/.test(userAgent);
-    setIsIOS(isIosDevice);
-
     // Handle Android/Chrome install prompt
-    const handler = (e: any) => {
+    const handler = (e: Event) => {
       e.preventDefault();
       setSupportsPWA(true);
-      setPromptInstall(e);
+      setPromptInstall(e as BeforeInstallPromptEvent);
     };
     
     window.addEventListener("beforeinstallprompt", handler);

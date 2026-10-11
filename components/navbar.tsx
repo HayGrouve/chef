@@ -107,12 +107,15 @@ export function Navbar() {
             />
           </Authenticated>
           <Unauthenticated>
-            <Button asChild>
-              <Link href="/sign-in">
-                <LogIn />
-                Sign in
-              </Link>
-            </Button>
+            {/* The sign-in page is the form itself */}
+            {!pathname?.startsWith("/sign-in") && (
+              <Button asChild>
+                <Link href="/sign-in">
+                  <LogIn />
+                  Sign in
+                </Link>
+              </Button>
+            )}
           </Unauthenticated>
         </div>
       </div>

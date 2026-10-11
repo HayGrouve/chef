@@ -35,6 +35,7 @@ export default defineSchema({
     ingredientKeys: v.optional(v.array(v.array(v.string()))),
   })
     .index("by_userId", ["userId"])
+    .index("by_isPublic", ["isPublic"])
     .index("by_storageId", ["storageId"])
     .searchIndex("search_recipes", {
       searchField: "searchText",

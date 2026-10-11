@@ -453,7 +453,7 @@ export default function MealPlannerPage() {
           });
         }
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       // 3. AI failed (timeout, rate limit, invalid JSON) -> Fallback
       console.error("AI Generation Failed:", error);
       try {
@@ -515,8 +515,6 @@ export default function MealPlannerPage() {
 
   return (
     <div className="container mx-auto px-4 pb-16 pt-6 md:pt-10">
-      <title>CHEF | Meal Planner</title>
-      <meta name="description" content="Plan your weekly meals with ease" />
       <div className="flex items-center justify-between gap-2 mb-6">
         <h1 className="font-display text-3xl font-bold tracking-tight md:text-4xl">Meal planner</h1>
 

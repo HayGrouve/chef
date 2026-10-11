@@ -1,12 +1,16 @@
 import { v, ConvexError } from "convex/values";
-import { mutation, query, internalMutation, MutationCtx } from "./_generated/server";
+import { mutation, query, internalMutation, internalQuery, MutationCtx, QueryCtx } from "./_generated/server";
 import { paginationOptsValidator } from "convex/server";
-import { Id } from "./_generated/dataModel";
+import { Doc, Id } from "./_generated/dataModel";
 import { PREDEFINED_TAGS, RECIPE_LIMITS } from "../lib/constants";
 import { internal } from "./_generated/api";
 import { pantryTermMatches } from "./ingredientMatch";
 import { canReadRecipe } from "./access";
 import { TAGGING_QUOTA, takeQuota } from "./rateLimit";
+import { FEED_MAX_ROWS_READ, ownRecipes, READABLE_RECIPES_LIMIT, readableRecipes } from "./feed";
+
+// Own private matches that lead the first page of a signed-in search
+const OWN_PRIVATE_SEARCH_LIMIT = 20;
 
 type RecipeInput = {
   title: string;
@@ -136,13 +140,28 @@ async function deleteImageIfUnused(
   }
 }
 
+/** Whether a stored image is another user's recipe photo (imports may not read those). */
+export const isImageOfOtherUser = internalQuery({
+  args: { storageId: v.string(), userId: v.string() },
+  handler: async (ctx, { storageId, userId }) => {
+    const owners = await ctx.db
+      .query("recipes")
+      .withIndex("by_storageId", (q) => q.eq("storageId", storageId))
+      .take(2);
+    return owners.some((recipe) => recipe.userId !== userId);
+  },
+});
+
 // Generate an upload URL for storing recipe images
-export const generateUploadUrl = mutation(async (ctx) => {
-  const identity = await ctx.auth.getUserIdentity();
-  if (!identity) {
-    throw new Error("Unauthenticated");
-  }
-  return await ctx.storage.generateUploadUrl();
+export const generateUploadUrl = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Unauthenticated");
+    }
+    return await ctx.storage.generateUploadUrl();
+  },
 });
 
 // Create a new recipe
@@ -237,13 +256,15 @@ export const update = mutation({
     const searchText = `${args.title} ${authorName}`.toLowerCase();
 
     // Prepare update fields
-    const updates: any = {
+    const updates: Partial<Doc<"recipes">> = {
       title: args.title,
       description: args.description,
       ingredients: args.ingredients,
       steps: args.steps,
-      tags: args.tags,
-      isPublic: args.isPublic,
+      // Visibility and tags keep their value when omitted; the optional
+      // details below are cleared when omitted, which is how the form removes them.
+      tags: args.tags ?? recipe.tags,
+      isPublic: args.isPublic ?? recipe.isPublic,
       cookingTime: args.cookingTime,
       difficulty: args.difficulty,
       calories: args.calories,
@@ -277,14 +298,14 @@ export const update = mutation({
 
 // Helper to check if a recipe is favorited by the current user
 async function isRecipeFavorite(
-  ctx: any,
-  recipeId: any,
+  ctx: QueryCtx,
+  recipeId: Id<"recipes">,
   userId: string | undefined
 ) {
   if (!userId) return false;
   const favorite = await ctx.db
     .query("favorites")
-    .withIndex("by_user_recipe", (q: any) =>
+    .withIndex("by_user_recipe", (q) =>
       q.eq("userId", userId).eq("recipeId", recipeId)
     )
     .unique();
@@ -385,7 +406,6 @@ export const list = query({
     }
 
     // Normal listing logic
-    let queryBuilder;
     const myRecipesOnly = args.myRecipesOnly ?? false;
 
     if (args.search) {
@@ -417,9 +437,26 @@ export const list = query({
           .paginate(args.paginationOpts);
       }
 
+      // A search index can't OR "public" with "mine", so the signed-in user's
+      // own private matches are fetched separately and lead the first page.
+      let ownPrivate: Doc<"recipes">[] = [];
+      if (userId && !myRecipesOnly && args.paginationOpts.cursor === null) {
+        const own = await ctx.db
+          .query("recipes")
+          .withSearchIndex("search_recipes", (q) => {
+            let sq = q.search("searchText", args.search!).eq("userId", userId);
+            if (args.difficulty && args.difficulty !== "all") {
+              sq = sq.eq("difficulty", args.difficulty);
+            }
+            return sq;
+          })
+          .take(OWN_PRIVATE_SEARCH_LIMIT);
+        ownPrivate = own.filter((recipe) => recipe.isPublic !== true);
+      }
+
       // Apply maxTime filter in memory (Convex search queries don't support inequality filters)
       // Note: This might result in slightly fewer items than requested on this specific page
-      let page = searchResults.page;
+      let page = [...ownPrivate, ...searchResults.page];
       if (args.maxTime) {
         page = page.filter(
           (r) => !r.cookingTime || r.cookingTime <= args.maxTime!
@@ -450,41 +487,15 @@ export const list = query({
         page: pageWithDetails,
       };
     } else {
-      queryBuilder = ctx.db.query("recipes");
-
-      if (myRecipesOnly && userId) {
-        queryBuilder = queryBuilder.filter((q) =>
-          q.eq(q.field("userId"), userId)
-        );
-      } else if (userId) {
-        queryBuilder = queryBuilder.filter((q) =>
-          q.or(q.eq(q.field("isPublic"), true), q.eq(q.field("userId"), userId))
-        );
-      } else {
-        // Unauthenticated user sees public recipes only
-        queryBuilder = queryBuilder.filter((q) =>
-          q.eq(q.field("isPublic"), true)
-        );
-      }
-
-      queryBuilder = queryBuilder.order("desc");
-
-      if (args.difficulty && args.difficulty !== "all") {
-        queryBuilder = queryBuilder.filter((q: any) =>
-          q.eq(q.field("difficulty"), args.difficulty)
-        );
-      }
-
-      if (args.maxTime) {
-        queryBuilder = queryBuilder.filter((q: any) =>
-          q.or(
-            q.eq(q.field("cookingTime"), undefined),
-            q.lte(q.field("cookingTime"), args.maxTime)
-          )
-        );
-      }
-
-      const paginatedResult = await queryBuilder.paginate(args.paginationOpts);
+      const source = myRecipesOnly && userId ? ownRecipes(ctx, userId) : readableRecipes(ctx, userId);
+      const { difficulty, maxTime } = args;
+      const paginatedResult = await source
+        .filterWith(
+          async (recipe) =>
+            (!difficulty || difficulty === "all" || recipe.difficulty === difficulty) &&
+            (!maxTime || recipe.cookingTime === undefined || recipe.cookingTime <= maxTime)
+        )
+        .paginate({ ...args.paginationOpts, maximumRowsRead: FEED_MAX_ROWS_READ });
 
       const pageWithDetails = await Promise.all(
         paginatedResult.page.map(async (recipe) => {
@@ -531,12 +542,7 @@ export const listAll = query({
       return [];
     }
 
-    const recipes = await ctx.db
-      .query("recipes")
-      .filter((q) =>
-        q.or(q.eq(q.field("userId"), userId), q.eq(q.field("isPublic"), true))
-      )
-      .collect();
+    const recipes = await readableRecipes(ctx, userId).take(READABLE_RECIPES_LIMIT);
 
     return await Promise.all(
       recipes.map(async (recipe) => {
@@ -650,12 +656,7 @@ export const searchByIngredients = query({
       return [];
     }
 
-    const recipes = await ctx.db
-      .query("recipes")
-      .filter((q) =>
-        q.or(q.eq(q.field("userId"), userId), q.eq(q.field("isPublic"), true))
-      )
-      .collect();
+    const recipes = await readableRecipes(ctx, userId).take(READABLE_RECIPES_LIMIT);
 
     const userIngredients = args.ingredients.map((i) => i.toLowerCase().trim());
 
@@ -718,11 +719,13 @@ export const listPublic = query({
     const identity = await ctx.auth.getUserIdentity();
     const currentUserId = identity?.subject;
 
-    const recipes = await ctx.db
-      .query("recipes")
-      .filter((q) => q.eq(q.field("userId"), args.userId))
-      .filter((q) => q.eq(q.field("isPublic"), true))
-      .collect();
+    const recipes = (
+      await ctx.db
+        .query("recipes")
+        .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+        .order("desc")
+        .collect()
+    ).filter((recipe) => recipe.isPublic === true);
 
     return await Promise.all(
       recipes.map(async (recipe) => {

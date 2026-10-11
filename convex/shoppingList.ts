@@ -54,9 +54,8 @@ export const getBadgeCount = query({
     const items = await ctx.db
       .query("shoppingList")
       .withIndex("by_user", (q) => q.eq("userId", identity.subject))
-      .filter((q) => q.eq(q.field("isChecked"), false))
       .collect();
-    return items.length;
+    return items.filter((item) => !item.isChecked).length;
   },
 });
 
@@ -164,9 +163,11 @@ export const toggle = mutation({
   },
 });
 
-// Toggle checked status for multiple items
+// Check or uncheck multiple items. Pass `isChecked` to set the state, so two
+// stale tabs (or two quick clicks) can't cancel each other out; without it,
+// each item flips, as older clients expect.
 export const toggleBatch = mutation({
-  args: { ids: v.array(v.id("shoppingList")) },
+  args: { ids: v.array(v.id("shoppingList")), isChecked: v.optional(v.boolean()) },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
@@ -179,7 +180,7 @@ export const toggleBatch = mutation({
         if (!item || item.userId !== identity.subject) {
           return; // Skip unauthorized or missing items
         }
-        await ctx.db.patch(id, { isChecked: !item.isChecked });
+        await ctx.db.patch(id, { isChecked: args.isChecked ?? !item.isChecked });
       })
     );
   },
@@ -229,12 +230,13 @@ export const clearChecked = mutation({
     if (!identity) {
       throw new Error("Unauthenticated");
     }
-    const items = await ctx.db
-      .query("shoppingList")
-      .withIndex("by_user", (q) => q.eq("userId", identity.subject))
-      .filter((q) => q.eq(q.field("isChecked"), true))
-      .collect();
-    
+    const items = (
+      await ctx.db
+        .query("shoppingList")
+        .withIndex("by_user", (q) => q.eq("userId", identity.subject))
+        .collect()
+    ).filter((item) => item.isChecked);
+
     await Promise.all(items.map((item) => ctx.db.delete(item._id)));
   },
 });

@@ -10,6 +10,7 @@ import { internal } from "./_generated/api";
 import { generateJson } from "./gemini";
 import { Doc, Id } from "./_generated/dataModel";
 import { readableRecipeId } from "./access";
+import { READABLE_RECIPES_LIMIT, readableRecipes } from "./feed";
 import { assertRoomFor, cleanItem, MAX_LIST_ITEMS } from "./shoppingList";
 import { validSlot } from "./mealPlans";
 
@@ -56,15 +57,7 @@ export const getMealPlannerData = internalQuery({
   args: { userId: v.string() },
   handler: async (ctx, args) => {
     // 1. Get all accessible recipes
-    const recipes = await ctx.db
-      .query("recipes")
-      .filter((q) =>
-        q.or(
-          q.eq(q.field("userId"), args.userId),
-          q.eq(q.field("isPublic"), true)
-        )
-      )
-      .collect();
+    const recipes = await readableRecipes(ctx, args.userId).take(READABLE_RECIPES_LIMIT);
 
     // Randomly sample up to 100 recipes to save tokens and keep it fast
     const shuffledRecipes = recipes.sort(() => 0.5 - Math.random());
