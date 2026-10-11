@@ -1,9 +1,9 @@
 /// <reference types="vite/client" />
 import { convexTest } from "convex-test";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import schema from "./schema";
-import { IMPORT_FETCH_QUOTA, TAGGING_QUOTA, takeQuota } from "./rateLimit";
+import { AI_QUOTA, IMPORT_FETCH_QUOTA, TAGGING_QUOTA, takeQuota } from "./rateLimit";
 
 const modules = import.meta.glob("./**/*.ts");
 const USER = { subject: "user_a", name: "A", tokenIdentifier: "test|user_a" };
@@ -60,4 +60,18 @@ test("import refuses to fetch once the user's fetch quota is spent", async () =>
   await expect(
     t.withIdentity(USER).action(api.importRecipe.fromUrl, { url: "https://example.com/recipe" })
   ).rejects.toThrow(/Rate limit exceeded/);
+});
+
+test("AI features share one hourly budget on top of their own cooldowns", async () => {
+  const t = convexTest(schema, modules);
+  const actions = ["importRecipeText", "importRecipePage", "importRecipePhoto", "generateMealPlan", "organizeShoppingList"];
+  for (let i = 0; i < AI_QUOTA.limit; i++) {
+    await t.mutation(internal.ai.checkRateLimit, { userId: "u", actionName: actions[i % actions.length] });
+    vi.advanceTimersByTime(31_000); // past each action's own cooldown
+  }
+  await expect(
+    t.mutation(internal.ai.checkRateLimit, { userId: "u", actionName: "importRecipeText" })
+  ).rejects.toThrow(/Rate limit exceeded/);
+  // Someone else is unaffected
+  await t.mutation(internal.ai.checkRateLimit, { userId: "other", actionName: "importRecipeText" });
 });

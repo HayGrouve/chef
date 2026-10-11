@@ -1,12 +1,16 @@
 import { v, ConvexError } from "convex/values";
-import { mutation, query, internalMutation, MutationCtx } from "./_generated/server";
+import { mutation, query, internalMutation, internalQuery, MutationCtx, QueryCtx } from "./_generated/server";
 import { paginationOptsValidator } from "convex/server";
-import { Id } from "./_generated/dataModel";
+import { Doc, Id } from "./_generated/dataModel";
 import { PREDEFINED_TAGS, RECIPE_LIMITS } from "../lib/constants";
 import { internal } from "./_generated/api";
 import { pantryTermMatches } from "./ingredientMatch";
 import { canReadRecipe } from "./access";
 import { TAGGING_QUOTA, takeQuota } from "./rateLimit";
+import { FEED_MAX_ROWS_READ, ownRecipes, readableRecipes, takeWithinBudget } from "./feed";
+
+// Own private matches that lead the first page of a signed-in search
+const OWN_PRIVATE_SEARCH_LIMIT = 20;
 
 type RecipeInput = {
   title: string;
@@ -26,15 +30,18 @@ function cleanRecipeInput<T extends RecipeInput>(args: T): T {
     throw new ConvexError(message);
   };
   const L = RECIPE_LIMITS;
+  // Zero-width and other format characters don't count as content (they're
+  // kept, since emoji sequences rely on some of them)
+  const isBlank = (text: string) => !text.replace(/\p{Cf}/gu, "").trim();
   const title = args.title.trim();
-  if (!title) fail("Give the recipe a title.");
+  if (isBlank(title)) fail("Give the recipe a title.");
   if (title.length > L.title) fail(`Keep the title under ${L.title} characters.`);
   const description = args.description.trim();
   if (description.length > L.description) {
     fail(`Keep the description under ${L.description} characters.`);
   }
   const lines = (list: string[], what: string, max: number, maxLength: number) => {
-    const cleaned = list.map((line) => line.trim()).filter(Boolean);
+    const cleaned = list.map((line) => line.trim()).filter((line) => !isBlank(line));
     if (cleaned.length === 0) fail(`Add at least one ${what}.`);
     if (cleaned.length > max) fail(`A recipe can have at most ${max} ${what}s.`);
     if (cleaned.some((line) => line.length > maxLength)) {
@@ -90,7 +97,9 @@ async function assertImageAvailable(
     throw new ConvexError("That image upload is invalid. Try adding the photo again.");
   }
   // Upload URLs accept any file; only images may become recipe photos
-  const notImage = file.contentType !== undefined && !file.contentType.startsWith("image/");
+  // Typed non-images are refused; untyped uploads (contentType null, e.g. a
+  // HEIC photo the browser can't name) are allowed, as before
+  const notImage = file.contentType != null && !file.contentType.startsWith("image/");
   if (notImage || file.size > MAX_IMAGE_BYTES) {
     throw new ConvexError("Recipe photos must be images under 10 MB.");
   }
@@ -136,13 +145,59 @@ async function deleteImageIfUnused(
   }
 }
 
+/**
+ * Recipes keep a copy of the author's name (shown in lists and searchable), so
+ * a rename rewrites it on all their recipes, a batch at a time.
+ */
+export const refreshAuthorName = internalMutation({
+  args: { userId: v.string(), name: v.string(), cursor: v.optional(v.union(v.string(), v.null())) },
+  returns: v.null(),
+  handler: async (ctx, { userId, name, cursor }) => {
+    const page = await ctx.db
+      .query("recipes")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      // Small batches: a maximum-size recipe is ~250 KB
+      .paginate({ numItems: 20, cursor: cursor ?? null });
+    for (const recipe of page.page) {
+      if (recipe.authorName === name) continue;
+      await ctx.db.patch(recipe._id, {
+        authorName: name,
+        searchText: `${recipe.title} ${name}`.toLowerCase(),
+      });
+    }
+    if (!page.isDone) {
+      await ctx.scheduler.runAfter(0, internal.recipes.refreshAuthorName, {
+        userId,
+        name,
+        cursor: page.continueCursor,
+      });
+    }
+    return null;
+  },
+});
+
+/** Whether a stored image is another user's recipe photo (imports may not read those). */
+export const isImageOfOtherUser = internalQuery({
+  args: { storageId: v.string(), userId: v.string() },
+  handler: async (ctx, { storageId, userId }) => {
+    const owners = await ctx.db
+      .query("recipes")
+      .withIndex("by_storageId", (q) => q.eq("storageId", storageId))
+      .take(2);
+    return owners.some((recipe) => recipe.userId !== userId);
+  },
+});
+
 // Generate an upload URL for storing recipe images
-export const generateUploadUrl = mutation(async (ctx) => {
-  const identity = await ctx.auth.getUserIdentity();
-  if (!identity) {
-    throw new Error("Unauthenticated");
-  }
-  return await ctx.storage.generateUploadUrl();
+export const generateUploadUrl = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Unauthenticated");
+    }
+    return await ctx.storage.generateUploadUrl();
+  },
 });
 
 // Create a new recipe
@@ -206,8 +261,10 @@ export const update = mutation({
     cookingTime: v.optional(v.number()),
     difficulty: v.optional(v.string()),
     calories: v.optional(v.number()),
+    /** The recipe version the form loaded (`updatedAt`, else `_creationTime`). */
+    baseVersion: v.optional(v.number()),
   },
-  handler: async (ctx, rawArgs) => {
+  handler: async (ctx, { baseVersion, ...rawArgs }) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
       throw new Error("Unauthenticated");
@@ -220,6 +277,11 @@ export const update = mutation({
 
     if (recipe.userId !== identity.subject) {
       throw new Error("Unauthorized");
+    }
+    if (baseVersion !== undefined && baseVersion !== (recipe.updatedAt ?? recipe._creationTime)) {
+      throw new ConvexError(
+        "This recipe was changed somewhere else since you opened it. Reload to get the latest version, then make your edits again."
+      );
     }
 
     const args = cleanRecipeInput(rawArgs);
@@ -237,18 +299,21 @@ export const update = mutation({
     const searchText = `${args.title} ${authorName}`.toLowerCase();
 
     // Prepare update fields
-    const updates: any = {
+    const updates: Partial<Doc<"recipes">> = {
       title: args.title,
       description: args.description,
       ingredients: args.ingredients,
       steps: args.steps,
-      tags: args.tags,
-      isPublic: args.isPublic,
+      // Visibility and tags keep their value when omitted; the optional
+      // details below are cleared when omitted, which is how the form removes them.
+      tags: args.tags ?? recipe.tags,
+      isPublic: args.isPublic ?? recipe.isPublic,
       cookingTime: args.cookingTime,
       difficulty: args.difficulty,
       calories: args.calories,
       authorName,
       searchText,
+      updatedAt: Math.max(Date.now(), (recipe.updatedAt ?? recipe._creationTime) + 1),
     };
 
     // Only update storageId if a new one is provided
@@ -277,14 +342,14 @@ export const update = mutation({
 
 // Helper to check if a recipe is favorited by the current user
 async function isRecipeFavorite(
-  ctx: any,
-  recipeId: any,
+  ctx: QueryCtx,
+  recipeId: Id<"recipes">,
   userId: string | undefined
 ) {
   if (!userId) return false;
   const favorite = await ctx.db
     .query("favorites")
-    .withIndex("by_user_recipe", (q: any) =>
+    .withIndex("by_user_recipe", (q) =>
       q.eq("userId", userId).eq("recipeId", recipeId)
     )
     .unique();
@@ -334,6 +399,9 @@ export const list = query({
       // Drop deleted recipes and ones that went private since they were
       // favorited, then apply other filters in memory (since we can't easily combine index query)
       let filteredRecipes = recipes.filter((r) => canReadRecipe(r, userId));
+      if (args.myRecipesOnly) {
+        filteredRecipes = filteredRecipes.filter((r) => r.userId === userId);
+      }
 
       if (args.search) {
         const searchLower = args.search.toLowerCase();
@@ -385,7 +453,6 @@ export const list = query({
     }
 
     // Normal listing logic
-    let queryBuilder;
     const myRecipesOnly = args.myRecipesOnly ?? false;
 
     if (args.search) {
@@ -417,9 +484,26 @@ export const list = query({
           .paginate(args.paginationOpts);
       }
 
+      // A search index can't OR "public" with "mine", so the signed-in user's
+      // own private matches are fetched separately and lead the first page.
+      let ownPrivate: Doc<"recipes">[] = [];
+      if (userId && !myRecipesOnly && args.paginationOpts.cursor === null) {
+        const own = await ctx.db
+          .query("recipes")
+          .withSearchIndex("search_recipes", (q) => {
+            let sq = q.search("searchText", args.search!).eq("userId", userId);
+            if (args.difficulty && args.difficulty !== "all") {
+              sq = sq.eq("difficulty", args.difficulty);
+            }
+            return sq;
+          })
+          .take(OWN_PRIVATE_SEARCH_LIMIT);
+        ownPrivate = own.filter((recipe) => recipe.isPublic !== true);
+      }
+
       // Apply maxTime filter in memory (Convex search queries don't support inequality filters)
       // Note: This might result in slightly fewer items than requested on this specific page
-      let page = searchResults.page;
+      let page = [...ownPrivate, ...searchResults.page];
       if (args.maxTime) {
         page = page.filter(
           (r) => !r.cookingTime || r.cookingTime <= args.maxTime!
@@ -450,41 +534,15 @@ export const list = query({
         page: pageWithDetails,
       };
     } else {
-      queryBuilder = ctx.db.query("recipes");
-
-      if (myRecipesOnly && userId) {
-        queryBuilder = queryBuilder.filter((q) =>
-          q.eq(q.field("userId"), userId)
-        );
-      } else if (userId) {
-        queryBuilder = queryBuilder.filter((q) =>
-          q.or(q.eq(q.field("isPublic"), true), q.eq(q.field("userId"), userId))
-        );
-      } else {
-        // Unauthenticated user sees public recipes only
-        queryBuilder = queryBuilder.filter((q) =>
-          q.eq(q.field("isPublic"), true)
-        );
-      }
-
-      queryBuilder = queryBuilder.order("desc");
-
-      if (args.difficulty && args.difficulty !== "all") {
-        queryBuilder = queryBuilder.filter((q: any) =>
-          q.eq(q.field("difficulty"), args.difficulty)
-        );
-      }
-
-      if (args.maxTime) {
-        queryBuilder = queryBuilder.filter((q: any) =>
-          q.or(
-            q.eq(q.field("cookingTime"), undefined),
-            q.lte(q.field("cookingTime"), args.maxTime)
-          )
-        );
-      }
-
-      const paginatedResult = await queryBuilder.paginate(args.paginationOpts);
+      const source = myRecipesOnly && userId ? ownRecipes(ctx, userId) : readableRecipes(ctx, userId);
+      const { difficulty, maxTime } = args;
+      const paginatedResult = await source
+        .filterWith(
+          async (recipe) =>
+            (!difficulty || difficulty === "all" || recipe.difficulty === difficulty) &&
+            (!maxTime || recipe.cookingTime === undefined || recipe.cookingTime <= maxTime)
+        )
+        .paginate({ ...args.paginationOpts, maximumRowsRead: FEED_MAX_ROWS_READ });
 
       const pageWithDetails = await Promise.all(
         paginatedResult.page.map(async (recipe) => {
@@ -531,12 +589,7 @@ export const listAll = query({
       return [];
     }
 
-    const recipes = await ctx.db
-      .query("recipes")
-      .filter((q) =>
-        q.or(q.eq(q.field("userId"), userId), q.eq(q.field("isPublic"), true))
-      )
-      .collect();
+    const recipes = await takeWithinBudget(readableRecipes(ctx, userId));
 
     return await Promise.all(
       recipes.map(async (recipe) => {
@@ -650,12 +703,7 @@ export const searchByIngredients = query({
       return [];
     }
 
-    const recipes = await ctx.db
-      .query("recipes")
-      .filter((q) =>
-        q.or(q.eq(q.field("userId"), userId), q.eq(q.field("isPublic"), true))
-      )
-      .collect();
+    const recipes = await takeWithinBudget(readableRecipes(ctx, userId));
 
     const userIngredients = args.ingredients.map((i) => i.toLowerCase().trim());
 
@@ -718,11 +766,13 @@ export const listPublic = query({
     const identity = await ctx.auth.getUserIdentity();
     const currentUserId = identity?.subject;
 
-    const recipes = await ctx.db
-      .query("recipes")
-      .filter((q) => q.eq(q.field("userId"), args.userId))
-      .filter((q) => q.eq(q.field("isPublic"), true))
-      .collect();
+    const recipes = (
+      await ctx.db
+        .query("recipes")
+        .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+        .order("desc")
+        .collect()
+    ).filter((recipe) => recipe.isPublic === true);
 
     return await Promise.all(
       recipes.map(async (recipe) => {

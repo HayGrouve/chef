@@ -12,7 +12,9 @@ import type * as access from "../access.js";
 import type * as ai from "../ai.js";
 import type * as categories from "../categories.js";
 import type * as commandPalette from "../commandPalette.js";
+import type * as crons from "../crons.js";
 import type * as devSeed from "../devSeed.js";
+import type * as feed from "../feed.js";
 import type * as gemini from "../gemini.js";
 import type * as importRecipe from "../importRecipe.js";
 import type * as ingredientMatch from "../ingredientMatch.js";
@@ -24,6 +26,7 @@ import type * as recipes from "../recipes.js";
 import type * as safeFetch from "../safeFetch.js";
 import type * as seed from "../seed.js";
 import type * as shoppingList from "../shoppingList.js";
+import type * as storageCleanup from "../storageCleanup.js";
 import type * as users from "../users.js";
 
 import type {
@@ -37,7 +40,9 @@ declare const fullApi: ApiFromModules<{
   ai: typeof ai;
   categories: typeof categories;
   commandPalette: typeof commandPalette;
+  crons: typeof crons;
   devSeed: typeof devSeed;
+  feed: typeof feed;
   gemini: typeof gemini;
   importRecipe: typeof importRecipe;
   ingredientMatch: typeof ingredientMatch;
@@ -49,6 +54,7 @@ declare const fullApi: ApiFromModules<{
   safeFetch: typeof safeFetch;
   seed: typeof seed;
   shoppingList: typeof shoppingList;
+  storageCleanup: typeof storageCleanup;
   users: typeof users;
 }>;
 

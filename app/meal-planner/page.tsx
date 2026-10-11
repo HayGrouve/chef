@@ -30,6 +30,7 @@ import { toast } from "sonner";
 import { MealSelector } from "@/components/meal-planner/MealSelector";
 import Image from "next/image";
 import { Id, Doc } from "../../convex/_generated/dataModel";
+import { ConvexError } from "convex/values";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -165,7 +166,7 @@ function DraggableMeal({
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            className="absolute right-1 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground md:opacity-0 md:group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
+            className="absolute right-1 top-1/2 grid size-6 -translate-y-1/2 place-items-center rounded text-muted-foreground hover:bg-muted hover:text-foreground md:opacity-0 md:group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
             aria-label={`Options for ${title}`}
           >
             <MoreHorizontal className="h-3.5 w-3.5" />
@@ -305,11 +306,10 @@ export default function MealPlannerPage() {
   // CHANGED: No arguments needed for getWeek
   const mealPlans = useQuery(api.mealPlans.getWeek, {});
 
-  const recipes = useQuery(api.recipes.listAll, {});
   const addMeal = useMutation(api.mealPlans.add);
   const removeMeal = useMutation(api.mealPlans.remove);
   const moveMeal = useMutation(api.mealPlans.move);
-  const addBatchToShoppingList = useMutation(api.shoppingList.addBatch);
+  const addPlannedWeek = useMutation(api.shoppingList.addPlannedWeek);
   const removeBatchFromShoppingList = useMutation(api.shoppingList.removeBatch);
   const autoGenerate = useMutation(api.mealPlans.autoGenerate);
   const generateMealPlanWithAI = useAction(api.ai.generateMealPlanWithAI);
@@ -359,7 +359,13 @@ export default function MealPlannerPage() {
         label: "Undo",
         onClick: once(() =>
           addMeal({ date: meal.date, mealType: meal.mealType, recipeId: meal.recipeId }).catch(
-            () => toast.error("That recipe is no longer available.")
+            (error) =>
+              toast.error(
+                // e.g. "Your week is full"; otherwise the recipe went away
+                error instanceof ConvexError && typeof error.data === "string"
+                  ? error.data
+                  : "That recipe is no longer available."
+              )
           )
         ),
       },
@@ -453,7 +459,7 @@ export default function MealPlannerPage() {
           });
         }
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       // 3. AI failed (timeout, rate limit, invalid JSON) -> Fallback
       console.error("AI Generation Failed:", error);
       try {
@@ -479,28 +485,32 @@ export default function MealPlannerPage() {
   const [handleAddToShoppingList, isShopping] = useSingleFlight(async () => {
     if (!mealPlans) return;
 
-    const ingredientsToAdd: string[] = [];
+    let ids: Id<"shoppingList">[];
+    try {
+      ids = await addPlannedWeek({});
+    } catch (error) {
+      console.error("Failed to add the week to the shopping list:", error);
+      toast.error("Couldn’t add the week to your shopping list", {
+        description:
+          error instanceof ConvexError && typeof error.data === "string"
+            ? error.data
+            : "Check your connection and try again.",
+      });
+      return;
+    }
 
-    mealPlans.forEach((plan) => {
-      const recipe = recipes?.find((r) => r._id === plan.recipeId);
-      if (recipe) {
-        ingredientsToAdd.push(...recipe.ingredients);
-      }
-    });
-
-    if (ingredientsToAdd.length === 0) {
+    if (ids.length === 0) {
       toast.info("Plan some meals first to shop for them.");
       return;
     }
 
-    const ids = await addBatchToShoppingList({ ingredients: ingredientsToAdd });
     toast.success(
-      `Added ${pluralize(ingredientsToAdd.length, "ingredient")} to your shopping list`,
+      `Added ${pluralize(ids.length, "ingredient")} to your shopping list`,
       {
         action: ids?.length
           ? {
               label: "Undo",
-              onClick: () => removeBatchFromShoppingList({ ids }),
+              onClick: once(() => removeBatchFromShoppingList({ ids })),
             }
           : undefined,
       }
@@ -515,8 +525,6 @@ export default function MealPlannerPage() {
 
   return (
     <div className="container mx-auto px-4 pb-16 pt-6 md:pt-10">
-      <title>CHEF | Meal Planner</title>
-      <meta name="description" content="Plan your weekly meals with ease" />
       <div className="flex items-center justify-between gap-2 mb-6">
         <h1 className="font-display text-3xl font-bold tracking-tight md:text-4xl">Meal planner</h1>
 
@@ -599,6 +607,7 @@ export default function MealPlannerPage() {
                         {day}
                         {day === today && (
                           <span className="block text-xs font-normal text-muted-foreground">
+                            <span className="sr-only">, </span>
                             Today
                           </span>
                         )}

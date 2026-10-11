@@ -107,12 +107,22 @@ export function Navbar() {
             />
           </Authenticated>
           <Unauthenticated>
-            <Button asChild>
-              <Link href="/sign-in">
-                <LogIn />
-                Sign in
-              </Link>
-            </Button>
+            {/* The sign-in page is the form itself */}
+            {!pathname?.startsWith("/sign-in") && (
+              <Button asChild>
+                {/* Come back to this page afterwards (home keeps the welcome flow) */}
+                <Link
+                  href={
+                    pathname && pathname !== "/"
+                      ? `/sign-in?redirect_url=${encodeURIComponent(pathname)}`
+                      : "/sign-in"
+                  }
+                >
+                  <LogIn />
+                  Sign in
+                </Link>
+              </Button>
+            )}
           </Unauthenticated>
         </div>
       </div>

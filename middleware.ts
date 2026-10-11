@@ -1,4 +1,5 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { NextResponse } from "next/server";
 
 const isPublicRoute = createRouteMatcher([
   "/",
@@ -19,7 +20,26 @@ const isProtectedRoute = createRouteMatcher([
   "/profile/edit(.*)",
 ]);
 
+const isAuthPage = createRouteMatcher(["/sign-in(.*)", "/sign-up(.*)"]);
+
+/** Only same-site return addresses; Clerk shows a blank page on malformed ones. */
+function isSafeRedirect(target: string, origin: string) {
+  try {
+    return new URL(target, origin).origin === origin;
+  } catch {
+    return false;
+  }
+}
+
 export default clerkMiddleware(async (auth, request) => {
+  if (isAuthPage(request)) {
+    const target = request.nextUrl.searchParams.get("redirect_url");
+    if (target !== null && !isSafeRedirect(target, request.nextUrl.origin)) {
+      const url = request.nextUrl.clone();
+      url.searchParams.delete("redirect_url");
+      return NextResponse.redirect(url);
+    }
+  }
   if (isProtectedRoute(request) || !isPublicRoute(request)) {
     await auth.protect();
   }

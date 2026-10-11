@@ -372,7 +372,9 @@ function draftFromAi(raw: unknown, method: RecipeDraft["method"]): RecipeDraft {
   }
   const obj = raw as JsonObject;
   if (typeof obj.error === "string") {
-    throw new ConvexError(`No recipe found: ${obj.error}`);
+    // The AI often phrases this itself ("No recipe found in…"); don't repeat it
+    const reason = obj.error.trim();
+    throw new ConvexError(/^no recipe/i.test(reason) ? reason : `No recipe found: ${reason}`);
   }
   const ingredients = strings(obj.ingredients, 60, 200);
   const steps = strings(obj.steps, 40, 1000);
@@ -540,7 +542,12 @@ export const fromPhoto = action({
   args: { storageId: v.id("_storage") },
   handler: async (ctx, args): Promise<RecipeDraft> => {
     const userId = await requireUserId(ctx);
-    const blob = await ctx.storage.get(args.storageId);
+    // Only the caller's own uploads; recipe photo ids are visible to anyone
+    const othersImage = await ctx.runQuery(internal.recipes.isImageOfOtherUser, {
+      storageId: args.storageId,
+      userId,
+    });
+    const blob = othersImage ? null : await ctx.storage.get(args.storageId);
     if (!blob) throw new ConvexError("Upload failed. Try the photo again.");
     if (blob.size > MAX_IMAGE_BYTES) throw new ConvexError("That photo is too large (max 5 MB).");
     await ctx.runMutation(internal.ai.checkRateLimit, { userId, actionName: "importRecipePhoto" });
@@ -581,6 +588,7 @@ export const save = action({
 
     let storageId: string = args.imageStorageId ?? "";
     let format: string | undefined;
+    let copiedImage: Id<"_storage"> | null = null;
     if (!storageId && args.imageUrl) {
       try {
         const { buffer, contentType } = await fetchWithLimit(
@@ -590,8 +598,10 @@ export const save = action({
           MAX_IMAGE_BYTES,
           "image/*"
         );
-        if (contentType.startsWith("image/")) {
-          storageId = await ctx.storage.store(new Blob([buffer], { type: contentType }));
+        // SVG can carry scripts; keep raster images only
+        if (contentType.startsWith("image/") && !contentType.includes("svg")) {
+          copiedImage = await ctx.storage.store(new Blob([buffer], { type: contentType }));
+          storageId = copiedImage;
           format = contentType.split("/")[1];
         }
       } catch (error) {
@@ -600,7 +610,9 @@ export const save = action({
       }
     }
 
-    const recipeId: Id<"recipes"> = await ctx.runMutation(api.recipes.create, {
+    let recipeId: Id<"recipes">;
+    try {
+      recipeId = await ctx.runMutation(api.recipes.create, {
       title: title.slice(0, 120),
       description: args.description.trim().slice(0, 500),
       ingredients,
@@ -612,7 +624,12 @@ export const save = action({
       cookingTime: args.cookingTime,
       difficulty: args.difficulty,
       calories: args.calories,
-    });
+      });
+    } catch (error) {
+      // Don't leave the copied photo behind when the recipe is rejected
+      if (copiedImage) await ctx.storage.delete(copiedImage);
+      throw error;
+    }
     return { recipeId, imageSaved: storageId !== "" };
   },
 });

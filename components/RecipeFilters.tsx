@@ -86,6 +86,7 @@ export function RecipeFilters({
         <Slider
           value={[maxTime]}
           onValueChange={(val) => setMaxTime(val[0])}
+          min={5}
           max={MAX_TIME_ANY}
           step={5}
           aria-labelledby="filter-max-time"

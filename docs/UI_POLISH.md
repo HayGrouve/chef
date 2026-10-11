@@ -173,11 +173,21 @@ A full Guest/Host QA pass. The complete findings, including the security fixes, 
 | **No accidental duplicates or lost work.** Planning a meal, Shop week, adding a list item and every Undo are single-flight (`hooks/use-single-flight.ts`). The edit form no longer resets on live updates. Saving offline explains itself. Undecodable photos are rejected. Server validation messages reach the toast. | ✅ | `app/meal-planner/page.tsx`, `app/shopping-list/page.tsx`, `app/create/page.tsx`, `app/profile/edit/page.tsx` |
 | **Layout.** Cook mode is exactly one screen (no footer, no tab-bar padding). Long unbreakable words wrap on the recipe page and the shopping list. Planner drops go where the pointer is. | ✅ | `components/footer.tsx`, `app/layout.tsx`, `components/cook/CookMode.tsx`, `app/recipe/[id]/RecipeDetailClient.tsx`, `app/shopping-list/page.tsx` |
 
+## Round 12 — 2026-10-11 (second QA audit)
+
+A second full QA pass; the complete findings are in [QA_REPORT.md](QA_REPORT.md). UI-facing changes:
+
+| Change | Status | Files |
+|--------|--------|-------|
+| **No lost work.** Leaving a dirty recipe form through a link or Back asks first. A save from an outdated tab is refused with an explanation instead of overwriting. Saving won't start on a dropped connection and says when it's slow. Create and edit land on the saved recipe. | ✅ | `hooks/use-leave-guard.ts`, `app/create/page.tsx` |
+| **Keyboard focus.** Every dialog, sheet and confirm returns focus to whatever opened it, including menu items. Cook-mode arrow keys leave the scale picker alone. | ✅ | `hooks/use-return-focus.ts`, `components/ui/{dialog,sheet,alert-dialog}.tsx`, `components/cook/CookMode.tsx` |
+| **Search and lists.** Search finds your own private recipes. Feed pagination is pinned, so pages don't shift. Shopping-list ticks are optimistic. "Shop week" reports errors. | ✅ | `app/page.tsx`, `convex/feed.ts`, `app/shopping-list/page.tsx`, `app/meal-planner/page.tsx` |
+| **Smaller fixes.** ⌘K "add … to shopping list" phrasing and double Enter. Sign-in returns you to the page and clears `?welcome`. Titles on every page. Screen-reader names. 24 px planner and reorder targets. Reduced motion. 6 s toasts. | ✅ | `components/command-palette/CommandPalette.tsx`, `components/navbar.tsx`, route `layout.tsx` files, `app/layout.tsx` |
+
 ## Backlog
 
 All items from the original audit are done. Ideas for a future round:
 
-- After editing a recipe, return to that recipe's page instead of home.
 - Meal planner: show which week/dates the day names refer to (the data model stores day names only).
 - Meal types are now normalized to lowercase by the server (Round 11); existing dev and prod rows were already lowercase.
 - Shelves are built from the first page of recipes (24). With a large library, "Your recipes" or "Favorites" may look short until "See all" (which queries the server).

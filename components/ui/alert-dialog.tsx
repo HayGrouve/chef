@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useReturnFocus } from "@/hooks/use-return-focus"
 import * as AlertDialogPrimitive from "@radix-ui/react-alert-dialog"
 
 import { cn } from "@/lib/utils"
@@ -48,6 +49,7 @@ function AlertDialogContent({
   className,
   ...props
 }: React.ComponentProps<typeof AlertDialogPrimitive.Content>) {
+  const returnFocus = useReturnFocus(props)
   return (
     <AlertDialogPortal>
       <AlertDialogOverlay />
@@ -58,6 +60,7 @@ function AlertDialogContent({
           className
         )}
         {...props}
+        {...returnFocus}
       />
     </AlertDialogPortal>
   )

@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useRef, useEffect, useId, Suspense } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useConvex, useMutation, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
 import { api } from "../../convex/_generated/api";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useLeaveGuard } from "@/hooks/use-leave-guard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -81,7 +82,7 @@ import {
 
 import { compressImage } from "@/lib/image-utils";
 import { PREDEFINED_TAGS } from "@/lib/constants";
-import { cn, hasFinePointer, pluralize } from "@/lib/utils";
+import { cn, hasFinePointer, pluralize, scrollBehavior } from "@/lib/utils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -404,7 +405,7 @@ function SortableRow({ id, handleLabel, children }: SortableRowProps) {
         {...attributes}
         {...listeners}
         aria-label={handleLabel}
-        className="mt-4 rounded text-muted-foreground cursor-grab hover:text-foreground active:cursor-grabbing touch-none"
+        className="mt-3 rounded p-1 text-muted-foreground cursor-grab hover:text-foreground active:cursor-grabbing touch-none"
       >
         <GripVertical className="w-4 h-4" />
       </div>
@@ -583,6 +584,7 @@ function FormSection({
           {meta.title}
           {meta.status === "optional" && (
             <span className="ml-2 text-xs font-normal text-muted-foreground">
+              <span className="sr-only">, </span>
               Optional
             </span>
           )}
@@ -684,6 +686,7 @@ function CreateRecipeContent() {
 
   const generateUploadUrl = useMutation(api.recipes.generateUploadUrl);
   const createRecipe = useMutation(api.recipes.create);
+  const convex = useConvex();
   const updateRecipe = useMutation(api.recipes.update);
   const existingRecipe = useQuery(
     api.recipes.get,
@@ -714,9 +717,12 @@ function CreateRecipeContent() {
   // Load the recipe into the form once. Later live updates (a save from
   // another tab, background ingredient tagging) must not wipe unsaved edits.
   const loadedRecipeId = useRef<string | null>(null);
+  // The version that was loaded, so saving can detect edits made elsewhere
+  const loadedVersion = useRef<number | undefined>(undefined);
   useEffect(() => {
     if (existingRecipe && loadedRecipeId.current !== existingRecipe._id) {
       loadedRecipeId.current = existingRecipe._id;
+      loadedVersion.current = existingRecipe.updatedAt ?? existingRecipe._creationTime;
       form.reset({
         title: existingRecipe.title,
         description: existingRecipe.description,
@@ -773,7 +779,7 @@ function CreateRecipeContent() {
       } catch (error) {
         // Compression decodes the image, so failing here means the file isn't
         // a readable image (e.g. a renamed text file); don't upload it
-        console.error("Image compression failed:", error);
+        console.warn("Image compression failed:", error);
         showAlert("Couldn’t read that image", "Choose a different PNG, JPEG or WEBP photo.");
         e.target.value = "";
       }
@@ -787,10 +793,17 @@ function CreateRecipeContent() {
   const [extrasOpen, setExtrasOpen] = useState(false);
   const values = useWatch({ control: form.control });
 
-  // Warn before throwing away edits: on reload/close, and on Cancel.
+  // Warn before throwing away edits: on reload/close, Cancel, in-app links and Back.
   const { isDirty, isSubmitSuccessful } = form.formState;
   const hasUnsavedChanges = (isDirty || imageFile !== null) && !isSubmitSuccessful;
   const [confirmLeave, setConfirmLeave] = useState(false);
+  // What "Discard" does: go back (Cancel, Back button) or follow the clicked link
+  const discardRef = useRef<() => void>(() => {});
+  const askToLeave = (proceed: () => void) => {
+    discardRef.current = proceed;
+    setConfirmLeave(true);
+  };
+  const leaveGuard = useLeaveGuard(hasUnsavedChanges, askToLeave);
   useEffect(() => {
     if (!hasUnsavedChanges) return;
     const onBeforeUnload = (e: BeforeUnloadEvent) => e.preventDefault();
@@ -798,14 +811,14 @@ function CreateRecipeContent() {
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, [hasUnsavedChanges]);
   const leave = () => {
-    if (window.history.length > 1) router.back();
+    if (window.history.length > 1) leaveGuard.back();
     else router.push(editId ? `/recipe/${editId}` : "/");
   };
 
   const scrollToSection = (id: string) =>
     document
       .getElementById(id)
-      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+      ?.scrollIntoView({ behavior: scrollBehavior(), block: "start" });
 
   // Blank rows (e.g. left behind by pressing Enter) shouldn't block saving
   const pruneEmptyRows = () => {
@@ -845,11 +858,21 @@ function CreateRecipeContent() {
     // Same-tick double clicks get past the isSubmitting state; this ref doesn't
     if (submitting.current) return;
     // Convex queues mutations while offline, which would leave "Saving…" hanging
-    if (!navigator.onLine) {
+    // The browser can think it's online while the connection to the server
+    // has dropped, so check that too
+    if (!navigator.onLine || !convex.connectionState().isWebSocketConnected) {
       showAlert("You’re offline", "Reconnect to save. Your changes are still here.");
       return;
     }
     submitting.current = true;
+    // A save that's queued behind a dead connection would otherwise sit on
+    // "Saving…" with no explanation. It isn't cancelled (it may still go
+    // through), so retrying can't create a duplicate.
+    const slowSave = setTimeout(() => {
+      toast.info("Still saving…", {
+        description: "This is taking longer than usual. Check your connection; your changes are kept.",
+      });
+    }, 15_000);
     try {
       let storageId = existingRecipe?.storageId;
 
@@ -891,18 +914,25 @@ function CreateRecipeContent() {
         calories: data.calories,
       };
 
+      let savedId: string;
       if (editId) {
         await updateRecipe({
           id: editId,
           ...recipeData,
           storageId: imageFile ? storageId : undefined,
+          baseVersion: loadedVersion.current,
         });
+        savedId = editId;
       } else {
-        await createRecipe(recipeData);
+        savedId = await createRecipe(recipeData);
       }
 
-      router.push("/");
+      clearTimeout(slowSave);
+      toast.success(editId ? "Recipe saved" : "Recipe created");
+      // Replace the editor in history, so Back from the recipe doesn't reopen it
+      router.replace(`/recipe/${savedId}`);
     } catch (error) {
+      clearTimeout(slowSave);
       submitting.current = false;
       console.error("Failed to save recipe:", error);
       showAlert(
@@ -998,7 +1028,7 @@ function CreateRecipeContent() {
 
   return (
     <div className="container mx-auto max-w-5xl px-4 pb-4 pt-6 md:pt-10">
-      <title>{editId ? "CHEF | Edit Recipe" : "CHEF | Create Recipe"}</title>
+      <title>{editId ? "Edit recipe | CHEF" : "New recipe | CHEF"}</title>
       <meta name="description" content="Create a new recipe with CHEF" />
 
       <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
@@ -1067,7 +1097,7 @@ function CreateRecipeContent() {
               <Button
                 type="button"
                 variant="ghost"
-                onClick={() => (hasUnsavedChanges ? setConfirmLeave(true) : leave())}
+                onClick={() => (hasUnsavedChanges ? askToLeave(leave) : leave())}
                 disabled={isSubmitting}
               >
                 Cancel
@@ -1102,7 +1132,7 @@ function CreateRecipeContent() {
           <AlertDialogFooter>
             <AlertDialogCancel>Keep editing</AlertDialogCancel>
             <AlertDialogAction
-              onClick={leave}
+              onClick={() => discardRef.current()}
               className="bg-destructive text-white hover:bg-destructive/90"
             >
               Discard

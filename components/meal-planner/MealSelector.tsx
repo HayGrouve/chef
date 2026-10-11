@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { usePaginatedQuery } from "convex/react";
+// recipes.list is built on merged index streams, whose pages must be pinned
+import { usePaginatedQuery } from "convex-helpers/react";
 import { api } from "../../convex/_generated/api";
 import { Id } from "../../convex/_generated/dataModel";
 import {

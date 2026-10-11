@@ -1,14 +1,15 @@
 "use client";
 
-import { Suspense, useState, useEffect, useCallback, useMemo } from "react";
+import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   Authenticated,
   Unauthenticated,
   useConvexAuth,
   useMutation,
-  usePaginatedQuery,
   useQuery,
 } from "convex/react";
+// The feed is built from merged index streams, whose pages must be pinned
+import { usePaginatedQuery } from "convex-helpers/react";
 import { api } from "../convex/_generated/api";
 import type { FunctionReturnType } from "convex/server";
 import { useUser } from "@clerk/nextjs";
@@ -61,9 +62,11 @@ function HomeContent() {
   const [difficulty, setDifficulty] = useState<string>(
     searchParams.get("difficulty") || "all"
   );
-  const [maxTime, setMaxTime] = useState<number>(
-    searchParams.get("maxTime") ? parseInt(searchParams.get("maxTime")!) : MAX_TIME_ANY
-  );
+  const [maxTime, setMaxTime] = useState<number>(() => {
+    // Hand-edited links: anything that isn't a sensible limit means "any"
+    const fromUrl = Number.parseInt(searchParams.get("maxTime") ?? "", 10);
+    return Number.isFinite(fromUrl) && fromUrl > 0 ? Math.min(fromUrl, MAX_TIME_ANY) : MAX_TIME_ANY;
+  });
   const [favoritesOnly, setFavoritesOnly] = useState(
     searchParams.get("favorites") === "true"
   );
@@ -82,6 +85,9 @@ function HomeContent() {
   const updateUrl = useCallback(() => {
     const currentQueryString = searchParams.toString();
     const params = new URLSearchParams(currentQueryString);
+    // One-shot flag from sign-up/sign-in; handled below. Dropping it here too
+    // keeps this replace and that one from putting it back for each other.
+    params.delete("welcome");
 
     if (debouncedSearch) params.set("q", debouncedSearch);
     else params.delete("q");
@@ -134,27 +140,27 @@ function HomeContent() {
   const [showInstallDialog, setShowInstallDialog] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
 
+  // Offer the install prompt once after signing up or in (?welcome=true),
+  // then drop the flag from the address bar.
+  const welcomeHandled = useRef(false);
   useEffect(() => {
-    const welcome = searchParams.get("welcome");
-    if (welcome) {
-      const userAgent = window.navigator.userAgent.toLowerCase();
-      const isIosDevice = /iphone|ipad|ipod/.test(userAgent);
-
-      const timer = setTimeout(() => {
-        setIsIOS(isIosDevice);
-        const hasSeenPrompt = localStorage.getItem("hasSeenInstallPrompt");
-        if (!hasSeenPrompt) {
-          setShowInstallDialog(true);
-          localStorage.setItem("hasSeenInstallPrompt", "true");
-        }
-      }, 0);
-
-      const newParams = new URLSearchParams(searchParams.toString());
-      newParams.delete("welcome");
-      router.replace(`/?${newParams.toString()}`, { scroll: false });
-
-      return () => clearTimeout(timer);
-    }
+    if (welcomeHandled.current || !searchParams.get("welcome")) return;
+    welcomeHandled.current = true;
+    const isIosDevice = /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
+    // After the sign-in redirect has settled: a replace issued while it's
+    // still committing gets overwritten by it
+    setTimeout(() => {
+      setIsIOS(isIosDevice);
+      if (!localStorage.getItem("hasSeenInstallPrompt")) {
+        setShowInstallDialog(true);
+        localStorage.setItem("hasSeenInstallPrompt", "true");
+      }
+      const url = new URL(window.location.href);
+      if (url.searchParams.has("welcome")) {
+        url.searchParams.delete("welcome");
+        router.replace(`${url.pathname}${url.search}`, { scroll: false });
+      }
+    }, 0);
   }, [searchParams, router]);
 
   const { results, status, loadMore, isLoading } = usePaginatedQuery(
@@ -578,7 +584,11 @@ function PantryResults({ terms }: { terms: string[] }) {
 
 function EmptyState({ filtered, onClear }: { filtered: boolean; onClear: () => void }) {
   return (
-    <div className="mt-12 flex flex-col items-center gap-4 rounded-2xl border border-dashed px-6 py-16 text-center">
+    <div
+      // Announced when a search or filter leaves nothing to show
+      role="status"
+      className="mt-12 flex flex-col items-center gap-4 rounded-2xl border border-dashed px-6 py-16 text-center"
+    >
       {filtered ? (
         <>
           <SearchX className="size-10 text-muted-foreground" strokeWidth={1.5} />

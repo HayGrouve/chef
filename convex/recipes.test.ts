@@ -198,3 +198,158 @@ describe("shopping list links", () => {
     expect(items.map((i) => i.recipeId)).toEqual([undefined, undefined]);
   });
 });
+
+describe("recipe feed and search", () => {
+  const page = { numItems: 50, cursor: null };
+
+  test("a signed-in search finds the caller's own private recipes", async () => {
+    const { host, guest } = setup();
+    await host.mutation(api.recipes.create, { ...baseRecipe, title: "Secret Shakshuka", isPublic: false });
+    await host.mutation(api.recipes.create, { ...baseRecipe, title: "Public Shakshuka" });
+
+    const mine = await host.query(api.recipes.list, { search: "shakshuka", paginationOpts: page });
+    expect(mine.page.map((r) => r.title).sort()).toEqual(["Public Shakshuka", "Secret Shakshuka"]);
+
+    const theirs = await guest.query(api.recipes.list, { search: "shakshuka", paginationOpts: page });
+    expect(theirs.page.map((r) => r.title)).toEqual(["Public Shakshuka"]);
+  });
+
+  test("the feed shows public recipes plus the caller's own, newest first, once each", async () => {
+    const { host, guest } = setup();
+    await host.mutation(api.recipes.create, { ...baseRecipe, title: "Host public 1" });
+    await host.mutation(api.recipes.create, { ...baseRecipe, title: "Host private", isPublic: false });
+    await guest.mutation(api.recipes.create, { ...baseRecipe, title: "Guest private", isPublic: false });
+    await guest.mutation(api.recipes.create, { ...baseRecipe, title: "Guest public" });
+    await host.mutation(api.recipes.create, { ...baseRecipe, title: "Host public 2" });
+
+    const titles = async (who: typeof host, numItems: number) => {
+      const seen: string[] = [];
+      let cursor: string | null = null;
+      for (;;) {
+        const result: { page: { title: string }[]; isDone: boolean; continueCursor: string } =
+          await who.query(api.recipes.list, { paginationOpts: { numItems, cursor } });
+        seen.push(...result.page.map((r) => r.title));
+        if (result.isDone) return seen;
+        cursor = result.continueCursor;
+      }
+    };
+
+    expect(await titles(host, 2)).toEqual(["Host public 2", "Guest public", "Host private", "Host public 1"]);
+    expect(await titles(guest, 2)).toEqual(["Host public 2", "Guest public", "Guest private", "Host public 1"]);
+  });
+
+  test("signed-out visitors and filters only see matching public recipes", async () => {
+    const { t, host } = setup();
+    await host.mutation(api.recipes.create, { ...baseRecipe, title: "Quick", difficulty: "Easy", cookingTime: 10 });
+    await host.mutation(api.recipes.create, { ...baseRecipe, title: "Slow", difficulty: "Hard", cookingTime: 240 });
+    await host.mutation(api.recipes.create, { ...baseRecipe, title: "Hidden", isPublic: false });
+
+    const all = await t.query(api.recipes.list, { paginationOpts: page });
+    expect(all.page.map((r) => r.title).sort()).toEqual(["Quick", "Slow"]);
+    const hard = await t.query(api.recipes.list, { difficulty: "Hard", paginationOpts: page });
+    expect(hard.page.map((r) => r.title)).toEqual(["Slow"]);
+    const quick = await host.query(api.recipes.list, { maxTime: 30, paginationOpts: page });
+    expect(quick.page.map((r) => r.title).sort()).toEqual(["Hidden", "Quick"]);
+  });
+
+  test("updating without isPublic or tags keeps them", async () => {
+    const { host } = setup();
+    const id = await host.mutation(api.recipes.create, { ...baseRecipe, tags: ["Dinner"] });
+    const { isPublic: _isPublic, ...rest } = baseRecipe;
+    await host.mutation(api.recipes.update, { id, ...rest, storageId: undefined });
+    const recipe = await host.query(api.recipes.get, { id });
+    expect(recipe?.isPublic).toBe(true);
+    expect(recipe?.tags).toEqual(["Dinner"]);
+  });
+});
+
+describe("photo import", () => {
+  test("can't read another user's recipe photo", async () => {
+    const { t, host, guest } = setup();
+    const storageId = await storeFile(t);
+    await host.mutation(api.recipes.create, { ...baseRecipe, storageId });
+    await expect(guest.action(api.importRecipe.fromPhoto, { storageId })).rejects.toThrow(
+      /Upload failed/
+    );
+  });
+});
+
+describe("whole-catalogue reads", () => {
+  test("pantry search and listAll work when the caller owns public and private recipes", async () => {
+    const { host, guest } = setup();
+    await host.mutation(api.recipes.create, { ...baseRecipe, title: "Host public eggs" });
+    await host.mutation(api.recipes.create, { ...baseRecipe, title: "Host private eggs", isPublic: false });
+    await guest.mutation(api.recipes.create, { ...baseRecipe, title: "Guest private eggs", isPublic: false });
+
+    const all = await host.query(api.recipes.listAll, {});
+    expect(all.map((r) => r.title).sort()).toEqual(["Host private eggs", "Host public eggs"]);
+    const pantry = await host.query(api.recipes.searchByIngredients, { ingredients: ["eggs"] });
+    expect(pantry.map((r) => r.title).sort()).toEqual(["Host private eggs", "Host public eggs"]);
+    const result = await host.mutation(api.mealPlans.autoGenerate, {});
+    expect(result.count).toBeGreaterThan(0);
+  });
+});
+
+describe("recipe text and author name", () => {
+  test("titles and lines made only of invisible characters are rejected", async () => {
+    const { host } = setup();
+    await expect(
+      host.mutation(api.recipes.create, { ...baseRecipe, title: "​​⁠" })
+    ).rejects.toThrow(/title/);
+    await expect(
+      host.mutation(api.recipes.create, { ...baseRecipe, ingredients: ["﻿"] })
+    ).rejects.toThrow(/ingredient/);
+    // Emoji sequences use joiners and stay intact
+    const id = await host.mutation(api.recipes.create, { ...baseRecipe, title: "Chef 👨‍🍳 soup" });
+    expect((await host.query(api.recipes.get, { id }))?.title).toBe("Chef 👨‍🍳 soup");
+  });
+
+  test("renaming updates the author name stored on recipes, so search finds the new name", async () => {
+    const t = convexTest(schema, modules);
+    const before = t.withIdentity({ ...HOST, name: "Zorblax" });
+    await before.mutation(api.users.store, {});
+    await before.mutation(api.recipes.create, baseRecipe);
+    await t.finishAllScheduledFunctions(vi.runAllTimers);
+
+    const after = t.withIdentity({ ...HOST, name: "Quuxwell" });
+    await after.mutation(api.users.store, {});
+    await t.finishAllScheduledFunctions(vi.runAllTimers);
+
+    const page = { numItems: 10, cursor: null };
+    const found = await t.query(api.recipes.list, { search: "quuxwell", paginationOpts: page });
+    expect(found.page.map((r) => r.title)).toEqual(["Pancakes"]);
+    const stale = await t.query(api.recipes.list, { search: "zorblax", paginationOpts: page });
+    expect(stale.page).toHaveLength(0);
+  });
+
+  test("users without a name aren't named after their email", async () => {
+    const t = convexTest(schema, modules);
+    const user = t.withIdentity({ subject: "user_x", tokenIdentifier: "test|user_x", email: "jane.doe@example.com" });
+    await user.mutation(api.users.store, {});
+    expect((await t.query(api.users.get, { userId: "user_x" }))?.name).toBe("Cook");
+  });
+});
+
+describe("concurrent edits", () => {
+  test("a save based on an outdated version is refused instead of overwriting", async () => {
+    const { host } = setup();
+    const id = await host.mutation(api.recipes.create, baseRecipe);
+    const loaded = await host.query(api.recipes.get, { id });
+    const version = loaded!.updatedAt ?? loaded!._creationTime;
+
+    // Tab A saves first
+    await host.mutation(api.recipes.update, { id, ...baseRecipe, storageId: undefined, title: "Tab A", baseVersion: version });
+    // Tab B loaded the same version and saves later
+    await expect(
+      host.mutation(api.recipes.update, { id, ...baseRecipe, storageId: undefined, description: "Tab B edit", baseVersion: version })
+    ).rejects.toThrow(/changed somewhere else/);
+    expect((await host.query(api.recipes.get, { id }))?.title).toBe("Tab A");
+
+    // Reloading picks up the new version, and saving works again
+    const fresh = await host.query(api.recipes.get, { id });
+    await host.mutation(api.recipes.update, {
+      id, ...baseRecipe, storageId: undefined, title: "Tab A", description: "Tab B edit", baseVersion: fresh!.updatedAt,
+    });
+    expect((await host.query(api.recipes.get, { id }))?.description).toBe("Tab B edit");
+  });
+});

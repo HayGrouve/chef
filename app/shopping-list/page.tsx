@@ -2,6 +2,7 @@
 
 import { once } from "@/hooks/use-single-flight";
 import { useQuery, useMutation, useAction } from "convex/react";
+import { ConvexError } from "convex/values";
 import { api } from "../../convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -59,7 +60,23 @@ interface GroupedItems {
 export default function ShoppingListPage() {
   const items = useQuery(api.shoppingList.listWithDetails);
   const addItem = useMutation(api.shoppingList.add);
-  const toggleBatch = useMutation(api.shoppingList.toggleBatch);
+  // Show the tick straight away (also while offline, until it syncs)
+  const toggleBatch = useMutation(api.shoppingList.toggleBatch).withOptimisticUpdate(
+    (localStore, { ids, isChecked }) => {
+      const current = localStore.getQuery(api.shoppingList.listWithDetails, {});
+      if (current === undefined || isChecked === undefined) return;
+      const changed = new Set<string>(ids);
+      let delta = 0;
+      const next = current.map((item) => {
+        if (!changed.has(item._id) || item.isChecked === isChecked) return item;
+        delta += isChecked ? -1 : 1;
+        return { ...item, isChecked };
+      });
+      localStore.setQuery(api.shoppingList.listWithDetails, {}, next);
+      const badge = localStore.getQuery(api.shoppingList.getBadgeCount, {});
+      if (badge !== undefined) localStore.setQuery(api.shoppingList.getBadgeCount, {}, badge + delta);
+    }
+  );
   const removeBatch = useMutation(api.shoppingList.removeBatch);
   const clearAll = useMutation(api.shoppingList.clearAll);
   const organizeShoppingList = useAction(api.ai.organizeShoppingList);
@@ -101,9 +118,10 @@ export default function ShoppingListPage() {
               : undefined,
         }
       );
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Failed to organize:", error);
-      const reason = typeof error?.data === "string" ? error.data : null;
+      const reason =
+        error instanceof ConvexError && typeof error.data === "string" ? error.data : null;
       toast.error("Couldn’t organize the list", {
         description: reason ?? "Try again in a minute. Your list hasn’t changed.",
       });
@@ -169,9 +187,14 @@ export default function ShoppingListPage() {
     setNewItem("");
     try {
       await addItem({ ingredient });
-    } catch {
+    } catch (error) {
       setNewItem(ingredient);
-      toast.error("Couldn’t add that item", { description: "Check your connection and try again." });
+      toast.error("Couldn’t add that item", {
+        description:
+          error instanceof ConvexError && typeof error.data === "string"
+            ? error.data
+            : "Check your connection and try again.",
+      });
     }
   };
 
@@ -254,8 +277,6 @@ export default function ShoppingListPage() {
 
   return (
     <div className="container mx-auto max-w-2xl px-4 pb-16 pt-6 md:pt-10">
-      <title>CHEF | Shopping List</title>
-      <meta name="description" content="Your shopping list for the week" />
 
       <div className="flex items-center justify-between gap-2 mb-4">
         <h1 className="font-display text-3xl font-bold tracking-tight md:text-4xl">Shopping list</h1>
@@ -291,6 +312,7 @@ export default function ShoppingListPage() {
           name="item"
           autoComplete="off"
           aria-label="Add an item"
+          maxLength={300}
           value={newItem}
           onChange={(e) => setNewItem(e.target.value)}
           placeholder="Add an item, e.g. milk…"
@@ -363,7 +385,7 @@ export default function ShoppingListPage() {
                     >
                       <Checkbox
                         checked={item.isChecked}
-                        onCheckedChange={() => toggleBatch({ ids: item.ids })}
+                        onCheckedChange={(checked) => toggleBatch({ ids: item.ids, isChecked: checked === true })}
                         id={item.id}
                       />
                       <label
