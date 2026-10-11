@@ -7,6 +7,11 @@ const MINUTE = 60 * 1000;
 
 /** Background ingredient tagging (one Gemini call per recipe save). */
 export const TAGGING_QUOTA: Quota = { limit: 30, windowMs: 60 * MINUTE };
+/**
+ * All on-demand AI features together (import, meal planning, Organize). Each
+ * also has its own 30 s cooldown; this caps what one account can spend.
+ */
+export const AI_QUOTA: Quota = { limit: 40, windowMs: 60 * MINUTE };
 /** Outbound page and image fetches made by recipe import. */
 export const IMPORT_FETCH_QUOTA: Quota = { limit: 20, windowMs: 10 * MINUTE };
 
