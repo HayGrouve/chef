@@ -166,7 +166,7 @@ function DraggableMeal({
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            className="absolute right-1 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground md:opacity-0 md:group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
+            className="absolute right-1 top-1/2 grid size-6 -translate-y-1/2 place-items-center rounded text-muted-foreground hover:bg-muted hover:text-foreground md:opacity-0 md:group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
             aria-label={`Options for ${title}`}
           >
             <MoreHorizontal className="h-3.5 w-3.5" />

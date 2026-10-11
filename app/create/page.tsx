@@ -405,7 +405,7 @@ function SortableRow({ id, handleLabel, children }: SortableRowProps) {
         {...attributes}
         {...listeners}
         aria-label={handleLabel}
-        className="mt-4 rounded text-muted-foreground cursor-grab hover:text-foreground active:cursor-grabbing touch-none"
+        className="mt-3 rounded p-1 text-muted-foreground cursor-grab hover:text-foreground active:cursor-grabbing touch-none"
       >
         <GripVertical className="w-4 h-4" />
       </div>
