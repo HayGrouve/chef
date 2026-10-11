@@ -60,7 +60,23 @@ interface GroupedItems {
 export default function ShoppingListPage() {
   const items = useQuery(api.shoppingList.listWithDetails);
   const addItem = useMutation(api.shoppingList.add);
-  const toggleBatch = useMutation(api.shoppingList.toggleBatch);
+  // Show the tick straight away (also while offline, until it syncs)
+  const toggleBatch = useMutation(api.shoppingList.toggleBatch).withOptimisticUpdate(
+    (localStore, { ids, isChecked }) => {
+      const current = localStore.getQuery(api.shoppingList.listWithDetails, {});
+      if (current === undefined || isChecked === undefined) return;
+      const changed = new Set<string>(ids);
+      let delta = 0;
+      const next = current.map((item) => {
+        if (!changed.has(item._id) || item.isChecked === isChecked) return item;
+        delta += isChecked ? -1 : 1;
+        return { ...item, isChecked };
+      });
+      localStore.setQuery(api.shoppingList.listWithDetails, {}, next);
+      const badge = localStore.getQuery(api.shoppingList.getBadgeCount, {});
+      if (badge !== undefined) localStore.setQuery(api.shoppingList.getBadgeCount, {}, badge + delta);
+    }
+  );
   const removeBatch = useMutation(api.shoppingList.removeBatch);
   const clearAll = useMutation(api.shoppingList.clearAll);
   const organizeShoppingList = useAction(api.ai.organizeShoppingList);
