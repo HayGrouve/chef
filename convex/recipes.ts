@@ -326,8 +326,10 @@ export const update = mutation({
       recipe.ingredients.length !== args.ingredients.length ||
       recipe.ingredients.some((line, i) => line !== args.ingredients[i]);
     if (ingredientsChanged) {
-      // Old keys no longer line up with the ingredient lines; re-tag in the background
+      // Old keys and amounts no longer line up with the ingredient lines;
+      // re-tag in the background
       updates.ingredientKeys = undefined;
+      updates.ingredientAmounts = undefined;
     }
 
     await ctx.db.patch(args.id, updates);

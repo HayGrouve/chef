@@ -53,11 +53,12 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import {
   formatDuration,
   ingredientsForStep,
-  scaleIngredient,
   segmentStep,
   type StepSegment,
 } from "@/lib/recipe-text";
 import { cn, pluralize } from "@/lib/utils";
+import { formatIngredients, type UnitSystem } from "@/lib/quantities";
+import { useUnitSystem } from "@/hooks/use-unit-system";
 import { remainingSeconds, TimerTray, useCookTimers, type CookTimer } from "./timers";
 import { speak, useVoiceCommands, useVoiceSupported, type VoiceCommand } from "./voice";
 
@@ -165,6 +166,43 @@ function ScaleControl({
           className="px-2.5 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
         >
           {scaleLabel(s)}
+        </ToggleGroupItem>
+      ))}
+    </ToggleGroup>
+  );
+}
+
+function UnitsControl({
+  value,
+  onChange,
+  className,
+}: {
+  value: UnitSystem;
+  onChange: (v: UnitSystem) => void;
+  className?: string;
+}) {
+  const options: { value: UnitSystem; label: string }[] = [
+    { value: "original", label: "As written" },
+    { value: "metric", label: "Metric" },
+  ];
+  return (
+    <ToggleGroup
+      type="single"
+      variant="outline"
+      size="sm"
+      value={value}
+      onValueChange={(v) => v && onChange(v as UnitSystem)}
+      aria-label="Measurements"
+      className={className}
+    >
+      {options.map((o) => (
+        <ToggleGroupItem
+          key={o.value}
+          value={o.value}
+          onFocus={() => o.value !== value && onChange(o.value)}
+          className="px-2.5 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+        >
+          {o.label}
         </ToggleGroupItem>
       ))}
     </ToggleGroup>
@@ -400,9 +438,10 @@ function CookSession({ recipe }: { recipe: Recipe }) {
     () => recipe.steps.map((s) => ingredientsForStep(s, recipe.ingredients)),
     [recipe.steps, recipe.ingredients]
   );
-  const scaledLines = useMemo(
-    () => recipe.ingredients.map((line) => scaleIngredient(line, scale)),
-    [recipe.ingredients, scale]
+  const [unitSystem, setUnitSystem] = useUnitSystem();
+  const { lines: scaledLines, canConvert } = useMemo(
+    () => formatIngredients(recipe.ingredients, recipe.ingredientAmounts, { scale, system: unitSystem }),
+    [recipe.ingredients, recipe.ingredientAmounts, scale, unitSystem]
   );
   const timerCount = segments.reduce((n, segs) => n + segs.filter((s) => s.type === "timer").length, 0);
 
@@ -746,6 +785,18 @@ function CookSession({ recipe }: { recipe: Recipe }) {
                   <ScaleControl value={scale} onChange={setScale} />
                 </div>
 
+                {canConvert && (
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4">
+                    <div>
+                      <p className="font-medium">Measurements</p>
+                      <p className="text-sm text-muted-foreground">
+                        Metric turns cups and spoons into grams and millilitres.
+                      </p>
+                    </div>
+                    <UnitsControl value={unitSystem} onChange={setUnitSystem} />
+                  </div>
+                )}
+
                 <section>
                   <div className="mb-3 flex items-baseline justify-between gap-3">
                     <h3 className="text-lg font-semibold">Ingredients</h3>
@@ -846,7 +897,10 @@ function CookSession({ recipe }: { recipe: Recipe }) {
             <SheetDescription>
               {checked.size} of {recipe.ingredients.length} checked
             </SheetDescription>
-            <ScaleControl value={scale} onChange={setScale} className="mt-2" />
+            <div className="mt-2 flex flex-wrap gap-2">
+              <ScaleControl value={scale} onChange={setScale} />
+              {canConvert && <UnitsControl value={unitSystem} onChange={setUnitSystem} />}
+            </div>
           </SheetHeader>
           <div className="flex-1 overflow-y-auto overscroll-contain p-4">
             <IngredientChecklist
