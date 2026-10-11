@@ -10,9 +10,9 @@ import { internal } from "./_generated/api";
 import { generateJson } from "./gemini";
 import { Doc, Id } from "./_generated/dataModel";
 import { readableRecipeId } from "./access";
-import { READABLE_RECIPES_LIMIT, readableRecipes } from "./feed";
+import { readableRecipes, takeWithinBudget } from "./feed";
 import { assertRoomFor, cleanItem, MAX_LIST_ITEMS } from "./shoppingList";
-import { validSlot } from "./mealPlans";
+import { MAX_PLANNED_MEALS, validSlot } from "./mealPlans";
 
 // --- Rate Limiting ---
 
@@ -57,7 +57,7 @@ export const getMealPlannerData = internalQuery({
   args: { userId: v.string() },
   handler: async (ctx, args) => {
     // 1. Get all accessible recipes
-    const recipes = await readableRecipes(ctx, args.userId).take(READABLE_RECIPES_LIMIT);
+    const recipes = await takeWithinBudget(readableRecipes(ctx, args.userId));
 
     // Randomly sample up to 100 recipes to save tokens and keep it fast
     const shuffledRecipes = recipes.sort(() => 0.5 - Math.random());
@@ -118,8 +118,17 @@ export const insertGeneratedMeals = internalMutation({
   },
   handler: async (ctx, args) => {
     let insertedCount = 0;
+    // The AI worked from a snapshot taken seconds ago: only fill slots that
+    // are still empty, and keep within the week's cap
+    const existing = await ctx.db
+      .query("mealPlans")
+      .withIndex("by_user_date", (q) => q.eq("userId", args.userId))
+      .take(MAX_PLANNED_MEALS);
+    const taken = new Set(existing.map((plan) => `${plan.date}|${plan.mealType}`));
+    let room = MAX_PLANNED_MEALS - existing.length;
 
     for (const meal of args.newMeals) {
+      if (room <= 0) break;
       try {
         // Validate that the ID is a valid Convex ID format
         const recipeId = ctx.db.normalizeId("recipes", meal.recipeId);
@@ -131,11 +140,16 @@ export const insertGeneratedMeals = internalMutation({
         if (recipe.userId !== args.userId && !recipe.isPublic) continue;
 
         // Insert the valid meal plan (validSlot throws on made-up days/meals)
+        const slot = validSlot(meal.date, meal.mealType);
+        const key = `${slot.date}|${slot.mealType}`;
+        if (taken.has(key)) continue;
         await ctx.db.insert("mealPlans", {
           userId: args.userId,
-          ...validSlot(meal.date, meal.mealType),
+          ...slot,
           recipeId: recipeId,
         });
+        taken.add(key);
+        room--;
         insertedCount++;
       } catch (error) {
         // Ignore individual errors (e.g. malformed ID strings)
@@ -215,11 +229,19 @@ Return ONLY the JSON array.
   },
 });
 
+const MAX_CATEGORY_LENGTH = 50;
+
 const shoppingItemSnapshot = v.object({
   ingredient: v.string(),
   isChecked: v.boolean(),
   recipeId: v.optional(v.id("recipes")),
   category: v.optional(v.string()),
+  /**
+   * Organize sets this: true for items it merged away, false for items it
+   * kept. Undo only recreates merged ones, so items the user deleted after
+   * organizing stay deleted. Omitted (plain delete undo) means recreate.
+   */
+  mergedAway: v.optional(v.boolean()),
 });
 
 export const getShoppingListForOrganize = internalQuery({
@@ -261,6 +283,7 @@ export const applyOrganizedShoppingList = internalMutation({
         isChecked: boolean;
         recipeId?: Id<"recipes">;
         category?: string;
+        mergedAway: boolean;
       }
     > = [];
     let merged = 0;
@@ -285,6 +308,7 @@ export const applyOrganizedShoppingList = internalMutation({
           isChecked: doc.isChecked,
           recipeId: doc.recipeId,
           category: doc.category,
+          mergedAway: false,
         });
       }
 
@@ -307,6 +331,8 @@ export const applyOrganizedShoppingList = internalMutation({
       });
       for (const doc of rest) {
         await ctx.db.delete(doc._id);
+        const original = originals.find((o) => o.id === doc._id);
+        if (original) original.mergedAway = true;
       }
       merged += rest.length;
     }
@@ -333,7 +359,12 @@ export const restoreShoppingListItems = mutation({
     }
 
     for (const { id, item: snapshot } of args.items) {
-      const item = { ...snapshot, ingredient: cleanItem(snapshot.ingredient) };
+      const { mergedAway, ...rest } = snapshot;
+      const item = {
+        ...rest,
+        ingredient: cleanItem(rest.ingredient),
+        category: rest.category?.slice(0, MAX_CATEGORY_LENGTH),
+      };
       const existing = await ctx.db.get(id);
       if (existing) {
         if (existing.userId !== userId) continue;
@@ -342,8 +373,8 @@ export const restoreShoppingListItems = mutation({
           recipeId: await readableRecipeId(ctx, item.recipeId, userId),
           category: item.category,
         });
-      } else {
-        // Item was merged away; recreate it
+      } else if (mergedAway ?? true) {
+        // Item was merged away (or deleted with Undo offered); recreate it
         await assertRoomFor(ctx, userId, 1);
         await ctx.db.insert("shoppingList", {
           ...item,
@@ -397,6 +428,7 @@ export const organizeShoppingList = action({
         isChecked: boolean;
         recipeId?: Id<"recipes">;
         category?: string;
+        mergedAway: boolean;
       };
     }>;
   }> => {
@@ -441,7 +473,7 @@ export const organizeShoppingList = action({
         .map((id: unknown) => (typeof id === "string" ? knownIds.get(id) : undefined))
         .filter((id: Id<"shoppingList"> | undefined): id is Id<"shoppingList"> => !!id);
       const ingredient = group.ingredient.trim().slice(0, 200);
-      const category = group.category.trim().slice(0, 50);
+      const category = group.category.trim().slice(0, MAX_CATEGORY_LENGTH);
       if (ids.length === 0 || !ingredient || !category) return [];
       return [{ ids, ingredient, category }];
     });

@@ -9,19 +9,32 @@ export const ORPHAN_GRACE_MS = 7 * 24 * 60 * 60 * 1000;
 const BATCH = 100;
 
 export const deleteOrphanUploads = internalMutation({
-  args: { cursor: v.optional(v.union(v.string(), v.null())) },
+  args: {
+    // "check" walks the recipes first; "sweep" then deletes unused files
+    phase: v.optional(v.union(v.literal("check"), v.literal("sweep"))),
+    cursor: v.optional(v.union(v.string(), v.null())),
+  },
   returns: v.object({ deleted: v.number(), aborted: v.boolean() }),
-  handler: async (ctx, { cursor }) => {
-    // Recipes reference photos by id string. If any id isn't a current-format
-    // storage id, the by_storageId lookups below can't be trusted to find its
-    // file, so delete nothing rather than risk removing a live photo.
-    if (!cursor) {
-      for await (const recipe of ctx.db.query("recipes")) {
+  handler: async (ctx, { phase = "check", cursor }) => {
+    if (phase === "check") {
+      // Recipes reference photos by id string. If any id isn't a current-format
+      // storage id, the by_storageId lookups below can't be trusted to find its
+      // file, so delete nothing rather than risk removing a live photo.
+      // Small batches: a maximum-size recipe is ~250 KB.
+      const recipes = await ctx.db
+        .query("recipes")
+        .paginate({ numItems: 20, cursor: cursor ?? null });
+      for (const recipe of recipes.page) {
         if (recipe.storageId && !ctx.db.system.normalizeId("_storage", recipe.storageId)) {
           console.error(`Skipping upload cleanup: recipe ${recipe._id} has an unrecognised storageId`);
           return { deleted: 0, aborted: true };
         }
       }
+      await ctx.scheduler.runAfter(0, internal.storageCleanup.deleteOrphanUploads, {
+        phase: recipes.isDone ? "sweep" : "check",
+        cursor: recipes.isDone ? null : recipes.continueCursor,
+      });
+      return { deleted: 0, aborted: false };
     }
 
     const cutoff = Date.now() - ORPHAN_GRACE_MS;
@@ -49,6 +62,7 @@ export const deleteOrphanUploads = internalMutation({
 
     if (!page.isDone && !reachedRecent) {
       await ctx.scheduler.runAfter(0, internal.storageCleanup.deleteOrphanUploads, {
+        phase: "sweep",
         cursor: page.continueCursor,
       });
     }

@@ -2,6 +2,8 @@ import { v, ConvexError } from "convex/values";
 import { mutation, query, MutationCtx } from "./_generated/server";
 import { getCategory } from "./categories";
 import { canReadRecipe, readableRecipeId } from "./access";
+import { READ_BYTES_BUDGET } from "./feed";
+import { Doc, Id } from "./_generated/dataModel";
 
 export const MAX_ITEM_LENGTH = 300;
 export const MAX_BATCH = 200;
@@ -137,6 +139,56 @@ export const addBatch = mutation({
       ingredients.map((ingredient) =>
         ctx.db.insert("shoppingList", {
           userId: identity.subject,
+          ingredient,
+          isChecked: false,
+          recipeId,
+          category: getCategory(ingredient),
+        })
+      )
+    );
+  },
+});
+
+// "Shop week": add the ingredients of every meal planned this week. Done on
+// the server so the planner doesn't need every recipe the user can read.
+export const addPlannedWeek = mutation({
+  args: {},
+  returns: v.array(v.id("shoppingList")),
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Unauthenticated");
+    }
+    const userId = identity.subject;
+    const plans = await ctx.db
+      .query("mealPlans")
+      .withIndex("by_user_date", (q) => q.eq("userId", userId))
+      .take(MAX_LIST_ITEMS);
+
+    const recipes = new Map<Id<"recipes">, Doc<"recipes"> | null>();
+    let bytes = 0;
+    const items: { ingredient: string; recipeId: Id<"recipes"> }[] = [];
+    for (const plan of plans) {
+      if (!recipes.has(plan.recipeId)) {
+        const recipe = await ctx.db.get(plan.recipeId);
+        bytes += recipe ? JSON.stringify(recipe).length : 0;
+        if (bytes > READ_BYTES_BUDGET) {
+          throw new ConvexError("This week's recipes are too long to add at once. Add them from each recipe instead.");
+        }
+        recipes.set(plan.recipeId, canReadRecipe(recipe, userId) ? recipe : null);
+      }
+      const recipe = recipes.get(plan.recipeId);
+      for (const line of recipe?.ingredients ?? []) {
+        const ingredient = line.trim().slice(0, MAX_ITEM_LENGTH);
+        if (ingredient) items.push({ ingredient, recipeId: plan.recipeId });
+      }
+    }
+
+    await assertRoomFor(ctx, userId, items.length);
+    return await Promise.all(
+      items.map(({ ingredient, recipeId }) =>
+        ctx.db.insert("shoppingList", {
+          userId,
           ingredient,
           isChecked: false,
           recipeId,

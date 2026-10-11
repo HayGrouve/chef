@@ -29,8 +29,9 @@ test("old uploads no recipe uses are deleted; recipe photos and recent uploads s
   vi.setSystemTime(Date.now() + ORPHAN_GRACE_MS + 60_000);
   const recent = await store();
 
-  const result = await t.mutation(internal.storageCleanup.deleteOrphanUploads, {});
-  expect(result).toEqual({ deleted: 1, aborted: false });
+  // The check phase hands over to the sweep through the scheduler
+  await t.mutation(internal.storageCleanup.deleteOrphanUploads, {});
+  await t.finishAllScheduledFunctions(vi.runAllTimers);
   const remaining = await t.run(async (ctx) =>
     (await ctx.db.system.query("_storage").collect()).map((f) => f._id)
   );

@@ -54,3 +54,30 @@ test("checking items sets their state, so repeated or stale requests don't undo 
   items = await user.query(api.shoppingList.list, {});
   expect(items.map((i) => i.isChecked)).toEqual([true, false]);
 });
+
+test("undoing Organize brings back merged items only, not ones deleted afterwards", async () => {
+  const t = convexTest(schema, modules);
+  const user = t.withIdentity(USER);
+  const [kept, merged, other] = await user.mutation(api.shoppingList.addBatch, {
+    ingredients: ["1 egg", "2 eggs", "lemon"],
+  });
+  // What organize returns: "2 eggs" merged into "1 egg"; "lemon" kept
+  const snapshot = [
+    { id: kept, item: { ingredient: "1 egg", isChecked: false, mergedAway: false } },
+    { id: merged, item: { ingredient: "2 eggs", isChecked: false, mergedAway: true } },
+    { id: other, item: { ingredient: "lemon", isChecked: false, mergedAway: false, category: "x".repeat(500) } },
+  ];
+  await user.mutation(api.shoppingList.remove, { id: merged });
+  await user.mutation(api.shoppingList.remove, { id: other }); // the user deletes "lemon" after organizing
+
+  await user.mutation(api.ai.restoreShoppingListItems, { items: snapshot });
+  const items = await user.query(api.shoppingList.list, {});
+  expect(items.map((i) => i.ingredient).sort()).toEqual(["1 egg", "2 eggs"]);
+
+  // Category sizes are capped like everywhere else
+  await user.mutation(api.ai.restoreShoppingListItems, {
+    items: [{ id: kept, item: { ingredient: "1 egg", isChecked: false, category: "y".repeat(500) } }],
+  });
+  const egg = (await user.query(api.shoppingList.list, {})).find((i) => i._id === kept);
+  expect(egg?.category?.length).toBe(50);
+});

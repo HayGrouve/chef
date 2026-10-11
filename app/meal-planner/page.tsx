@@ -30,6 +30,7 @@ import { toast } from "sonner";
 import { MealSelector } from "@/components/meal-planner/MealSelector";
 import Image from "next/image";
 import { Id, Doc } from "../../convex/_generated/dataModel";
+import { ConvexError } from "convex/values";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -305,11 +306,10 @@ export default function MealPlannerPage() {
   // CHANGED: No arguments needed for getWeek
   const mealPlans = useQuery(api.mealPlans.getWeek, {});
 
-  const recipes = useQuery(api.recipes.listAll, {});
   const addMeal = useMutation(api.mealPlans.add);
   const removeMeal = useMutation(api.mealPlans.remove);
   const moveMeal = useMutation(api.mealPlans.move);
-  const addBatchToShoppingList = useMutation(api.shoppingList.addBatch);
+  const addPlannedWeek = useMutation(api.shoppingList.addPlannedWeek);
   const removeBatchFromShoppingList = useMutation(api.shoppingList.removeBatch);
   const autoGenerate = useMutation(api.mealPlans.autoGenerate);
   const generateMealPlanWithAI = useAction(api.ai.generateMealPlanWithAI);
@@ -479,28 +479,32 @@ export default function MealPlannerPage() {
   const [handleAddToShoppingList, isShopping] = useSingleFlight(async () => {
     if (!mealPlans) return;
 
-    const ingredientsToAdd: string[] = [];
+    let ids: Id<"shoppingList">[];
+    try {
+      ids = await addPlannedWeek({});
+    } catch (error) {
+      console.error("Failed to add the week to the shopping list:", error);
+      toast.error("Couldn’t add the week to your shopping list", {
+        description:
+          error instanceof ConvexError && typeof error.data === "string"
+            ? error.data
+            : "Check your connection and try again.",
+      });
+      return;
+    }
 
-    mealPlans.forEach((plan) => {
-      const recipe = recipes?.find((r) => r._id === plan.recipeId);
-      if (recipe) {
-        ingredientsToAdd.push(...recipe.ingredients);
-      }
-    });
-
-    if (ingredientsToAdd.length === 0) {
+    if (ids.length === 0) {
       toast.info("Plan some meals first to shop for them.");
       return;
     }
 
-    const ids = await addBatchToShoppingList({ ingredients: ingredientsToAdd });
     toast.success(
-      `Added ${pluralize(ingredientsToAdd.length, "ingredient")} to your shopping list`,
+      `Added ${pluralize(ids.length, "ingredient")} to your shopping list`,
       {
         action: ids?.length
           ? {
               label: "Undo",
-              onClick: () => removeBatchFromShoppingList({ ids }),
+              onClick: once(() => removeBatchFromShoppingList({ ids })),
             }
           : undefined,
       }

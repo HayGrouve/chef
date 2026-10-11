@@ -5,6 +5,7 @@ import { useMutation, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
 import { api } from "../../convex/_generated/api";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useLeaveGuard } from "@/hooks/use-leave-guard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -787,10 +788,17 @@ function CreateRecipeContent() {
   const [extrasOpen, setExtrasOpen] = useState(false);
   const values = useWatch({ control: form.control });
 
-  // Warn before throwing away edits: on reload/close, and on Cancel.
+  // Warn before throwing away edits: on reload/close, Cancel, in-app links and Back.
   const { isDirty, isSubmitSuccessful } = form.formState;
   const hasUnsavedChanges = (isDirty || imageFile !== null) && !isSubmitSuccessful;
   const [confirmLeave, setConfirmLeave] = useState(false);
+  // What "Discard" does: go back (Cancel, Back button) or follow the clicked link
+  const discardRef = useRef<() => void>(() => {});
+  const askToLeave = (proceed: () => void) => {
+    discardRef.current = proceed;
+    setConfirmLeave(true);
+  };
+  const leaveGuard = useLeaveGuard(hasUnsavedChanges, askToLeave);
   useEffect(() => {
     if (!hasUnsavedChanges) return;
     const onBeforeUnload = (e: BeforeUnloadEvent) => e.preventDefault();
@@ -798,7 +806,7 @@ function CreateRecipeContent() {
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, [hasUnsavedChanges]);
   const leave = () => {
-    if (window.history.length > 1) router.back();
+    if (window.history.length > 1) leaveGuard.back();
     else router.push(editId ? `/recipe/${editId}` : "/");
   };
 
@@ -1067,7 +1075,7 @@ function CreateRecipeContent() {
               <Button
                 type="button"
                 variant="ghost"
-                onClick={() => (hasUnsavedChanges ? setConfirmLeave(true) : leave())}
+                onClick={() => (hasUnsavedChanges ? askToLeave(leave) : leave())}
                 disabled={isSubmitting}
               >
                 Cancel
@@ -1102,7 +1110,7 @@ function CreateRecipeContent() {
           <AlertDialogFooter>
             <AlertDialogCancel>Keep editing</AlertDialogCancel>
             <AlertDialogAction
-              onClick={leave}
+              onClick={() => discardRef.current()}
               className="bg-destructive text-white hover:bg-destructive/90"
             >
               Discard

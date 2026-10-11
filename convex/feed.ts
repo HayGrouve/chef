@@ -39,5 +39,36 @@ export function ownRecipes(ctx: QueryCtx, userId: string) {
  */
 export const READABLE_RECIPES_LIMIT = 1000;
 
-/** Rows a single feed page may scan past filters before returning short. */
-export const FEED_MAX_ROWS_READ = 2000;
+/**
+ * Bytes a whole-catalogue read may use. Convex stops a function after 16 MiB
+ * read, and a single maximum-size recipe is ~250 KB, so a row cap alone isn't
+ * enough.
+ */
+export const READ_BYTES_BUDGET = 4 * 1024 * 1024;
+
+/** Takes rows from a stream until the row cap or the byte budget runs out. */
+export async function takeWithinBudget<T>(
+  rows: AsyncIterable<T | null | undefined>,
+  maxRows = READABLE_RECIPES_LIMIT,
+  maxBytes = READ_BYTES_BUDGET
+): Promise<T[]> {
+  const taken: T[] = [];
+  let bytes = 0;
+  for await (const row of rows) {
+    // Filtered streams yield null for the rows they skip
+    if (row == null) continue;
+    // Approximate document size; close enough to stay well under the limit
+    bytes += JSON.stringify(row).length;
+    if (bytes > maxBytes) break;
+    taken.push(row);
+    if (taken.length >= maxRows) break;
+  }
+  return taken;
+}
+
+/**
+ * Rows a single feed page may read, including ones filters skip, before it
+ * returns short (the client then offers "Load more"). Stream pagination can't
+ * cap bytes, so this keeps a page of maximum-size recipes under 16 MiB.
+ */
+export const FEED_MAX_ROWS_READ = 40;

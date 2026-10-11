@@ -1,5 +1,6 @@
 import { v, ConvexError } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
 
 const MAX_BIO = 500;
 
@@ -103,8 +104,9 @@ export const store = mutation({
       )
       .unique();
 
-    // Clerk accounts don't always have a name (e.g. email-only sign-up)
-    const name = identity.name || identity.email?.split("@")[0] || "Cook";
+    // Clerk accounts don't always have a name (e.g. email-only sign-up). The
+    // name is public, so don't fall back to part of the email address.
+    const name = identity.name?.trim() || "Cook";
 
     if (user !== null) {
       // Keep an avatar the user set on their profile; only follow the
@@ -119,9 +121,20 @@ export const store = mutation({
           avatarUrl,
         });
       }
+      if (user.name !== name) {
+        await ctx.scheduler.runAfter(0, internal.recipes.refreshAuthorName, {
+          userId: identity.subject,
+          name,
+        });
+      }
       return user._id;
     }
 
+    // Recipes saved before the profile existed have no author name yet
+    await ctx.scheduler.runAfter(0, internal.recipes.refreshAuthorName, {
+      userId: identity.subject,
+      name,
+    });
     // If it's a new identity, create a new `User`.
     return await ctx.db.insert("users", {
       name,

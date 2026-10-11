@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState, useEffect, useCallback, useMemo } from "react";
+import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   Authenticated,
   Unauthenticated,
@@ -83,6 +83,9 @@ function HomeContent() {
   const updateUrl = useCallback(() => {
     const currentQueryString = searchParams.toString();
     const params = new URLSearchParams(currentQueryString);
+    // One-shot flag from sign-up/sign-in; handled below. Dropping it here too
+    // keeps this replace and that one from putting it back for each other.
+    params.delete("welcome");
 
     if (debouncedSearch) params.set("q", debouncedSearch);
     else params.delete("q");
@@ -135,27 +138,27 @@ function HomeContent() {
   const [showInstallDialog, setShowInstallDialog] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
 
+  // Offer the install prompt once after signing up or in (?welcome=true),
+  // then drop the flag from the address bar.
+  const welcomeHandled = useRef(false);
   useEffect(() => {
-    const welcome = searchParams.get("welcome");
-    if (welcome) {
-      const userAgent = window.navigator.userAgent.toLowerCase();
-      const isIosDevice = /iphone|ipad|ipod/.test(userAgent);
-
-      const timer = setTimeout(() => {
-        setIsIOS(isIosDevice);
-        const hasSeenPrompt = localStorage.getItem("hasSeenInstallPrompt");
-        if (!hasSeenPrompt) {
-          setShowInstallDialog(true);
-          localStorage.setItem("hasSeenInstallPrompt", "true");
-        }
-      }, 0);
-
-      const newParams = new URLSearchParams(searchParams.toString());
-      newParams.delete("welcome");
-      router.replace(`/?${newParams.toString()}`, { scroll: false });
-
-      return () => clearTimeout(timer);
-    }
+    if (welcomeHandled.current || !searchParams.get("welcome")) return;
+    welcomeHandled.current = true;
+    const isIosDevice = /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
+    // After the sign-in redirect has settled: a replace issued while it's
+    // still committing gets overwritten by it
+    setTimeout(() => {
+      setIsIOS(isIosDevice);
+      if (!localStorage.getItem("hasSeenInstallPrompt")) {
+        setShowInstallDialog(true);
+        localStorage.setItem("hasSeenInstallPrompt", "true");
+      }
+      const url = new URL(window.location.href);
+      if (url.searchParams.has("welcome")) {
+        url.searchParams.delete("welcome");
+        router.replace(`${url.pathname}${url.search}`, { scroll: false });
+      }
+    }, 0);
   }, [searchParams, router]);
 
   const { results, status, loadMore, isLoading } = usePaginatedQuery(

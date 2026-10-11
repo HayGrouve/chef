@@ -191,6 +191,8 @@ function RecipeDetailContent() {
 
   return (
     <article className="pb-16">
+      {/* The server can only title public recipes; this covers your private ones */}
+      <title>{`${recipe.title} | CHEF`}</title>
       <div className="container mx-auto max-w-5xl px-4 pt-6 md:pt-10">
         <button
           onClick={goBack}

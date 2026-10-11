@@ -586,6 +586,7 @@ export const save = action({
 
     let storageId: string = args.imageStorageId ?? "";
     let format: string | undefined;
+    let copiedImage: Id<"_storage"> | null = null;
     if (!storageId && args.imageUrl) {
       try {
         const { buffer, contentType } = await fetchWithLimit(
@@ -595,8 +596,10 @@ export const save = action({
           MAX_IMAGE_BYTES,
           "image/*"
         );
-        if (contentType.startsWith("image/")) {
-          storageId = await ctx.storage.store(new Blob([buffer], { type: contentType }));
+        // SVG can carry scripts; keep raster images only
+        if (contentType.startsWith("image/") && !contentType.includes("svg")) {
+          copiedImage = await ctx.storage.store(new Blob([buffer], { type: contentType }));
+          storageId = copiedImage;
           format = contentType.split("/")[1];
         }
       } catch (error) {
@@ -605,7 +608,9 @@ export const save = action({
       }
     }
 
-    const recipeId: Id<"recipes"> = await ctx.runMutation(api.recipes.create, {
+    let recipeId: Id<"recipes">;
+    try {
+      recipeId = await ctx.runMutation(api.recipes.create, {
       title: title.slice(0, 120),
       description: args.description.trim().slice(0, 500),
       ingredients,
@@ -617,7 +622,12 @@ export const save = action({
       cookingTime: args.cookingTime,
       difficulty: args.difficulty,
       calories: args.calories,
-    });
+      });
+    } catch (error) {
+      // Don't leave the copied photo behind when the recipe is rejected
+      if (copiedImage) await ctx.storage.delete(copiedImage);
+      throw error;
+    }
     return { recipeId, imageSaved: storageId !== "" };
   },
 });

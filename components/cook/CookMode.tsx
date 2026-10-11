@@ -381,6 +381,13 @@ function CookSession({ recipe }: { recipe: Recipe }) {
   const mainRef = useRef<HTMLDivElement>(null);
 
   const total = recipe.steps.length;
+  // If the owner removes steps mid-cook, stay on the last real step rather
+  // than jumping to "Finished" (only someone already finished stays finished)
+  const [seenTotal, setSeenTotal] = useState(total);
+  if (seenTotal !== total) {
+    setSeenTotal(total);
+    if (step >= total && step < seenTotal) setStep(total - 1);
+  }
   const onOverview = step < 0;
   const finished = step >= total;
 

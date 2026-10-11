@@ -273,3 +273,59 @@ describe("photo import", () => {
     );
   });
 });
+
+describe("whole-catalogue reads", () => {
+  test("pantry search and listAll work when the caller owns public and private recipes", async () => {
+    const { host, guest } = setup();
+    await host.mutation(api.recipes.create, { ...baseRecipe, title: "Host public eggs" });
+    await host.mutation(api.recipes.create, { ...baseRecipe, title: "Host private eggs", isPublic: false });
+    await guest.mutation(api.recipes.create, { ...baseRecipe, title: "Guest private eggs", isPublic: false });
+
+    const all = await host.query(api.recipes.listAll, {});
+    expect(all.map((r) => r.title).sort()).toEqual(["Host private eggs", "Host public eggs"]);
+    const pantry = await host.query(api.recipes.searchByIngredients, { ingredients: ["eggs"] });
+    expect(pantry.map((r) => r.title).sort()).toEqual(["Host private eggs", "Host public eggs"]);
+    const result = await host.mutation(api.mealPlans.autoGenerate, {});
+    expect(result.count).toBeGreaterThan(0);
+  });
+});
+
+describe("recipe text and author name", () => {
+  test("titles and lines made only of invisible characters are rejected", async () => {
+    const { host } = setup();
+    await expect(
+      host.mutation(api.recipes.create, { ...baseRecipe, title: "​​⁠" })
+    ).rejects.toThrow(/title/);
+    await expect(
+      host.mutation(api.recipes.create, { ...baseRecipe, ingredients: ["﻿"] })
+    ).rejects.toThrow(/ingredient/);
+    // Emoji sequences use joiners and stay intact
+    const id = await host.mutation(api.recipes.create, { ...baseRecipe, title: "Chef 👨‍🍳 soup" });
+    expect((await host.query(api.recipes.get, { id }))?.title).toBe("Chef 👨‍🍳 soup");
+  });
+
+  test("renaming updates the author name stored on recipes, so search finds the new name", async () => {
+    const t = convexTest(schema, modules);
+    const before = t.withIdentity({ ...HOST, name: "Zorblax" });
+    await before.mutation(api.users.store, {});
+    await before.mutation(api.recipes.create, baseRecipe);
+    await t.finishAllScheduledFunctions(vi.runAllTimers);
+
+    const after = t.withIdentity({ ...HOST, name: "Quuxwell" });
+    await after.mutation(api.users.store, {});
+    await t.finishAllScheduledFunctions(vi.runAllTimers);
+
+    const page = { numItems: 10, cursor: null };
+    const found = await t.query(api.recipes.list, { search: "quuxwell", paginationOpts: page });
+    expect(found.page.map((r) => r.title)).toEqual(["Pancakes"]);
+    const stale = await t.query(api.recipes.list, { search: "zorblax", paginationOpts: page });
+    expect(stale.page).toHaveLength(0);
+  });
+
+  test("users without a name aren't named after their email", async () => {
+    const t = convexTest(schema, modules);
+    const user = t.withIdentity({ subject: "user_x", tokenIdentifier: "test|user_x", email: "jane.doe@example.com" });
+    await user.mutation(api.users.store, {});
+    expect((await t.query(api.users.get, { userId: "user_x" }))?.name).toBe("Cook");
+  });
+});

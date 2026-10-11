@@ -7,7 +7,7 @@ import { internal } from "./_generated/api";
 import { pantryTermMatches } from "./ingredientMatch";
 import { canReadRecipe } from "./access";
 import { TAGGING_QUOTA, takeQuota } from "./rateLimit";
-import { FEED_MAX_ROWS_READ, ownRecipes, READABLE_RECIPES_LIMIT, readableRecipes } from "./feed";
+import { FEED_MAX_ROWS_READ, ownRecipes, readableRecipes, takeWithinBudget } from "./feed";
 
 // Own private matches that lead the first page of a signed-in search
 const OWN_PRIVATE_SEARCH_LIMIT = 20;
@@ -30,15 +30,18 @@ function cleanRecipeInput<T extends RecipeInput>(args: T): T {
     throw new ConvexError(message);
   };
   const L = RECIPE_LIMITS;
+  // Zero-width and other format characters don't count as content (they're
+  // kept, since emoji sequences rely on some of them)
+  const isBlank = (text: string) => !text.replace(/\p{Cf}/gu, "").trim();
   const title = args.title.trim();
-  if (!title) fail("Give the recipe a title.");
+  if (isBlank(title)) fail("Give the recipe a title.");
   if (title.length > L.title) fail(`Keep the title under ${L.title} characters.`);
   const description = args.description.trim();
   if (description.length > L.description) {
     fail(`Keep the description under ${L.description} characters.`);
   }
   const lines = (list: string[], what: string, max: number, maxLength: number) => {
-    const cleaned = list.map((line) => line.trim()).filter(Boolean);
+    const cleaned = list.map((line) => line.trim()).filter((line) => !isBlank(line));
     if (cleaned.length === 0) fail(`Add at least one ${what}.`);
     if (cleaned.length > max) fail(`A recipe can have at most ${max} ${what}s.`);
     if (cleaned.some((line) => line.length > maxLength)) {
@@ -94,7 +97,9 @@ async function assertImageAvailable(
     throw new ConvexError("That image upload is invalid. Try adding the photo again.");
   }
   // Upload URLs accept any file; only images may become recipe photos
-  const notImage = file.contentType !== undefined && !file.contentType.startsWith("image/");
+  // Typed non-images are refused; untyped uploads (contentType null, e.g. a
+  // HEIC photo the browser can't name) are allowed, as before
+  const notImage = file.contentType != null && !file.contentType.startsWith("image/");
   if (notImage || file.size > MAX_IMAGE_BYTES) {
     throw new ConvexError("Recipe photos must be images under 10 MB.");
   }
@@ -139,6 +144,37 @@ async function deleteImageIfUnused(
     await ctx.storage.delete(fileId);
   }
 }
+
+/**
+ * Recipes keep a copy of the author's name (shown in lists and searchable), so
+ * a rename rewrites it on all their recipes, a batch at a time.
+ */
+export const refreshAuthorName = internalMutation({
+  args: { userId: v.string(), name: v.string(), cursor: v.optional(v.union(v.string(), v.null())) },
+  returns: v.null(),
+  handler: async (ctx, { userId, name, cursor }) => {
+    const page = await ctx.db
+      .query("recipes")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      // Small batches: a maximum-size recipe is ~250 KB
+      .paginate({ numItems: 20, cursor: cursor ?? null });
+    for (const recipe of page.page) {
+      if (recipe.authorName === name) continue;
+      await ctx.db.patch(recipe._id, {
+        authorName: name,
+        searchText: `${recipe.title} ${name}`.toLowerCase(),
+      });
+    }
+    if (!page.isDone) {
+      await ctx.scheduler.runAfter(0, internal.recipes.refreshAuthorName, {
+        userId,
+        name,
+        cursor: page.continueCursor,
+      });
+    }
+    return null;
+  },
+});
 
 /** Whether a stored image is another user's recipe photo (imports may not read those). */
 export const isImageOfOtherUser = internalQuery({
@@ -542,7 +578,7 @@ export const listAll = query({
       return [];
     }
 
-    const recipes = await readableRecipes(ctx, userId).take(READABLE_RECIPES_LIMIT);
+    const recipes = await takeWithinBudget(readableRecipes(ctx, userId));
 
     return await Promise.all(
       recipes.map(async (recipe) => {
@@ -656,7 +692,7 @@ export const searchByIngredients = query({
       return [];
     }
 
-    const recipes = await readableRecipes(ctx, userId).take(READABLE_RECIPES_LIMIT);
+    const recipes = await takeWithinBudget(readableRecipes(ctx, userId));
 
     const userIngredients = args.ingredients.map((i) => i.toLowerCase().trim());
 
