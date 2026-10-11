@@ -1,57 +1,8 @@
 // Text helpers for recipes, which store ingredients and steps as plain
-// strings: scaling quantities, finding timers in steps and matching steps to
-// ingredients. They work heuristically; structured quantities would be exact.
+// strings: finding timers in steps and matching steps to ingredients. They
+// work heuristically. Scaling ingredient amounts lives in lib/quantities.ts.
 import { extractItemName } from "@/convex/categories";
 import { toWords } from "@/convex/ingredientMatch";
-
-// --- Scaling ----------------------------------------------------------------
-
-const UNICODE_FRACTIONS: Record<string, number> = {
-  "¼": 0.25, "½": 0.5, "¾": 0.75, "⅓": 1 / 3, "⅔": 2 / 3, "⅛": 0.125,
-};
-
-// "1 1/2", "1½", "½", "1/2", "1.5", "2-3", "600g" (number glued to a unit)
-const LEADING_QUANTITY =
-  /^(\d+\s+\d+\/\d+|\d+\/\d+|\d*[¼½¾⅓⅔⅛]|\d+(?:[.,]\d+)?)(?:\s*(?:-|–|to)\s*(\d+(?:[.,]\d+)?))?/;
-
-function parseAmount(text: string): number {
-  const t = text.trim().replace(",", ".");
-  const mixed = t.match(/^(\d+)\s+(\d+)\/(\d+)$/);
-  if (mixed) return Number(mixed[1]) + Number(mixed[2]) / Number(mixed[3]);
-  const fraction = t.match(/^(\d+)\/(\d+)$/);
-  if (fraction) return Number(fraction[1]) / Number(fraction[2]);
-  const unicode = t.match(/^(\d*)([¼½¾⅓⅔⅛])$/);
-  if (unicode) return Number(unicode[1] || 0) + UNICODE_FRACTIONS[unicode[2]];
-  return Number(t);
-}
-
-function formatAmount(value: number, wholeUnits: boolean): string {
-  if (wholeUnits && value >= 10) return String(Math.round(value));
-  const whole = Math.floor(value + 1e-9);
-  const rest = value - whole;
-  const nice = Object.entries(UNICODE_FRACTIONS).find(([, f]) => Math.abs(rest - f) < 0.04);
-  if (rest < 0.04) return String(whole);
-  if (rest > 0.96) return String(whole + 1);
-  if (nice) return `${whole || ""}${nice[0]}`;
-  return String(Math.round(value * 10) / 10);
-}
-
-/** Scales the leading quantity of an ingredient line: ("600g chicken", 1.5) -> "900g chicken". */
-export function scaleIngredient(line: string, factor: number): string {
-  if (factor === 1) return line;
-  const match = line.match(LEADING_QUANTITY);
-  if (!match) return line;
-  const rest = line.slice(match[0].length);
-  // Metric weights/volumes read better as whole numbers
-  const wholeUnits = /^\s*(g|kg|ml|l|grams?|liters?)\b/i.test(rest);
-  const low = formatAmount(parseAmount(match[1]) * factor, wholeUnits);
-  const high = match[2] ? `-${formatAmount(parseAmount(match[2]) * factor, wholeUnits)}` : "";
-  return `${low}${high}${rest}`;
-}
-
-export function hasQuantity(line: string): boolean {
-  return LEADING_QUANTITY.test(line);
-}
 
 // --- Timers -----------------------------------------------------------------
 

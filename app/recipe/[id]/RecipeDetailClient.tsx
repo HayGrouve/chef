@@ -38,7 +38,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { RecipePhoto, formatMinutes } from "@/components/RecipeCard";
-import { scaleIngredient } from "@/lib/recipe-text";
+import { formatIngredients, type UnitSystem } from "@/lib/quantities";
+import { useUnitSystem } from "@/hooks/use-unit-system";
 import { cn, pluralize } from "@/lib/utils";
 
 const SCALES = [
@@ -47,6 +48,41 @@ const SCALES = [
   { value: 2, label: "2×" },
   { value: 3, label: "3×" },
 ];
+
+const UNIT_SYSTEMS: { value: UnitSystem; label: string }[] = [
+  { value: "original", label: "As written" },
+  { value: "metric", label: "Metric" },
+];
+
+function Segmented<T extends string | number>({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label: string;
+  options: { value: T; label: string }[];
+  value: T;
+  onChange: (value: T) => void;
+}) {
+  return (
+    <div className="flex rounded-full bg-muted p-0.5" role="group" aria-label={label}>
+      {options.map((o) => (
+        <button
+          key={o.value}
+          onClick={() => onChange(o.value)}
+          aria-pressed={value === o.value}
+          className={cn(
+            "rounded-full px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground",
+            value === o.value && "bg-background text-foreground shadow-sm"
+          )}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 function RecipeDetailContent() {
   const params = useParams();
@@ -68,6 +104,7 @@ function RecipeDetailContent() {
   const removeBatchFromShoppingList = useMutation(api.shoppingList.removeBatch);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [unitSystem, setUnitSystem] = useUnitSystem();
 
   // The scale lives in the URL (?scale=2) so a scaled recipe can be shared.
   const scaleParam = Number(searchParams.get("scale"));
@@ -111,9 +148,12 @@ function RecipeDetailContent() {
     );
   }
 
-  const ingredients = recipe.ingredients.map((line) =>
-    scale === 1 ? line : scaleIngredient(line, scale)
-  );
+  const formatted = formatIngredients(recipe.ingredients, recipe.ingredientAmounts, {
+    scale,
+    system: unitSystem,
+  });
+  const ingredients = formatted.lines;
+  const showingMetric = formatted.canConvert && unitSystem === "metric";
   const isOwner = "isOwner" in recipe && recipe.isOwner;
   const facts = [
     { label: "Time", value: formatMinutes(recipe.cookingTime) },
@@ -306,22 +346,19 @@ function RecipeDetailContent() {
         <section className="min-w-0 md:sticky md:top-24 md:self-start">
           <div className="flex items-center justify-between gap-3">
             <h2 className="font-display text-2xl font-bold tracking-tight">Ingredients</h2>
-            <div className="flex rounded-full bg-muted p-0.5" role="group" aria-label="Scale ingredients">
-              {SCALES.map((s) => (
-                <button
-                  key={s.value}
-                  onClick={() => setScale(s.value)}
-                  aria-pressed={scale === s.value}
-                  className={cn(
-                    "rounded-full px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground",
-                    scale === s.value && "bg-background text-foreground shadow-sm"
-                  )}
-                >
-                  {s.label}
-                </button>
-              ))}
-            </div>
+            <Segmented label="Scale ingredients" options={SCALES} value={scale} onChange={setScale} />
           </div>
+          {formatted.canConvert && (
+            <div className="mt-3 flex items-center justify-between gap-3">
+              <span className="text-xs text-muted-foreground">Measurements</span>
+              <Segmented
+                label="Measurements"
+                options={UNIT_SYSTEMS}
+                value={unitSystem}
+                onChange={setUnitSystem}
+              />
+            </div>
+          )}
           <ul className="mt-5 flex flex-col gap-3">
             {ingredients.map((line, i) => (
               <li key={i} className="flex gap-3 leading-snug">
@@ -330,6 +367,11 @@ function RecipeDetailContent() {
               </li>
             ))}
           </ul>
+          {showingMetric && (
+            <p className="mt-4 text-xs text-muted-foreground">
+              Cups and spoons are converted to grams or millilitres, so weights are close estimates.
+            </p>
+          )}
         </section>
 
         <section className="min-w-0">

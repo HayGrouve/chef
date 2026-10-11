@@ -184,6 +184,15 @@ A second full QA pass; the complete findings are in [QA_REPORT.md](QA_REPORT.md)
 | **Search and lists.** Search finds your own private recipes. Feed pagination is pinned, so pages don't shift. Shopping-list ticks are optimistic. "Shop week" reports errors. | ✅ | `app/page.tsx`, `convex/feed.ts`, `app/shopping-list/page.tsx`, `app/meal-planner/page.tsx` |
 | **Smaller fixes.** ⌘K "add … to shopping list" phrasing and double Enter. Sign-in returns you to the page and clears `?welcome`. Titles on every page. Screen-reader names. 24 px planner and reorder targets. Reduced motion. 6 s toasts. | ✅ | `components/command-palette/CommandPalette.tsx`, `components/navbar.tsx`, route `layout.tsx` files, `app/layout.tsx` |
 
+## Round 13 — 2026-10-11 (ingredient scaling + metric)
+
+| Change | Status | Files |
+|--------|--------|-------|
+| **Scaling that understands the line.** The pantry-tagging Gemini call now also marks each amount in every ingredient line: value, range, unit and its singular/plural forms, whether it divides (eggs whole, onions in halves), whether it's a fixed package size, and bracketed restatements. These are stored in `recipes.ingredientAmounts`. Scaling uses them on the client, so it's instant, offline and costs nothing per tap. Each AI amount is checked against the line (the text must be in it, and the number must match); a line that fails falls back to the parser. | ✅ | `lib/quantities.ts`, `convex/ai.ts` (`tagRecipeIngredients`, `saveIngredientAnalysis`), `convex/schema.ts`, `convex/recipes.ts` |
+| **Better parser fallback.** Finds amounts anywhere in the line (Bulgarian "кайма - 250 г"), every amount (not just the first), ranges, Cyrillic units (г, мл, с.л., ч.л., ч.ч., бр.), g↔kg and ml↔l at 1000, whole metric numbers, unit plurals in both languages. Bracketed amounts restate or stay fixed. Tested against every real ingredient line in dev and prod. | ✅ | `lib/quantities.ts`, `lib/quantities.test.ts` |
+| **Metric switch.** "As written / Metric" next to the scale on the recipe page and in Cook Mode. It appears only when a recipe has cups, spoons, ounces or pounds, and is remembered across recipes. Gemini gives grams for dry ingredients (from density) and ml for liquids; a recipe's own bracketed grams win. Without AI data it falls back to volume (cup 240 ml, ч.ч. 200 ml). Converted weights are labelled as estimates. | ✅ | `hooks/use-unit-system.ts`, `app/recipe/[id]/RecipeDetailClient.tsx`, `components/cook/CookMode.tsx` |
+| Backfill for existing recipes: `npx convex run ai:backfillIngredientKeys` (now also fills `ingredientAmounts`). Ran on dev: 25/25. | ⏳ prod: run after `npx convex deploy` | `convex/ai.ts` |
+
 ## Backlog
 
 All items from the original audit are done. Ideas for a future round:

@@ -1,6 +1,23 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
+// One ingredient amount as marked by Gemini; see `Amount` in lib/quantities.ts
+const amountValidator = v.object({
+  text: v.string(),
+  value: v.number(),
+  max: v.optional(v.number()),
+  unit: v.optional(v.string()),
+  one: v.optional(v.string()),
+  other: v.optional(v.string()),
+  split: v.optional(v.union(v.literal("any"), v.literal("half"), v.literal("whole"))),
+  fixed: v.optional(v.boolean()),
+  metric: v.optional(v.object({ value: v.number(), unit: v.union(v.literal("g"), v.literal("ml")) })),
+  restates: v.optional(v.boolean()),
+});
+
+// Per ingredient line; null where the AI's reading didn't check out
+export const ingredientAmountsValidator = v.array(v.union(v.array(amountValidator), v.null()));
+
 export default defineSchema({
   users: defineTable({
     name: v.string(),
@@ -36,6 +53,9 @@ export default defineSchema({
     // AI-generated canonical names per ingredient line, used for pantry
     // matching, e.g. "200g spaghetti" -> ["spaghetti", "pasta"]
     ingredientKeys: v.optional(v.array(v.array(v.string()))),
+    // AI-marked amounts per ingredient line, for scaling and metric conversion,
+    // e.g. "1½ cups flour" -> 1.5 cups ≈ 180 g. Lines without fall back to a parser.
+    ingredientAmounts: v.optional(ingredientAmountsValidator),
   })
     .index("by_userId", ["userId"])
     .index("by_isPublic", ["isPublic"])
