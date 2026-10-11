@@ -30,8 +30,8 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { compressImage } from "@/lib/image-utils";
-import { PREDEFINED_TAGS } from "@/lib/constants";
-import { cn } from "@/lib/utils";
+import { PREDEFINED_TAGS, RECIPE_LIMITS } from "@/lib/constants";
+import { cn, scrollBehavior } from "@/lib/utils";
 import { FormSection, type SectionMeta } from "./FormSection";
 import {
   errorMessage,
@@ -128,10 +128,28 @@ export function ReviewStep({ editor, onChange, onStartOver, onSaved }: Props) {
         : errors.steps
           ? sections.steps.id
           : null;
+    // The extras are optional, but out-of-range numbers would only be caught
+    // (or silently dropped) on save
+    const badNumber = (value: string, min: number, max: number) => {
+      if (!value.trim()) return false;
+      const n = Number(value);
+      return !Number.isFinite(n) || n < min || n > max;
+    };
+    const L = RECIPE_LIMITS;
+    const numberError = badNumber(form.cookingTime, 1, L.cookingTime)
+      ? { id: "import-time", message: `Time must be between 1 and ${L.cookingTime} minutes.` }
+      : badNumber(form.calories, 0, L.calories)
+        ? { id: "import-calories", message: `Calories must be between 0 and ${L.calories}.` }
+        : null;
+    if (!firstError && numberError) {
+      toast.error(numberError.message);
+      document.getElementById(numberError.id)?.focus();
+      return;
+    }
     if (firstError) {
       setShowErrors(true);
       const section = document.getElementById(firstError);
-      section?.scrollIntoView({ behavior: "smooth", block: "start" });
+      section?.scrollIntoView({ behavior: scrollBehavior(), block: "start" });
       section?.querySelector<HTMLElement>("input, textarea")?.focus({ preventScroll: true });
       return;
     }
@@ -144,10 +162,7 @@ export function ReviewStep({ editor, onChange, onStartOver, onSaved }: Props) {
       if (image.kind === "remote") imageUrl = image.url;
       if (image.kind === "file") imageStorageId = await uploadImage(image.file, generateUploadUrl);
 
-      const toNumber = (s: string) => {
-        const n = Number(s);
-        return s.trim() && Number.isFinite(n) && n > 0 ? Math.round(n) : undefined;
-      };
+      const toNumber = (s: string) => (s.trim() ? Math.round(Number(s)) : undefined);
 
       const { recipeId, imageSaved } = await save({
         title: form.title.trim(),
@@ -281,12 +296,12 @@ async function uploadImage(
   file: File,
   generateUploadUrl: () => Promise<string>
 ): Promise<Id<"_storage">> {
-  const compressed = await compressImage(file).catch(() => file);
+  // Already compressed (and so checked) when it was picked
   const postUrl = await generateUploadUrl();
   const response = await fetch(postUrl, {
     method: "POST",
-    headers: { "Content-Type": compressed.type },
-    body: compressed,
+    headers: { "Content-Type": file.type },
+    body: file,
   });
   if (!response.ok) throw new Error("Upload failed");
   const { storageId } = await response.json();
@@ -390,12 +405,21 @@ function PhotoEditor({
         type="file"
         accept="image/*"
         className="hidden"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
+        onChange={async (e) => {
+          const picked = e.target.files?.[0];
           e.target.value = "";
-          if (!file) return;
-          if (!file.type.startsWith("image/")) {
+          if (!picked) return;
+          if (!picked.type.startsWith("image/")) {
             toast.error("That isn’t an image. Choose a photo instead.");
+            return;
+          }
+          // Compressing decodes the image, so a renamed non-image fails here
+          // instead of being saved as a broken photo
+          let file: File;
+          try {
+            file = await compressImage(picked);
+          } catch {
+            toast.error("Couldn’t read that image", { description: "Choose a different PNG, JPEG or WEBP photo." });
             return;
           }
           onImageChange({ kind: "file", file, previewUrl: URL.createObjectURL(file) });

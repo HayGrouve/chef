@@ -171,9 +171,14 @@ export default function ShoppingListPage() {
     setNewItem("");
     try {
       await addItem({ ingredient });
-    } catch {
+    } catch (error) {
       setNewItem(ingredient);
-      toast.error("Couldn’t add that item", { description: "Check your connection and try again." });
+      toast.error("Couldn’t add that item", {
+        description:
+          error instanceof ConvexError && typeof error.data === "string"
+            ? error.data
+            : "Check your connection and try again.",
+      });
     }
   };
 
@@ -291,6 +296,7 @@ export default function ShoppingListPage() {
           name="item"
           autoComplete="off"
           aria-label="Add an item"
+          maxLength={300}
           value={newItem}
           onChange={(e) => setNewItem(e.target.value)}
           placeholder="Add an item, e.g. milk…"

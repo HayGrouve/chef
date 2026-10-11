@@ -3,9 +3,12 @@
 // The ⌘K command palette: search recipes, plan them, add to the shopping list
 // or jump anywhere. Mounted in the root layout for signed-in users.
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ConvexError } from "convex/values";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
-import { useMutation, usePaginatedQuery, useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
+// recipes.list is built on merged index streams, whose pages must be pinned
+import { usePaginatedQuery } from "convex-helpers/react";
 import type { FunctionReturnType } from "convex/server";
 import { toast } from "sonner";
 import {
@@ -77,6 +80,16 @@ const isAddActionPhrase = (text: string) => {
   const typed = text.trim().toLowerCase().replace(/\s+/g, " ");
   return typed.length >= 2 && ADD_ACTION_PHRASES.some((phrase) => phrase.startsWith(typed));
 };
+/** "milk to shopping list" / "to the shopping list milk" → "milk" */
+const stripAddActionPhrase = (text: string) => {
+  let item = text.trim();
+  for (const phrase of ADD_ACTION_PHRASES) {
+    const lower = item.toLowerCase();
+    if (lower.endsWith(` ${phrase}`)) item = item.slice(0, -phrase.length - 1).trim();
+    else if (lower.startsWith(`${phrase} `)) item = item.slice(phrase.length + 1).trim();
+  }
+  return item;
+};
 
 export function CommandPalette() {
   const router = useRouter();
@@ -91,7 +104,10 @@ export function CommandPalette() {
     openRef.current = open;
   }, [open]);
 
+  // One action per opening: a second Enter lands before the palette closes
+  const ranRef = useRef(false);
   const show = useCallback((initial = "") => {
+    ranRef.current = false;
     setPages([]);
     setSearch(initial);
     setOpen(true);
@@ -128,11 +144,15 @@ export function CommandPalette() {
 
   const fail = (err: unknown) => {
     console.error(err);
-    toast.error("Something went wrong. Please try again.");
+    // Server validation messages (e.g. "Your week is full") are worth showing
+    const message = err instanceof ConvexError && typeof err.data === "string" ? err.data : null;
+    toast.error(message ?? "Something went wrong. Please try again.");
   };
 
   /** Close first so the palette feels instant, then do the work. */
   const run = (fn: () => void | Promise<unknown>) => {
+    if (ranRef.current) return;
+    ranRef.current = true;
     setOpen(false);
     Promise.resolve()
       .then(fn)
@@ -243,6 +263,7 @@ export function CommandPalette() {
             value={search}
             onValueChange={setSearch}
             placeholder={placeholder}
+            aria-label="Search recipes and actions"
           />
           <CommandList className="max-h-[min(60vh,420px)]">
             {!page && (
@@ -323,7 +344,7 @@ function RootPage({
   const everyone = usePaginatedQuery(api.recipes.list, args ?? "skip", { initialNumItems: 8 });
 
   if (quick) {
-    const text = quick[1].trim();
+    const text = stripAddActionPhrase(quick[1]);
     return (
       <CommandGroup heading="Shopping list">
         <CommandItem value="quick-add" disabled={!text} onSelect={() => onQuickAdd(text)}>

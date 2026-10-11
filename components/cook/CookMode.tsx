@@ -85,6 +85,8 @@ function loadSession(recipe: Recipe): SavedSession {
     if (!raw) return fallback;
     const s = JSON.parse(raw) as Partial<SavedSession>;
     const m = recipe.steps.length;
+    // A finished session doesn't resume: "Start cooking" starts over
+    if (typeof s.step === "number" && s.step >= m) return fallback;
     return {
       step: typeof s.step === "number" ? Math.min(Math.max(s.step, -1), m) : -1,
       scale: SCALES.includes(s.scale as (typeof SCALES)[number]) ? (s.scale as number) : 1,
@@ -518,9 +520,16 @@ function CookSession({ recipe }: { recipe: Recipe }) {
   // Keyboard: ← → and Space
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (sheetOpen || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (sheetOpen || e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
       const target = e.target as HTMLElement | null;
-      if (target?.closest("input, textarea, select, [contenteditable=true], [role=dialog]")) return;
+      // Controls that use the arrow keys themselves (e.g. the scale picker)
+      if (
+        target?.closest(
+          "input, textarea, select, [contenteditable=true], [role=dialog], [role=radiogroup], [role=slider], [role=tablist], [role=menu], [role=listbox]"
+        )
+      ) {
+        return;
+      }
       if (e.key === "ArrowRight") {
         e.preventDefault();
         next();
@@ -629,7 +638,7 @@ function CookSession({ recipe }: { recipe: Recipe }) {
             <span className="hidden sm:inline">Ingredients</span>
           </Button>
         </div>
-        <Progress value={progress} className="h-1 rounded-none" />
+        <Progress value={progress} aria-label="Recipe progress" className="h-1 rounded-none" />
         {/* Steps also change by swipe, keyboard and voice: announce where we are. */}
         <p className="sr-only" aria-live="polite">
           {finished ? "Finished" : onOverview ? "Get ready" : `Step ${step + 1} of ${total}`}

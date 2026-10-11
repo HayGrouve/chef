@@ -1,7 +1,10 @@
+import type { Metadata } from "next";
 import { ChefHat, Heart, Users, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import Image from "next/image";
+
+export const metadata: Metadata = { title: "About" };
 
 export default function AboutPage() {
   return (
@@ -88,7 +91,7 @@ export default function AboutPage() {
       {/* CTA Section */}
       <div className="bg-primary text-primary-foreground rounded-2xl p-12 text-center">
         <h2 className="font-display text-3xl font-bold tracking-tight mb-4">Ready to Start Cooking?</h2>
-        <p className="text-lg opacity-90 mb-8 max-w-xl mx-auto">
+        <p className="text-lg mb-8 max-w-xl mx-auto">
           Join thousands of home cooks organizing their kitchen life with CHEF.
         </p>
         <Button asChild size="lg" variant="secondary" className="font-semibold">

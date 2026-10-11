@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useId, Suspense } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useConvex, useMutation, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
 import { api } from "../../convex/_generated/api";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -82,7 +82,7 @@ import {
 
 import { compressImage } from "@/lib/image-utils";
 import { PREDEFINED_TAGS } from "@/lib/constants";
-import { cn, hasFinePointer, pluralize } from "@/lib/utils";
+import { cn, hasFinePointer, pluralize, scrollBehavior } from "@/lib/utils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -584,6 +584,7 @@ function FormSection({
           {meta.title}
           {meta.status === "optional" && (
             <span className="ml-2 text-xs font-normal text-muted-foreground">
+              <span className="sr-only">, </span>
               Optional
             </span>
           )}
@@ -685,6 +686,7 @@ function CreateRecipeContent() {
 
   const generateUploadUrl = useMutation(api.recipes.generateUploadUrl);
   const createRecipe = useMutation(api.recipes.create);
+  const convex = useConvex();
   const updateRecipe = useMutation(api.recipes.update);
   const existingRecipe = useQuery(
     api.recipes.get,
@@ -777,7 +779,7 @@ function CreateRecipeContent() {
       } catch (error) {
         // Compression decodes the image, so failing here means the file isn't
         // a readable image (e.g. a renamed text file); don't upload it
-        console.error("Image compression failed:", error);
+        console.warn("Image compression failed:", error);
         showAlert("Couldn’t read that image", "Choose a different PNG, JPEG or WEBP photo.");
         e.target.value = "";
       }
@@ -816,7 +818,7 @@ function CreateRecipeContent() {
   const scrollToSection = (id: string) =>
     document
       .getElementById(id)
-      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+      ?.scrollIntoView({ behavior: scrollBehavior(), block: "start" });
 
   // Blank rows (e.g. left behind by pressing Enter) shouldn't block saving
   const pruneEmptyRows = () => {
@@ -856,11 +858,21 @@ function CreateRecipeContent() {
     // Same-tick double clicks get past the isSubmitting state; this ref doesn't
     if (submitting.current) return;
     // Convex queues mutations while offline, which would leave "Saving…" hanging
-    if (!navigator.onLine) {
+    // The browser can think it's online while the connection to the server
+    // has dropped, so check that too
+    if (!navigator.onLine || !convex.connectionState().isWebSocketConnected) {
       showAlert("You’re offline", "Reconnect to save. Your changes are still here.");
       return;
     }
     submitting.current = true;
+    // A save that's queued behind a dead connection would otherwise sit on
+    // "Saving…" with no explanation. It isn't cancelled (it may still go
+    // through), so retrying can't create a duplicate.
+    const slowSave = setTimeout(() => {
+      toast.info("Still saving…", {
+        description: "This is taking longer than usual. Check your connection; your changes are kept.",
+      });
+    }, 15_000);
     try {
       let storageId = existingRecipe?.storageId;
 
@@ -902,6 +914,7 @@ function CreateRecipeContent() {
         calories: data.calories,
       };
 
+      let savedId: string;
       if (editId) {
         await updateRecipe({
           id: editId,
@@ -909,12 +922,17 @@ function CreateRecipeContent() {
           storageId: imageFile ? storageId : undefined,
           baseVersion: loadedVersion.current,
         });
+        savedId = editId;
       } else {
-        await createRecipe(recipeData);
+        savedId = await createRecipe(recipeData);
       }
 
-      router.push("/");
+      clearTimeout(slowSave);
+      toast.success(editId ? "Recipe saved" : "Recipe created");
+      // Replace the editor in history, so Back from the recipe doesn't reopen it
+      router.replace(`/recipe/${savedId}`);
     } catch (error) {
+      clearTimeout(slowSave);
       submitting.current = false;
       console.error("Failed to save recipe:", error);
       showAlert(

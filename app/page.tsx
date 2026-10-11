@@ -62,9 +62,11 @@ function HomeContent() {
   const [difficulty, setDifficulty] = useState<string>(
     searchParams.get("difficulty") || "all"
   );
-  const [maxTime, setMaxTime] = useState<number>(
-    searchParams.get("maxTime") ? parseInt(searchParams.get("maxTime")!) : MAX_TIME_ANY
-  );
+  const [maxTime, setMaxTime] = useState<number>(() => {
+    // Hand-edited links: anything that isn't a sensible limit means "any"
+    const fromUrl = Number.parseInt(searchParams.get("maxTime") ?? "", 10);
+    return Number.isFinite(fromUrl) && fromUrl > 0 ? Math.min(fromUrl, MAX_TIME_ANY) : MAX_TIME_ANY;
+  });
   const [favoritesOnly, setFavoritesOnly] = useState(
     searchParams.get("favorites") === "true"
   );
@@ -582,7 +584,11 @@ function PantryResults({ terms }: { terms: string[] }) {
 
 function EmptyState({ filtered, onClear }: { filtered: boolean; onClear: () => void }) {
   return (
-    <div className="mt-12 flex flex-col items-center gap-4 rounded-2xl border border-dashed px-6 py-16 text-center">
+    <div
+      // Announced when a search or filter leaves nothing to show
+      role="status"
+      className="mt-12 flex flex-col items-center gap-4 rounded-2xl border border-dashed px-6 py-16 text-center"
+    >
       {filtered ? (
         <>
           <SearchX className="size-10 text-muted-foreground" strokeWidth={1.5} />

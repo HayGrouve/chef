@@ -359,7 +359,13 @@ export default function MealPlannerPage() {
         label: "Undo",
         onClick: once(() =>
           addMeal({ date: meal.date, mealType: meal.mealType, recipeId: meal.recipeId }).catch(
-            () => toast.error("That recipe is no longer available.")
+            (error) =>
+              toast.error(
+                // e.g. "Your week is full"; otherwise the recipe went away
+                error instanceof ConvexError && typeof error.data === "string"
+                  ? error.data
+                  : "That recipe is no longer available."
+              )
           )
         ),
       },
@@ -601,6 +607,7 @@ export default function MealPlannerPage() {
                         {day}
                         {day === today && (
                           <span className="block text-xs font-normal text-muted-foreground">
+                            <span className="sr-only">, </span>
                             Today
                           </span>
                         )}

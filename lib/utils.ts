@@ -14,3 +14,8 @@ export function pluralize(count: number, singular: string, plural = `${singular}
 export function hasFinePointer() {
   return typeof window !== "undefined" && window.matchMedia("(pointer: fine)").matches
 }
+
+/** Smooth scrolling, unless the user asked for reduced motion. */
+export function scrollBehavior(): ScrollBehavior {
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+}

@@ -43,7 +43,8 @@ export function RecipeCard({
       <Link href={`/recipe/${recipe._id}`} className="block">
         <RecipePhoto
           src={recipe.imageUrl}
-          alt={recipe.title}
+          // The link already reads the title; the photo would just repeat it
+          alt=""
           priority={priority}
           sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 260px"
           className="aspect-[4/5] rounded-xl"

@@ -157,7 +157,7 @@ function RecipeDetailContent() {
   };
 
   const handleShare = async () => {
-    const url = `${window.location.origin}/recipe/${recipe._id}`;
+    const url = `${window.location.origin}/recipe/${recipe._id}${scale !== 1 ? `?scale=${scale}` : ""}`;
     const copyLink = async () => {
       try {
         await navigator.clipboard.writeText(url);

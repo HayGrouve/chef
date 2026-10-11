@@ -104,7 +104,8 @@ export default function RootLayout({
               <Footer />
             </div>
             <AuthenticatedMobileNav />
-            <Toaster position="top-center" />
+            {/* Long enough to reach the Undo button on a toast */}
+            <Toaster position="top-center" duration={6000} />
             <GlobalCommandPalette />
           </ThemeProvider>
         </ConvexClientProvider>

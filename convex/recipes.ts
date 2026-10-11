@@ -399,6 +399,9 @@ export const list = query({
       // Drop deleted recipes and ones that went private since they were
       // favorited, then apply other filters in memory (since we can't easily combine index query)
       let filteredRecipes = recipes.filter((r) => canReadRecipe(r, userId));
+      if (args.myRecipesOnly) {
+        filteredRecipes = filteredRecipes.filter((r) => r.userId === userId);
+      }
 
       if (args.search) {
         const searchLower = args.search.toLowerCase();

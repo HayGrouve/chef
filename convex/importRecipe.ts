@@ -372,7 +372,9 @@ function draftFromAi(raw: unknown, method: RecipeDraft["method"]): RecipeDraft {
   }
   const obj = raw as JsonObject;
   if (typeof obj.error === "string") {
-    throw new ConvexError(`No recipe found: ${obj.error}`);
+    // The AI often phrases this itself ("No recipe found in…"); don't repeat it
+    const reason = obj.error.trim();
+    throw new ConvexError(/^no recipe/i.test(reason) ? reason : `No recipe found: ${reason}`);
   }
   const ingredients = strings(obj.ingredients, 60, 200);
   const steps = strings(obj.steps, 40, 1000);
