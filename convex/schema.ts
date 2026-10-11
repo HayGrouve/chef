@@ -30,6 +30,9 @@ export default defineSchema({
     calories: v.optional(v.number()),
     authorName: v.optional(v.string()),
     searchText: v.optional(v.string()),
+    // Set by each edit; the edit form sends the version it loaded so a save
+    // from a stale tab can't silently overwrite a newer one
+    updatedAt: v.optional(v.number()),
     // AI-generated canonical names per ingredient line, used for pantry
     // matching, e.g. "200g spaghetti" -> ["spaghetti", "pasta"]
     ingredientKeys: v.optional(v.array(v.array(v.string()))),

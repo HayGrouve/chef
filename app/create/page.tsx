@@ -715,9 +715,12 @@ function CreateRecipeContent() {
   // Load the recipe into the form once. Later live updates (a save from
   // another tab, background ingredient tagging) must not wipe unsaved edits.
   const loadedRecipeId = useRef<string | null>(null);
+  // The version that was loaded, so saving can detect edits made elsewhere
+  const loadedVersion = useRef<number | undefined>(undefined);
   useEffect(() => {
     if (existingRecipe && loadedRecipeId.current !== existingRecipe._id) {
       loadedRecipeId.current = existingRecipe._id;
+      loadedVersion.current = existingRecipe.updatedAt ?? existingRecipe._creationTime;
       form.reset({
         title: existingRecipe.title,
         description: existingRecipe.description,
@@ -904,6 +907,7 @@ function CreateRecipeContent() {
           id: editId,
           ...recipeData,
           storageId: imageFile ? storageId : undefined,
+          baseVersion: loadedVersion.current,
         });
       } else {
         await createRecipe(recipeData);

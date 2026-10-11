@@ -243,7 +243,6 @@ export function CommandPalette() {
             value={search}
             onValueChange={setSearch}
             placeholder={placeholder}
-            autoFocus
           />
           <CommandList className="max-h-[min(60vh,420px)]">
             {!page && (

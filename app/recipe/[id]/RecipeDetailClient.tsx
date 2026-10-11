@@ -67,9 +67,6 @@ function RecipeDetailContent() {
   const addBatchToShoppingList = useMutation(api.shoppingList.addBatch);
   const removeBatchFromShoppingList = useMutation(api.shoppingList.removeBatch);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  // The dialog opens from a menu that's gone by the time it closes, so focus
-  // has to be handed back to the menu's trigger by hand
-  const moreActionsRef = useRef<HTMLButtonElement>(null);
   const [adding, setAdding] = useState(false);
 
   // The scale lives in the URL (?scale=2) so a scaled recipe can be shared.
@@ -263,7 +260,7 @@ function RecipeDetailContent() {
           {isOwner && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button ref={moreActionsRef} size="icon-lg" variant="ghost" aria-label="More actions">
+                <Button size="icon-lg" variant="ghost" aria-label="More actions">
                   <MoreHorizontal />
                 </Button>
               </DropdownMenuTrigger>
@@ -367,12 +364,7 @@ function RecipeDetailContent() {
       </div>
 
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent
-          onCloseAutoFocus={(event) => {
-            event.preventDefault();
-            moreActionsRef.current?.focus();
-          }}
-        >
+        <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete this recipe?</AlertDialogTitle>
             <AlertDialogDescription>

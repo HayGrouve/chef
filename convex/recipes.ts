@@ -261,8 +261,10 @@ export const update = mutation({
     cookingTime: v.optional(v.number()),
     difficulty: v.optional(v.string()),
     calories: v.optional(v.number()),
+    /** The recipe version the form loaded (`updatedAt`, else `_creationTime`). */
+    baseVersion: v.optional(v.number()),
   },
-  handler: async (ctx, rawArgs) => {
+  handler: async (ctx, { baseVersion, ...rawArgs }) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
       throw new Error("Unauthenticated");
@@ -275,6 +277,11 @@ export const update = mutation({
 
     if (recipe.userId !== identity.subject) {
       throw new Error("Unauthorized");
+    }
+    if (baseVersion !== undefined && baseVersion !== (recipe.updatedAt ?? recipe._creationTime)) {
+      throw new ConvexError(
+        "This recipe was changed somewhere else since you opened it. Reload to get the latest version, then make your edits again."
+      );
     }
 
     const args = cleanRecipeInput(rawArgs);
@@ -306,6 +313,7 @@ export const update = mutation({
       calories: args.calories,
       authorName,
       searchText,
+      updatedAt: Math.max(Date.now(), (recipe.updatedAt ?? recipe._creationTime) + 1),
     };
 
     // Only update storageId if a new one is provided

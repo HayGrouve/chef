@@ -329,3 +329,27 @@ describe("recipe text and author name", () => {
     expect((await t.query(api.users.get, { userId: "user_x" }))?.name).toBe("Cook");
   });
 });
+
+describe("concurrent edits", () => {
+  test("a save based on an outdated version is refused instead of overwriting", async () => {
+    const { host } = setup();
+    const id = await host.mutation(api.recipes.create, baseRecipe);
+    const loaded = await host.query(api.recipes.get, { id });
+    const version = loaded!.updatedAt ?? loaded!._creationTime;
+
+    // Tab A saves first
+    await host.mutation(api.recipes.update, { id, ...baseRecipe, storageId: undefined, title: "Tab A", baseVersion: version });
+    // Tab B loaded the same version and saves later
+    await expect(
+      host.mutation(api.recipes.update, { id, ...baseRecipe, storageId: undefined, description: "Tab B edit", baseVersion: version })
+    ).rejects.toThrow(/changed somewhere else/);
+    expect((await host.query(api.recipes.get, { id }))?.title).toBe("Tab A");
+
+    // Reloading picks up the new version, and saving works again
+    const fresh = await host.query(api.recipes.get, { id });
+    await host.mutation(api.recipes.update, {
+      id, ...baseRecipe, storageId: undefined, title: "Tab A", description: "Tab B edit", baseVersion: fresh!.updatedAt,
+    });
+    expect((await host.query(api.recipes.get, { id }))?.description).toBe("Tab B edit");
+  });
+});
