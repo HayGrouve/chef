@@ -7,6 +7,7 @@ import { ArrowLeft, User as UserIcon, Edit } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { useParams } from "next/navigation";
+import { useState } from "react";
 import { RecipeCard } from "@/components/RecipeCard";
 import { RecipeCardSkeleton } from "@/components/RecipeCardSkeleton";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -16,6 +17,8 @@ export default function PublicProfilePage() {
   const userId = params.userId as string;
 
   const user = useQuery(api.users.get, { userId });
+  // The avatar is any https link the user entered; it may not be an image
+  const [brokenAvatar, setBrokenAvatar] = useState<string | null>(null);
   const currentUser = useQuery(api.users.getMe);
   
   const recipes = useQuery(api.recipes.listPublic, { userId });
@@ -64,9 +67,19 @@ export default function PublicProfilePage() {
 
       <div className="flex flex-col items-center mb-10 text-center">
         <div className="w-24 h-24 rounded-full bg-muted flex items-center justify-center overflow-hidden mb-4 relative">
-            {user.avatarUrl ? (
-                // Avatars can be any https link, not just the hosts next.config allows
-                <Image src={user.avatarUrl} alt={user.name} fill sizes="96px" className="object-cover" unoptimized />
+            {user.avatarUrl && brokenAvatar !== user.avatarUrl ? (
+                // Avatars can be any https link, not just the hosts next.config allows.
+                // Decorative: the name is the heading right below.
+                <Image
+                  src={user.avatarUrl}
+                  alt=""
+                  fill
+                  sizes="96px"
+                  className="object-cover"
+                  unoptimized
+                  referrerPolicy="no-referrer"
+                  onError={() => setBrokenAvatar(user.avatarUrl ?? null)}
+                />
             ) : (
                 <UserIcon className="w-12 h-12 text-muted-foreground" />
             )}
