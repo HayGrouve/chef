@@ -70,5 +70,20 @@ export function useLeaveGuard(active: boolean, onAttempt: (proceed: () => void) 
     };
   }, [active]);
 
+  // While not guarding, the extra entry may still be there (the form was
+  // cleared, or we came back to it from another page). Pressing Back from it
+  // lands on the same page, which looks like nothing happened, so keep going.
+  useEffect(() => {
+    if (active) return;
+    let onGuardEntry = window.history.state?.leaveGuard === true;
+    const onPopState = () => {
+      const wasOnGuardEntry = onGuardEntry;
+      onGuardEntry = window.history.state?.leaveGuard === true;
+      if (wasOnGuardEntry && !onGuardEntry) window.history.back();
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [active]);
+
   return { back };
 }

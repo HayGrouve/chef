@@ -160,6 +160,8 @@ function ScaleControl({
           key={s}
           value={String(s)}
           aria-label={`Scale ${scaleLabel(s)}`}
+          // Announced as radio buttons, so arrow keys should select, not just move focus
+          onFocus={() => s !== value && onChange(s)}
           className="px-2.5 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
         >
           {scaleLabel(s)}
@@ -482,7 +484,7 @@ function CookSession({ recipe }: { recipe: Recipe }) {
   };
 
   const readCurrent = useCallback(() => {
-    if (onOverview) speak(`${recipe.title}. ${total} steps. Say next to start.`);
+    if (onOverview) speak(`${recipe.title}. ${pluralize(total, "step")}. Say next to start.`);
     else if (finished) speak("All done. Enjoy your meal!");
     else speak(`Step ${step + 1}. ${recipe.steps[step]}`);
   }, [onOverview, finished, recipe.title, recipe.steps, step, total]);
@@ -725,7 +727,7 @@ function CookSession({ recipe }: { recipe: Recipe }) {
                       </span>
                     ) : null}
                     <span className="inline-flex items-center gap-1.5">
-                      <ListOrdered className="h-4 w-4" /> {total} steps
+                      <ListOrdered className="h-4 w-4" /> {pluralize(total, "step")}
                     </span>
                     {timerCount > 0 && (
                       <span className="inline-flex items-center gap-1.5">

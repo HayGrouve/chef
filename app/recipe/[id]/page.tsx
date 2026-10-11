@@ -1,5 +1,6 @@
 import { Metadata } from "next";
 import { fetchQuery } from "convex/nextjs";
+import { auth } from "@clerk/nextjs/server";
 import { api } from "../../../convex/_generated/api";
 import { Id } from "../../../convex/_generated/dataModel";
 import RecipeDetailClient from "./RecipeDetailClient";
@@ -17,10 +18,11 @@ export async function generateMetadata({
     const recipe = await fetchQuery(api.recipes.getPublic, { id: recipeId });
 
     if (!recipe) {
-      return {
-        title: "Recipe Not Found",
-        description: "This recipe may be private or doesn't exist.",
-      };
+      // Not public: it may be the visitor's own private recipe. Title it for
+      // them (asking as them), but keep it out of the social preview tags.
+      const token = (await (await auth()).getToken({ template: "convex" })) ?? undefined;
+      const own = token ? await fetchQuery(api.recipes.get, { id: recipeId }, { token }) : null;
+      return { title: own ? own.title : "Recipe not found" };
     }
 
     return {
