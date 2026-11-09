@@ -85,12 +85,17 @@ export const update = mutation({
   },
 });
 
+/**
+ * Syncs the signed-in user's profile from their token. `created` is true only
+ * on the call that inserts the profile, so the client can welcome a new chef
+ * once (the install prompt).
+ */
 export const store = mutation({
   args: {},
   handler: async (ctx) => {
     const identity = await getIdentity(ctx);
     if (!identity) {
-      return;
+      return null;
     }
     const userId = identity.subject;
     const user = await findUser(ctx, userId);
@@ -115,7 +120,7 @@ export const store = mutation({
           name,
         });
       }
-      return user._id;
+      return { userId: user._id, created: false };
     }
 
     // Clerk accounts don't always have a name (e.g. email-only sign-up). The
@@ -128,11 +133,12 @@ export const store = mutation({
     });
     // Email is not stored. `tokenIdentifier` is still written until the
     // retirement cleanup drops it; rows are found by `userId`.
-    return await ctx.db.insert("users", {
+    const id = await ctx.db.insert("users", {
       name,
       tokenIdentifier: identity.tokenIdentifier,
       userId,
       avatarUrl: identity.pictureUrl,
     });
+    return { userId: id, created: true };
   },
 });

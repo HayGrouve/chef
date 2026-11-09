@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Authenticated } from "convex/react";
 import { InstallPwaButton } from "./install-pwa-button";
 
 const links = [
@@ -28,6 +29,12 @@ export function Footer() {
               {label}
             </Link>
           ))}
+          {/* Your page and, later, your data; the account itself lives in the Акаунт */}
+          <Authenticated>
+            <Link href="/profile/edit" className="hover:text-foreground transition-colors">
+              Настройки
+            </Link>
+          </Authenticated>
           <InstallPwaButton variant="ghost" className="h-auto p-0 font-normal text-muted-foreground hover:text-foreground hover:bg-transparent" />
         </nav>
       </div>

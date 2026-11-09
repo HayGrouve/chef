@@ -35,3 +35,16 @@ test("store finds the profile by subject and adds no second row", async () => {
   expect(rows).toHaveLength(1);
   expect(rows[0].name).toBe("Мария");
 });
+
+test("store says created only on the call that inserts the profile", async () => {
+  const t = convexTest(schema, modules);
+  const me = t.withIdentity({ subject: "user_new", name: "Нова" });
+  expect(await me.mutation(api.users.store, {})).toMatchObject({ created: true });
+  expect(await me.mutation(api.users.store, {})).toMatchObject({ created: false });
+  expect(await t.mutation(api.users.store, {})).toBeNull();
+});
+
+test("store on an existing profile is not a new chef", async () => {
+  const { me } = await setup();
+  expect(await me.mutation(api.users.store, {})).toMatchObject({ created: false });
+});
