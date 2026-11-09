@@ -20,6 +20,20 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Environments and Convex
+
+| Where | Convex deployment |
+| --- | --- |
+| Production (armyant.app) | `descriptive-snail-667` (prod) |
+| Vercel previews | `hearty-kookabura-538` (dev) |
+| Local dev | `hearty-kookabura-538` (dev) |
+
+- Vercel's `NEXT_PUBLIC_CONVEX_URL` has one value for Production and another for Preview and Development, so previews and local dev never read or write production data.
+- Local setup: `vercel env pull .env.local --environment=development`, then keep `CONVEX_DEPLOYMENT=dev:hearty-kookabura-538` in `.env.local` (`npx convex dev` uses it). There is no `.env`; never commit `.env*` files.
+- Push functions to dev with `npx convex dev --once`. The Vercel build runs `next build` only, so it never deploys Convex functions.
+- Production Convex changes only through `npx convex deploy`, run from the PR head right before its merge, and only after the owner confirms.
+- Dev data comes from the dev seed (`convex/devSeed.ts`), keyed by a Clerk user id and limited to Clerk test users (`+clerk_test` emails): `npx convex run devSeed:seedTestUser '{"userId":"user_..."}'`.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:
