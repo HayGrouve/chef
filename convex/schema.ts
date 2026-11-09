@@ -97,5 +97,15 @@ export default defineSchema({
     lastCalledAt: v.number(),
     // Calls made in the window starting at lastCalledAt (quota-style limits)
     count: v.optional(v.number()),
-  }).index("by_user_action", ["userId", "action"]),
+  })
+    .index("by_user_action", ["userId", "action"])
+    // For the daily trim of counters nobody has used in a day
+    .index("by_lastCalledAt", ["lastCalledAt"]),
+  // Clerk webhook deliveries already handled (`svix-id`); deliveries repeat
+  processedWebhookEvents: defineTable({
+    eventId: v.string(),
+    processedAt: v.number(),
+  })
+    .index("by_eventId", ["eventId"])
+    .index("by_processedAt", ["processedAt"]),
 });

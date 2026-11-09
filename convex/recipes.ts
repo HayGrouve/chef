@@ -129,7 +129,7 @@ async function scheduleTagging(ctx: MutationCtx, userId: string, recipeId: Id<"r
 }
 
 /** Deletes a recipe image unless another recipe still uses it. */
-async function deleteImageIfUnused(
+export async function deleteImageIfUnused(
   ctx: MutationCtx,
   storageId: string,
   recipeId: Id<"recipes">
