@@ -32,7 +32,8 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 - Local setup: `vercel env pull .env.local --environment=development`, then keep `CONVEX_DEPLOYMENT=dev:hearty-kookabura-538` in `.env.local` (`npx convex dev` uses it). There is no `.env`; never commit `.env*` files.
 - Push functions to dev with `npx convex dev --once`. The Vercel build runs `next build` only, so it never deploys Convex functions.
 - Production Convex changes only through `npx convex deploy`, run from the PR head right before its merge, and only after the owner confirms.
-- Dev data comes from the dev seed (`convex/devSeed.ts`), keyed by a Clerk user id and limited to Clerk test users (`+clerk_test` emails): `npx convex run devSeed:seedTestUser '{"userId":"user_..."}'`.
+- Dev data comes from the dev seed (`convex/devSeed.ts`), keyed by a Clerk user id and refused on any deployment but dev. Sign in once as a Clerk test user (a `+clerk_test` email, code 424242), then: `npx convex run devSeed:seedTestUser '{"userId":"user_..."}'`.
+- The cutover wipe (`migrations:cutoverWipe`, chef#27) runs on production once, on cutover day (chef#33). Always run it with `{"dryRun":true}` first.
 
 ## Learn More
 
