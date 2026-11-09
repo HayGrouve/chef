@@ -4,6 +4,7 @@ import { getCategory } from "./categories";
 import { canReadRecipe, readableRecipeId } from "./access";
 import { READ_BYTES_BUDGET } from "./feed";
 import { Doc, Id } from "./_generated/dataModel";
+import { getUserId, requireUserId } from "./lib/auth";
 
 export const MAX_ITEM_LENGTH = 300;
 export const MAX_BATCH = 200;
@@ -35,13 +36,13 @@ export async function assertRoomFor(ctx: MutationCtx, userId: string, count: num
 // List all shopping list items for the authenticated user
 export const list = query({
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
+    const userId = await getUserId(ctx);
+    if (!userId) {
       return [];
     }
     return await ctx.db
       .query("shoppingList")
-      .withIndex("by_user", (q) => q.eq("userId", identity.subject))
+      .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
   },
 });
@@ -49,13 +50,13 @@ export const list = query({
 // Get the count of unchecked items for the badge
 export const getBadgeCount = query({
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
+    const userId = await getUserId(ctx);
+    if (!userId) {
       return 0;
     }
     const items = await ctx.db
       .query("shoppingList")
-      .withIndex("by_user", (q) => q.eq("userId", identity.subject))
+      .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
     return items.filter((item) => !item.isChecked).length;
   },
@@ -64,13 +65,13 @@ export const getBadgeCount = query({
 // List all shopping list items with recipe details
 export const listWithDetails = query({
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
+    const userId = await getUserId(ctx);
+    if (!userId) {
       return [];
     }
     const items = await ctx.db
       .query("shoppingList")
-      .withIndex("by_user", (q) => q.eq("userId", identity.subject))
+      .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
 
     return await Promise.all(
@@ -78,7 +79,7 @@ export const listWithDetails = query({
         let recipeTitle = undefined;
         if (item.recipeId) {
           const recipe = await ctx.db.get(item.recipeId);
-          if (canReadRecipe(recipe, identity.subject)) {
+          if (canReadRecipe(recipe, userId)) {
             recipeTitle = recipe.title;
           }
         }
@@ -98,17 +99,14 @@ export const add = mutation({
     recipeId: v.optional(v.id("recipes")),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Unauthenticated");
-    }
+    const userId = await requireUserId(ctx);
     const ingredient = cleanItem(args.ingredient);
-    await assertRoomFor(ctx, identity.subject, 1);
+    await assertRoomFor(ctx, userId, 1);
     return await ctx.db.insert("shoppingList", {
-      userId: identity.subject,
+      userId,
       ingredient,
       isChecked: false,
-      recipeId: await readableRecipeId(ctx, args.recipeId, identity.subject),
+      recipeId: await readableRecipeId(ctx, args.recipeId, userId),
       category: getCategory(ingredient),
     });
   },
@@ -121,11 +119,7 @@ export const addBatch = mutation({
     recipeId: v.optional(v.id("recipes")),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Unauthenticated");
-    }
-    
+    const userId = await requireUserId(ctx);
     // Note: For now we don't do complex merging on the server side to keep it simple
     // We just insert new items. Complex merging requires more robust parsing logic.
     // Returns the inserted ids so the client can offer "Undo".
@@ -133,12 +127,12 @@ export const addBatch = mutation({
       throw new ConvexError(`Add at most ${MAX_BATCH} items at a time.`);
     }
     const ingredients = args.ingredients.map(cleanItem);
-    await assertRoomFor(ctx, identity.subject, ingredients.length);
-    const recipeId = await readableRecipeId(ctx, args.recipeId, identity.subject);
+    await assertRoomFor(ctx, userId, ingredients.length);
+    const recipeId = await readableRecipeId(ctx, args.recipeId, userId);
     return await Promise.all(
       ingredients.map((ingredient) =>
         ctx.db.insert("shoppingList", {
-          userId: identity.subject,
+          userId,
           ingredient,
           isChecked: false,
           recipeId,
@@ -155,11 +149,7 @@ export const addPlannedWeek = mutation({
   args: {},
   returns: v.array(v.id("shoppingList")),
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Unauthenticated");
-    }
-    const userId = identity.subject;
+    const userId = await requireUserId(ctx);
     const plans = await ctx.db
       .query("mealPlans")
       .withIndex("by_user_date", (q) => q.eq("userId", userId))
@@ -203,12 +193,9 @@ export const addPlannedWeek = mutation({
 export const toggle = mutation({
   args: { id: v.id("shoppingList") },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Unauthenticated");
-    }
+    const userId = await requireUserId(ctx);
     const item = await ctx.db.get(args.id);
-    if (!item || item.userId !== identity.subject) {
+    if (!item || item.userId !== userId) {
       throw new Error("Unauthorized");
     }
     await ctx.db.patch(args.id, { isChecked: !item.isChecked });
@@ -221,15 +208,11 @@ export const toggle = mutation({
 export const toggleBatch = mutation({
   args: { ids: v.array(v.id("shoppingList")), isChecked: v.optional(v.boolean()) },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Unauthenticated");
-    }
-    
+    const userId = await requireUserId(ctx);
     await Promise.all(
       args.ids.map(async (id) => {
         const item = await ctx.db.get(id);
-        if (!item || item.userId !== identity.subject) {
+        if (!item || item.userId !== userId) {
           return; // Skip unauthorized or missing items
         }
         await ctx.db.patch(id, { isChecked: args.isChecked ?? !item.isChecked });
@@ -242,12 +225,9 @@ export const toggleBatch = mutation({
 export const remove = mutation({
   args: { id: v.id("shoppingList") },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Unauthenticated");
-    }
+    const userId = await requireUserId(ctx);
     const item = await ctx.db.get(args.id);
-    if (!item || item.userId !== identity.subject) {
+    if (!item || item.userId !== userId) {
       throw new Error("Unauthorized");
     }
     await ctx.db.delete(args.id);
@@ -258,15 +238,11 @@ export const remove = mutation({
 export const removeBatch = mutation({
   args: { ids: v.array(v.id("shoppingList")) },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Unauthenticated");
-    }
-    
+    const userId = await requireUserId(ctx);
     await Promise.all(
       args.ids.map(async (id) => {
         const item = await ctx.db.get(id);
-        if (!item || item.userId !== identity.subject) {
+        if (!item || item.userId !== userId) {
           return; // Skip unauthorized or missing items
         }
         await ctx.db.delete(id);
@@ -278,14 +254,11 @@ export const removeBatch = mutation({
 // Remove all checked items
 export const clearChecked = mutation({
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Unauthenticated");
-    }
+    const userId = await requireUserId(ctx);
     const items = (
       await ctx.db
         .query("shoppingList")
-        .withIndex("by_user", (q) => q.eq("userId", identity.subject))
+        .withIndex("by_user", (q) => q.eq("userId", userId))
         .collect()
     ).filter((item) => item.isChecked);
 
@@ -296,13 +269,10 @@ export const clearChecked = mutation({
 // Remove all items for the user
 export const clearAll = mutation({
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Unauthenticated");
-    }
+    const userId = await requireUserId(ctx);
     const items = await ctx.db
       .query("shoppingList")
-      .withIndex("by_user", (q) => q.eq("userId", identity.subject))
+      .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
     
     await Promise.all(items.map((item) => ctx.db.delete(item._id)));

@@ -10,6 +10,7 @@ import { PREDEFINED_TAGS } from "../lib/constants";
 import { arrayBufferToBase64, generateJsonFromParts, GeminiPart } from "./gemini";
 import { parsePublicUrl } from "./publicUrl";
 import { IMPORT_FETCH_QUOTA } from "./rateLimit";
+import { requireUserId } from "./lib/auth";
 
 export type RecipeDraft = {
   title: string;
@@ -36,11 +37,7 @@ const MAX_PAGE_BYTES = 3_000_000;
 const MAX_IMAGE_BYTES = 5_000_000;
 const MAX_TEXT_CHARS = 25_000;
 
-async function requireUserId(ctx: { auth: { getUserIdentity: () => Promise<{ subject: string } | null> } }) {
-  const identity = await ctx.auth.getUserIdentity();
-  if (!identity) throw new ConvexError("Sign in to import recipes.");
-  return identity.subject;
-}
+const SIGN_IN_TO_IMPORT = "Sign in to import recipes.";
 
 // --- Fetching -------------------------------------------------------------
 
@@ -478,7 +475,7 @@ function finalizeDraft(draft: RecipeDraft): RecipeDraft {
 export const fromUrl = action({
   args: { url: v.string() },
   handler: async (ctx, args): Promise<RecipeDraft> => {
-    const userId = await requireUserId(ctx);
+    const userId = await requireUserId(ctx, SIGN_IN_TO_IMPORT);
     const url = parsePublicUrl(args.url);
     const { buffer } = await fetchWithLimit(ctx, userId, url, MAX_PAGE_BYTES, "text/html,application/xhtml+xml");
     const html = new TextDecoder().decode(buffer);
@@ -526,7 +523,7 @@ export const fromUrl = action({
 export const fromText = action({
   args: { text: v.string() },
   handler: async (ctx, args): Promise<RecipeDraft> => {
-    const userId = await requireUserId(ctx);
+    const userId = await requireUserId(ctx, SIGN_IN_TO_IMPORT);
     const text = args.text.trim();
     if (text.length < 20) throw new ConvexError("Paste a bit more of the recipe.");
     await ctx.runMutation(internal.ai.checkRateLimit, { userId, actionName: "importRecipeText" });
@@ -541,7 +538,7 @@ export const fromText = action({
 export const fromPhoto = action({
   args: { storageId: v.id("_storage") },
   handler: async (ctx, args): Promise<RecipeDraft> => {
-    const userId = await requireUserId(ctx);
+    const userId = await requireUserId(ctx, SIGN_IN_TO_IMPORT);
     // Only the caller's own uploads; recipe photo ids are visible to anyone
     const othersImage = await ctx.runQuery(internal.recipes.isImageOfOtherUser, {
       storageId: args.storageId,
@@ -578,7 +575,7 @@ export const save = action({
     imageStorageId: v.optional(v.id("_storage")),
   },
   handler: async (ctx, args): Promise<{ recipeId: Id<"recipes">; imageSaved: boolean }> => {
-    const userId = await requireUserId(ctx);
+    const userId = await requireUserId(ctx, SIGN_IN_TO_IMPORT);
     const title = args.title.trim();
     const ingredients = args.ingredients.map((s) => s.trim()).filter(Boolean);
     const steps = args.steps.map((s) => s.trim()).filter(Boolean);

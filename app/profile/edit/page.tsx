@@ -93,7 +93,14 @@ export default function EditProfilePage() {
           <div className="space-y-2">
             <Label htmlFor="name">Name</Label>
             <Input id="name" value={user.name} disabled className="bg-muted" />
-            <p className="text-xs text-muted-foreground">Name is managed via your login provider.</p>
+            <p className="text-xs text-muted-foreground">
+              <a
+                href="https://onovaza.com/akaunt"
+                className="underline underline-offset-4 hover:text-foreground"
+              >
+                Името си сменяш в Акаунт.
+              </a>
+            </p>
           </div>
 
           <div className="space-y-2">

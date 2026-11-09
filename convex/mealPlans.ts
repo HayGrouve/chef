@@ -2,6 +2,7 @@ import { v, ConvexError } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { canReadRecipe } from "./access";
 import { readableRecipes, takeWithinBudget } from "./feed";
+import { getUserId, requireUserId } from "./lib/auth";
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const MEAL_TYPES = ["breakfast", "lunch", "dinner"];
@@ -21,8 +22,8 @@ export function validSlot(date: string, mealType: string) {
 export const getWeek = query({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
+    const userId = await getUserId(ctx);
+    if (!userId) {
       return [];
     }
 
@@ -30,14 +31,14 @@ export const getWeek = query({
     // We treat 'date' as the day name (e.g., "Monday")
     const meals = await ctx.db
       .query("mealPlans")
-      .withIndex("by_user_date", (q) => q.eq("userId", identity.subject))
+      .withIndex("by_user_date", (q) => q.eq("userId", userId))
       .collect();
 
     // Join with recipe details
     return await Promise.all(
       meals.map(async (meal) => {
         const recipe = await ctx.db.get(meal.recipeId);
-        if (!canReadRecipe(recipe, identity.subject)) {
+        if (!canReadRecipe(recipe, userId)) {
           return { ...meal, recipeTitle: undefined, recipeImage: null };
         }
         return {
@@ -60,24 +61,21 @@ export const add = mutation({
     recipeId: v.id("recipes"),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Unauthenticated");
-    }
+    const userId = await requireUserId(ctx);
     const slot = validSlot(args.date, args.mealType);
     const planned = await ctx.db
       .query("mealPlans")
-      .withIndex("by_user_date", (q) => q.eq("userId", identity.subject))
+      .withIndex("by_user_date", (q) => q.eq("userId", userId))
       .take(MAX_PLANNED_MEALS);
     if (planned.length >= MAX_PLANNED_MEALS) {
       throw new ConvexError("Your week is full. Remove some meals first.");
     }
     const recipe = await ctx.db.get(args.recipeId);
-    if (!canReadRecipe(recipe, identity.subject)) {
+    if (!canReadRecipe(recipe, userId)) {
       throw new Error("Recipe not found");
     }
     return await ctx.db.insert("mealPlans", {
-      userId: identity.subject,
+      userId,
       ...slot,
       recipeId: args.recipeId,
     });
@@ -92,12 +90,9 @@ export const move = mutation({
     mealType: v.string(),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Unauthenticated");
-    }
+    const userId = await requireUserId(ctx);
     const meal = await ctx.db.get(args.id);
-    if (!meal || meal.userId !== identity.subject) {
+    if (!meal || meal.userId !== userId) {
       throw new Error("Unauthorized");
     }
 
@@ -109,12 +104,8 @@ export const move = mutation({
 export const autoGenerate = mutation({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Unauthenticated");
-    }
-
-    const recipes = await takeWithinBudget(readableRecipes(ctx, identity.subject));
+    const userId = await requireUserId(ctx);
+    const recipes = await takeWithinBudget(readableRecipes(ctx, userId));
 
     if (recipes.length === 0) {
       return {
@@ -125,7 +116,7 @@ export const autoGenerate = mutation({
 
     const existingPlans = await ctx.db
       .query("mealPlans")
-      .withIndex("by_user_date", (q) => q.eq("userId", identity.subject))
+      .withIndex("by_user_date", (q) => q.eq("userId", userId))
       .collect();
 
     const days = [
@@ -158,7 +149,7 @@ export const autoGenerate = mutation({
             candidates[Math.floor(Math.random() * candidates.length)];
 
           newPlans.push({
-            userId: identity.subject,
+            userId,
             date: day,
             mealType: type,
             recipeId: randomRecipe._id,
@@ -189,12 +180,9 @@ export const autoGenerate = mutation({
 export const remove = mutation({
   args: { id: v.id("mealPlans") },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Unauthenticated");
-    }
+    const userId = await requireUserId(ctx);
     const meal = await ctx.db.get(args.id);
-    if (!meal || meal.userId !== identity.subject) {
+    if (!meal || meal.userId !== userId) {
       throw new Error("Unauthorized");
     }
     await ctx.db.delete(args.id);
@@ -203,14 +191,10 @@ export const remove = mutation({
 
 export const clearAll = mutation({
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Unauthenticated");
-    }
-
+    const userId = await requireUserId(ctx);
     const meals = await ctx.db
       .query("mealPlans")
-      .withIndex("by_user_date", (q) => q.eq("userId", identity.subject))
+      .withIndex("by_user_date", (q) => q.eq("userId", userId))
       .collect();
 
     await Promise.all(meals.map((meal) => ctx.db.delete(meal._id)));

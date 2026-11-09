@@ -1,5 +1,6 @@
 import { query } from "./_generated/server";
 import { canReadRecipe } from "./access";
+import { getUserId } from "./lib/auth";
 
 /**
  * Suggestions for the ⌘K palette: the week's planned meals (for "Up next" and
@@ -8,9 +9,8 @@ import { canReadRecipe } from "./access";
 export const suggestions = query({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) return null;
-    const userId = identity.subject;
+    const userId = await getUserId(ctx);
+    if (!userId) return null;
 
     const plans = await ctx.db
       .query("mealPlans")

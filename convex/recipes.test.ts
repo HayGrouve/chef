@@ -322,11 +322,32 @@ describe("recipe text and author name", () => {
     expect(stale.page).toHaveLength(0);
   });
 
-  test("users without a name aren't named after their email", async () => {
+  test("a new profile without a name is Готвач, never named after the email, and no email is stored", async () => {
     const t = convexTest(schema, modules);
     const user = t.withIdentity({ subject: "user_x", tokenIdentifier: "test|user_x", email: "jane.doe@example.com" });
     await user.mutation(api.users.store, {});
-    expect((await t.query(api.users.get, { userId: "user_x" }))?.name).toBe("Cook");
+    expect((await t.query(api.users.get, { userId: "user_x" }))?.name).toBe("Готвач");
+    const row = await t.run((ctx) =>
+      ctx.db.query("users").withIndex("by_userId", (q) => q.eq("userId", "user_x")).unique()
+    );
+    expect(row?.email).toBeUndefined();
+  });
+
+  test("a named profile keeps its name when a token has none", async () => {
+    const t = convexTest(schema, modules);
+    const named = t.withIdentity({ ...HOST, name: "Мария" });
+    await named.mutation(api.users.store, {});
+    await named.mutation(api.recipes.create, baseRecipe);
+    await t.finishAllScheduledFunctions(vi.runAllTimers);
+
+    for (const name of [undefined, "", "   "]) {
+      await t.withIdentity({ ...HOST, name }).mutation(api.users.store, {});
+      await t.finishAllScheduledFunctions(vi.runAllTimers);
+    }
+
+    expect((await t.query(api.users.get, { userId: HOST.subject }))?.name).toBe("Мария");
+    const page = await t.query(api.recipes.list, { search: "мария", paginationOpts: { numItems: 10, cursor: null } });
+    expect(page.page.map((r) => r.authorName)).toEqual(["Мария"]);
   });
 });
 
