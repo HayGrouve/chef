@@ -8,6 +8,7 @@ import { pantryTermMatches } from "./ingredientMatch";
 import { canReadRecipe } from "./access";
 import { TAGGING_QUOTA, takeQuota } from "./rateLimit";
 import { FEED_MAX_ROWS_READ, ownRecipes, readableRecipes, takeWithinBudget } from "./feed";
+import { getUserId, requireUserId } from "./lib/auth";
 
 // Own private matches that lead the first page of a signed-in search
 const OWN_PRIVATE_SEARCH_LIMIT = 20;
@@ -192,10 +193,7 @@ export const isImageOfOtherUser = internalQuery({
 export const generateUploadUrl = mutation({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Unauthenticated");
-    }
+    await requireUserId(ctx);
     return await ctx.storage.generateUploadUrl();
   },
 });
@@ -216,17 +214,13 @@ export const create = mutation({
     calories: v.optional(v.number()),
   },
   handler: async (ctx, rawArgs) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Unauthenticated");
-    }
-
+    const userId = await requireUserId(ctx);
     const args = cleanRecipeInput(rawArgs);
     await assertImageAvailable(ctx, args.storageId);
 
     const user = await ctx.db
       .query("users")
-      .withIndex("by_userId", (q) => q.eq("userId", identity.subject))
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
       .unique();
       
     const authorName = user?.name || "";
@@ -234,14 +228,14 @@ export const create = mutation({
 
     const recipe = {
       ...args,
-      userId: identity.subject,
+      userId,
       isPublic: args.isPublic ?? false,
       tags: args.tags ?? [],
       authorName,
       searchText,
     };
     const recipeId = await ctx.db.insert("recipes", recipe);
-    await scheduleTagging(ctx, identity.subject, recipeId);
+    await scheduleTagging(ctx, userId, recipeId);
     return recipeId;
   },
 });
@@ -265,17 +259,13 @@ export const update = mutation({
     baseVersion: v.optional(v.number()),
   },
   handler: async (ctx, { baseVersion, ...rawArgs }) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Unauthenticated");
-    }
-
+    const userId = await requireUserId(ctx);
     const recipe = await ctx.db.get(rawArgs.id);
     if (!recipe) {
       throw new Error("Recipe not found");
     }
 
-    if (recipe.userId !== identity.subject) {
+    if (recipe.userId !== userId) {
       throw new Error("Unauthorized");
     }
     if (baseVersion !== undefined && baseVersion !== (recipe.updatedAt ?? recipe._creationTime)) {
@@ -292,7 +282,7 @@ export const update = mutation({
 
     const user = await ctx.db
       .query("users")
-      .withIndex("by_userId", (q) => q.eq("userId", identity.subject))
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
       .unique();
       
     const authorName = user?.name || "";
@@ -337,7 +327,7 @@ export const update = mutation({
       await deleteImageIfUnused(ctx, recipe.storageId, args.id);
     }
     if (ingredientsChanged) {
-      await scheduleTagging(ctx, identity.subject, args.id);
+      await scheduleTagging(ctx, userId, args.id);
     }
   },
 });
@@ -369,8 +359,7 @@ export const list = query({
     paginationOpts: paginationOptsValidator,
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    const userId = identity?.subject;
+    const userId = (await getUserId(ctx)) ?? undefined;
 
     // Signed-out visitors have no favorites or recipes of their own
     if ((args.favoritesOnly || args.myRecipesOnly) && !userId) {
@@ -584,8 +573,7 @@ export const list = query({
 // List all recipes for the authenticated user (simple list for dropdowns etc)
 export const listAll = query({
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    const userId = identity?.subject;
+    const userId = await getUserId(ctx);
 
     if (!userId) {
       return [];
@@ -620,8 +608,7 @@ export const listAll = query({
 export const getPublic = query({
   args: { id: v.string() },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    const userId = identity?.subject;
+    const userId = (await getUserId(ctx)) ?? undefined;
 
     const id = ctx.db.normalizeId("recipes", args.id);
     const recipe = id && (await ctx.db.get(id));
@@ -657,8 +644,7 @@ export const getPublic = query({
 export const get = query({
   args: { id: v.string() },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    const userId = identity?.subject;
+    const userId = (await getUserId(ctx)) ?? undefined;
 
     const id = ctx.db.normalizeId("recipes", args.id);
     const recipe = id && (await ctx.db.get(id));
@@ -695,11 +681,10 @@ export const get = query({
 export const searchByIngredients = query({
   args: { ingredients: v.array(v.string()) },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
+    const userId = await getUserId(ctx);
+    if (!userId) {
       return [];
     }
-    const userId = identity.subject;
 
     if (args.ingredients.length === 0) {
       return [];
@@ -739,7 +724,7 @@ export const searchByIngredients = query({
         const isFavorite = await isRecipeFavorite(
           ctx,
           recipe._id,
-          identity.subject
+          userId
         );
 
         return {
@@ -765,8 +750,7 @@ export const searchByIngredients = query({
 export const listPublic = query({
   args: { userId: v.string() },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    const currentUserId = identity?.subject;
+    const currentUserId = (await getUserId(ctx)) ?? undefined;
 
     const recipes = (
       await ctx.db
@@ -801,16 +785,12 @@ export const listPublic = query({
 export const toggleFavorite = mutation({
   args: { id: v.id("recipes") },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Unauthenticated");
-    }
-
+    const userId = await requireUserId(ctx);
     // Check if already favorited
     const existingFavorite = await ctx.db
       .query("favorites")
       .withIndex("by_user_recipe", (q) =>
-        q.eq("userId", identity.subject).eq("recipeId", args.id)
+        q.eq("userId", userId).eq("recipeId", args.id)
       )
       .unique();
 
@@ -819,11 +799,11 @@ export const toggleFavorite = mutation({
       await ctx.db.delete(existingFavorite._id);
     } else {
       const recipe = await ctx.db.get(args.id);
-      if (!canReadRecipe(recipe, identity.subject)) {
+      if (!canReadRecipe(recipe, userId)) {
         throw new Error("Recipe not found");
       }
       await ctx.db.insert("favorites", {
-        userId: identity.subject,
+        userId,
         recipeId: args.id,
       });
     }
@@ -834,17 +814,13 @@ export const toggleFavorite = mutation({
 export const remove = mutation({
   args: { id: v.id("recipes") },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Unauthenticated");
-    }
-
+    const userId = await requireUserId(ctx);
     const recipe = await ctx.db.get(args.id);
     if (!recipe) {
       throw new Error("Recipe not found");
     }
 
-    if (recipe.userId !== identity.subject) {
+    if (recipe.userId !== userId) {
       throw new Error("Unauthorized");
     }
 

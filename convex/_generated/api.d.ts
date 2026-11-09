@@ -18,6 +18,8 @@ import type * as feed from "../feed.js";
 import type * as gemini from "../gemini.js";
 import type * as importRecipe from "../importRecipe.js";
 import type * as ingredientMatch from "../ingredientMatch.js";
+import type * as lib_auth from "../lib/auth.js";
+import type * as lib_names from "../lib/names.js";
 import type * as mealPlans from "../mealPlans.js";
 import type * as migrations from "../migrations.js";
 import type * as publicUrl from "../publicUrl.js";
@@ -46,6 +48,8 @@ declare const fullApi: ApiFromModules<{
   gemini: typeof gemini;
   importRecipe: typeof importRecipe;
   ingredientMatch: typeof ingredientMatch;
+  "lib/auth": typeof lib_auth;
+  "lib/names": typeof lib_names;
   mealPlans: typeof mealPlans;
   migrations: typeof migrations;
   publicUrl: typeof publicUrl;

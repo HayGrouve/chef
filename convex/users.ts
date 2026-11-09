@@ -1,6 +1,8 @@
 import { v, ConvexError } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { mutation, query, type QueryCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
+import { getIdentity, getUserId, requireUserId } from "./lib/auth";
+import { FALLBACK_NAME, nextSyncedAuthName } from "./lib/names";
 
 const MAX_BIO = 500;
 
@@ -18,6 +20,14 @@ function isClerkImage(url: string) {
   } catch {
     return false;
   }
+}
+
+/** The profile row of a Clerk user, found by `subject` (stored as `userId`). */
+async function findUser(ctx: QueryCtx, userId: string) {
+  return await ctx.db
+    .query("users")
+    .withIndex("by_userId", (q) => q.eq("userId", userId))
+    .unique();
 }
 
 export const get = query({
@@ -41,16 +51,11 @@ export const get = query({
 
 export const getMe = query({
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
+    const userId = await getUserId(ctx);
+    if (!userId) {
       return null;
     }
-    return await ctx.db
-      .query("users")
-      .withIndex("by_token", (q) =>
-        q.eq("tokenIdentifier", identity.tokenIdentifier)
-      )
-      .unique();
+    return await findUser(ctx, userId);
   },
 });
 
@@ -60,16 +65,8 @@ export const update = mutation({
     avatarUrl: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Unauthenticated");
-    }
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_token", (q) =>
-        q.eq("tokenIdentifier", identity.tokenIdentifier)
-      )
-      .unique();
+    const userId = await requireUserId(ctx);
+    const user = await findUser(ctx, userId);
 
     if (!user) {
       throw new Error("User not found");
@@ -91,56 +88,50 @@ export const update = mutation({
 export const store = mutation({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
+    const identity = await getIdentity(ctx);
     if (!identity) {
       return;
     }
-
-    // Check if we've already stored this identity
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_token", (q) =>
-        q.eq("tokenIdentifier", identity.tokenIdentifier)
-      )
-      .unique();
-
-    // Clerk accounts don't always have a name (e.g. email-only sign-up). The
-    // name is public, so don't fall back to part of the email address.
-    const name = identity.name?.trim() || "Cook";
+    const userId = identity.subject;
+    const user = await findUser(ctx, userId);
 
     if (user !== null) {
       // Keep an avatar the user set on their profile; only follow the
       // Clerk picture while they haven't chosen their own.
       const usesClerkAvatar = !user.avatarUrl || isClerkImage(user.avatarUrl);
       const avatarUrl = usesClerkAvatar ? identity.pictureUrl : user.avatarUrl;
-      // If we've seen this identity before but the name or userId has changed/missing, patch the value.
-      if (user.name !== name || user.userId !== identity.subject || user.avatarUrl !== avatarUrl) {
+      // A token without a name (an email code sign-in) never renames anyone;
+      // names change on /akaunt and arrive with the next token.
+      const name = nextSyncedAuthName(user.name, identity.name);
+      if (name !== undefined || user.avatarUrl !== avatarUrl) {
         await ctx.db.patch(user._id, {
-          name,
-          userId: identity.subject,
+          ...(name !== undefined && { name }),
           avatarUrl,
         });
       }
-      if (user.name !== name) {
+      if (name !== undefined) {
         await ctx.scheduler.runAfter(0, internal.recipes.refreshAuthorName, {
-          userId: identity.subject,
+          userId,
           name,
         });
       }
       return user._id;
     }
 
+    // Clerk accounts don't always have a name (e.g. email-only sign-up). The
+    // name is public, so don't fall back to part of the email address.
+    const name = identity.name?.trim() || FALLBACK_NAME;
     // Recipes saved before the profile existed have no author name yet
     await ctx.scheduler.runAfter(0, internal.recipes.refreshAuthorName, {
-      userId: identity.subject,
+      userId,
       name,
     });
-    // If it's a new identity, create a new `User`.
+    // Email is not stored. `tokenIdentifier` is still written until the
+    // retirement cleanup drops it; rows are found by `userId`.
     return await ctx.db.insert("users", {
       name,
-      email: identity.email,
       tokenIdentifier: identity.tokenIdentifier,
-      userId: identity.subject,
+      userId,
       avatarUrl: identity.pictureUrl,
     });
   },

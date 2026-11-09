@@ -17,6 +17,7 @@ import { categoryKeywords, getCategory } from "./categories";
 import { MAX_PLANNED_MEALS, validSlot } from "./mealPlans";
 import { ingredientAmountsValidator } from "./schema";
 import { sanitizeAmounts } from "../lib/quantities";
+import { requireUserId } from "./lib/auth";
 
 // --- Rate Limiting ---
 
@@ -177,12 +178,7 @@ export const insertGeneratedMeals = internalMutation({
 export const generateMealPlanWithAI = action({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new ConvexError("Unauthenticated");
-    }
-
-    const userId = identity.subject;
+    const userId = await requireUserId(ctx);
 
     // 1. Check rate limit (30 seconds)
     await ctx.runMutation(internal.ai.checkRateLimit, {
@@ -363,11 +359,7 @@ export const restoreShoppingListItems = mutation({
     ),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new ConvexError("Unauthenticated");
-    }
-    const userId = identity.subject;
+    const userId = await requireUserId(ctx);
     if (args.items.length > MAX_LIST_ITEMS) {
       throw new ConvexError("Too many items to restore.");
     }
@@ -446,12 +438,7 @@ export const organizeShoppingList = action({
       };
     }>;
   }> => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new ConvexError("Unauthenticated");
-    }
-
-    const userId = identity.subject;
+    const userId = await requireUserId(ctx);
 
     // 1. Check rate limit (throws if exceeded)
     await ctx.runMutation(internal.ai.checkRateLimit, {
