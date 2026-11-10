@@ -29,9 +29,9 @@ export function InstallDialog({
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent>
         <DrawerHeader>
-          <DrawerTitle>Install the CHEF app</DrawerTitle>
+          <DrawerTitle>Инсталирай Кухнята</DrawerTitle>
           <DrawerDescription>
-            Add CHEF to your home screen for the best experience.
+            Сложи Кухнята на началния екран и я отваряй като приложение.
           </DrawerDescription>
         </DrawerHeader>
         <div className="p-4 pb-0">
@@ -42,7 +42,7 @@ export function InstallDialog({
                   <Share className="h-6 w-6" />
                 </div>
                 <p className="text-sm">
-                  1. Tap the <strong>Share</strong> button in the toolbar.
+                  1. Натисни бутона <strong>Сподели</strong> в лентата.
                 </p>
               </div>
               <div className="flex items-center gap-4">
@@ -50,18 +50,18 @@ export function InstallDialog({
                   <PlusSquare className="h-6 w-6" />
                 </div>
                 <p className="text-sm">
-                  2. Select <strong>Add to Home Screen</strong>.
+                  2. Избери <strong>Добави към началния екран</strong>.
                 </p>
               </div>
             </div>
           ) : (
             <div className="flex flex-col items-center gap-4 py-4">
               <p className="text-center text-muted-foreground">
-                Open CHEF from your home screen, like any other app.
+                Отваряй Кухнята от началния екран, като всяко друго приложение.
               </p>
               <Button size="lg" onClick={onInstall} className="w-full max-w-sm">
                 <Download className="mr-2 h-4 w-4" />
-                Install app
+                Инсталирай
               </Button>
             </div>
           )}
@@ -69,12 +69,12 @@ export function InstallDialog({
         <DrawerFooter className="flex flex-col items-center">
           {!isIOS && (
             <DrawerClose asChild>
-              <Button variant="outline" className="w-full max-w-sm">Not now</Button>
+              <Button variant="outline" className="w-full max-w-sm">Не сега</Button>
             </DrawerClose>
           )}
           {isIOS && (
             <DrawerClose asChild>
-               <Button variant="secondary">Close</Button>
+               <Button variant="secondary">Затвори</Button>
             </DrawerClose>
           )}
         </DrawerFooter>

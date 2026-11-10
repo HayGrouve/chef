@@ -27,7 +27,7 @@ export function LikeButton({
       variant="ghost"
       size="icon"
       onClick={handleClick}
-      aria-label={isFavorite ? "Remove from favorites" : "Add to favorites"}
+      aria-label={isFavorite ? "Махни от любими" : "Добави в любими"}
       aria-pressed={isFavorite}
       className={cn(
         "relative transition-all hover:scale-110 active:scale-95 hover:bg-transparent",

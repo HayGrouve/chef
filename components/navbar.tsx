@@ -1,7 +1,7 @@
 "use client";
 
-// The app has three sections: Cook (recipes, plus "what can I make" in the
-// search box), Plan and Shop. Phones get the same three in a bottom tab bar.
+// The app has three sections: Готви (recipes, plus "what can I make" in the
+// search box), Планирай and Пазарувай. Phones get the same three in a bottom tab bar.
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Link2, LogIn, LogOut, PenLine, Plus, Search, UserRound } from "lucide-react";
@@ -26,12 +26,12 @@ import { api } from "../convex/_generated/api";
 import { openCommandPalette, useModKey } from "./command-palette/shared";
 
 export const SECTIONS = [
-  { href: "/", label: "Cook" },
-  { href: "/meal-planner", label: "Plan" },
-  { href: "/shopping-list", label: "Shop" },
+  { href: "/", label: "Готви" },
+  { href: "/meal-planner", label: "Планирай" },
+  { href: "/shopping-list", label: "Пазарувай" },
 ] as const;
 
-/** Cook stays highlighted on recipe pages, which you reach from it. */
+/** Готви stays highlighted on recipe pages, which you reach from it. */
 export function isSectionActive(href: string, pathname: string) {
   return href === "/" ? pathname === "/" || pathname.startsWith("/recipe/") : pathname === href;
 }
@@ -47,12 +47,17 @@ export function Navbar() {
     <header className="sticky top-0 z-50 border-b bg-background/85 backdrop-blur-md">
       {/* Three columns so the centered sections can never overlap either side. */}
       <div className="container mx-auto grid h-16 grid-cols-[1fr_auto_1fr] items-center gap-4 px-4">
-        <Link href="/" className="w-fit font-display text-xl font-extrabold tracking-tight">
-          chef<span className="text-primary">.</span>
+        <Link
+          href="/"
+          aria-label="Онова за кухнята, начало"
+          className="w-fit whitespace-nowrap font-display text-xl font-extrabold tracking-tight"
+        >
+          <span className="font-medium text-muted-foreground max-sm:hidden">онова за </span>
+          кухнята<span className="text-primary">.</span>
         </Link>
 
         <Authenticated>
-          <nav className="hidden items-center rounded-full bg-muted p-1 md:flex" aria-label="Sections">
+          <nav className="hidden items-center rounded-full bg-muted p-1 md:flex" aria-label="Раздели">
             {SECTIONS.map(({ href, label }) => {
               const active = isSectionActive(href, pathname);
               return (
@@ -85,8 +90,8 @@ export function Navbar() {
               size="icon"
               className="text-muted-foreground"
               onClick={() => openCommandPalette()}
-              aria-label="Search and quick actions"
-              title={`Search and quick actions (${modKey}\u00A0K)`}
+              aria-label="Търсене и бързи действия"
+              title={`Търсене и бързи действия (${modKey}\u00A0K)`}
             >
               <Search />
             </Button>
@@ -157,22 +162,22 @@ function AddRecipeMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button className="max-md:size-9 max-md:px-0" aria-label="Add recipe">
+        <Button className="max-md:size-9 max-md:px-0" aria-label="Добави рецепта">
           <Plus />
-          <span className="hidden md:inline">Add recipe</span>
+          <span className="hidden md:inline">Добави рецепта</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuItem asChild>
           <Link href="/create">
             <PenLine />
-            Write it yourself
+            Напиши я сам
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
           <Link href="/import">
             <Link2 />
-            Import a link or photo
+            От линк или снимка
           </Link>
         </DropdownMenuItem>
       </DropdownMenuContent>

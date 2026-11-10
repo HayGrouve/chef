@@ -3,6 +3,7 @@ import { mutation, query, internalMutation, internalQuery, MutationCtx, QueryCtx
 import { paginationOptsValidator } from "convex/server";
 import { Doc, Id } from "./_generated/dataModel";
 import { PREDEFINED_TAGS, RECIPE_LIMITS } from "../lib/constants";
+import { tagLabel } from "../lib/labels";
 import { internal } from "./_generated/api";
 import { pantryTermMatches } from "./ingredientMatch";
 import { canReadRecipe } from "./access";
@@ -147,13 +148,21 @@ export async function deleteImageIfUnused(
 }
 
 /**
+ * What the search index holds for a recipe: its title, its author's name and
+ * its tags by their Bulgarian labels, so "закуска" finds a "Breakfast" recipe.
+ */
+export function recipeSearchText(title: string, authorName: string, tags: readonly string[] = []) {
+  return [title, authorName, ...tags.map(tagLabel)].join(" ").toLowerCase();
+}
+
+/**
  * The author fields a recipe keeps for `name`, or null when they're already
  * current. Recipes keep a copy of the author's name (shown in lists and
  * searchable), so a rename rewrites it on all their recipes.
  */
 export function authorNamePatch(recipe: Doc<"recipes">, name: string) {
   if (recipe.authorName === name) return null;
-  return { authorName: name, searchText: `${recipe.title} ${name}`.toLowerCase() };
+  return { authorName: name, searchText: recipeSearchText(recipe.title, name, recipe.tags) };
 }
 
 /** Rewrites the author's name on all their recipes, a batch at a time. */
@@ -228,7 +237,7 @@ export const create = mutation({
       .unique();
       
     const authorName = user?.name || "";
-    const searchText = `${args.title} ${authorName}`.toLowerCase();
+    const searchText = recipeSearchText(args.title, authorName, args.tags);
 
     const recipe = {
       ...args,
@@ -290,7 +299,7 @@ export const update = mutation({
       .unique();
       
     const authorName = user?.name || "";
-    const searchText = `${args.title} ${authorName}`.toLowerCase();
+    const searchText = recipeSearchText(args.title, authorName, args.tags ?? recipe.tags);
 
     // Prepare update fields
     const updates: Partial<Doc<"recipes">> = {

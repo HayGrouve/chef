@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Authenticated } from "convex/react";
+import { DIFFICULTIES, difficultyLabel, tagLabel } from "@/lib/labels";
 
 export const MAX_TIME_ANY = 180;
 
@@ -47,8 +48,9 @@ export function RecipeFilters({
 }: RecipeFiltersProps) {
   const [tagSearch, setTagSearch] = useState("");
 
-  const filteredTags = allTags.filter((tag) =>
-    tag.toLowerCase().includes(tagSearch.toLowerCase())
+  const query = tagSearch.toLowerCase();
+  const filteredTags = allTags.filter(
+    (tag) => tagLabel(tag).toLowerCase().includes(query) || tag.toLowerCase().includes(query)
   );
 
   const toggleTag = (tag: string) => {
@@ -62,25 +64,27 @@ export function RecipeFilters({
   return (
     <div className="space-y-6">
       <div className="space-y-2">
-        <Label htmlFor="filter-difficulty">Difficulty</Label>
+        <Label htmlFor="filter-difficulty">Трудност</Label>
         <Select value={difficulty} onValueChange={setDifficulty}>
           <SelectTrigger id="filter-difficulty" className="w-full">
-            <SelectValue placeholder="Any" />
+            <SelectValue placeholder="Всякаква" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Any</SelectItem>
-            <SelectItem value="Easy">Easy</SelectItem>
-            <SelectItem value="Medium">Medium</SelectItem>
-            <SelectItem value="Hard">Hard</SelectItem>
+            <SelectItem value="all">Всякаква</SelectItem>
+            {DIFFICULTIES.map((value) => (
+              <SelectItem key={value} value={value}>
+                {difficultyLabel(value)}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
 
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <Label id="filter-max-time">Max time</Label>
+          <Label id="filter-max-time">Най-много време</Label>
           <span className="text-sm text-muted-foreground">
-            {maxTime === MAX_TIME_ANY ? "Any" : `${maxTime}\u00A0min`}
+            {maxTime === MAX_TIME_ANY ? "Без граница" : `${maxTime}\u00A0мин`}
           </span>
         </div>
         <Slider
@@ -98,7 +102,7 @@ export function RecipeFilters({
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <Label htmlFor="favorites-only" className="cursor-pointer">
-              Favorites only
+              Само любими
             </Label>
             <Switch
               id="favorites-only"
@@ -108,7 +112,7 @@ export function RecipeFilters({
           </div>
           <div className="flex items-center justify-between">
             <Label htmlFor="my-recipes-only" className="cursor-pointer">
-              My recipes only
+              Само моите
             </Label>
             <Switch
               id="my-recipes-only"
@@ -121,13 +125,13 @@ export function RecipeFilters({
 
       {allTags.length > 0 && (
         <fieldset className="space-y-3">
-          <legend className="text-sm font-medium leading-none">Tags</legend>
+          <legend className="text-sm font-medium leading-none">Етикети</legend>
           {allTags.length > 8 && (
             <div className="relative">
               <Search className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
               <Input
-                placeholder="Filter tags…"
-                aria-label="Filter tags"
+                placeholder="Търси етикет…"
+                aria-label="Търси етикет"
                 autoComplete="off"
                 className="h-8 pl-8 text-sm"
                 value={tagSearch}
@@ -137,7 +141,7 @@ export function RecipeFilters({
                 <button
                   onClick={() => setTagSearch("")}
                   className="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground"
-                  aria-label="Clear tag filter"
+                  aria-label="Изчисти търсенето на етикет"
                 >
                   <X className="h-3.5 w-3.5" />
                 </button>
@@ -147,7 +151,7 @@ export function RecipeFilters({
           <div className="max-h-[240px] overflow-y-auto overscroll-contain space-y-2 pr-2 scrollbar-thin">
             {filteredTags.length === 0 ? (
               <p className="text-sm text-muted-foreground py-2 text-center">
-                No tags found
+                Няма такъв етикет
               </p>
             ) : (
               filteredTags.map((tag) => (
@@ -161,7 +165,7 @@ export function RecipeFilters({
                     htmlFor={`tag-${tag}`}
                     className="text-sm font-normal cursor-pointer leading-none"
                   >
-                    {tag}
+                    {tagLabel(tag)}
                   </Label>
                 </div>
               ))

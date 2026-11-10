@@ -9,6 +9,7 @@
 import { v, ConvexError } from "convex/values";
 import { internalMutation, type QueryCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
+import { recipeSearchText } from "./recipes";
 
 const RECIPES = [
   {
@@ -137,7 +138,7 @@ export const seedTestUser = internalMutation({
         storageId: "",
         isPublic: false,
         authorName: user.name,
-        searchText: `${recipe.title} ${user.name}`.toLowerCase(),
+        searchText: recipeSearchText(recipe.title, user.name, recipe.tags),
       });
       ids.set(recipe.title, id);
       await ctx.scheduler.runAfter(0, internal.ai.tagRecipeIngredients, { recipeId: id });

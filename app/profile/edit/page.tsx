@@ -167,7 +167,7 @@ export default function SettingsPage() {
             <CardTitle>
               <h2 id="stranitsa-title" className="text-xl">Твоята страница</h2>
             </CardTitle>
-            <CardDescription>Това виждат другите на профила ти.</CardDescription>
+            <CardDescription>Това виждат другите на страницата ти на готвач.</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSave} className="space-y-6">

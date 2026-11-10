@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { ChefHat } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { difficultyLabel } from "@/lib/labels";
 
 export interface RecipeCardData {
   _id: string;
@@ -17,10 +18,10 @@ export interface RecipeCardData {
 
 export function formatMinutes(minutes?: number) {
   if (!minutes) return null;
-  if (minutes < 60) return `${minutes}\u00A0min`;
+  if (minutes < 60) return `${minutes}\u00A0мин`;
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
-  return m ? `${h}\u00A0h ${m}\u00A0min` : `${h}\u00A0h`;
+  return m ? `${h}\u00A0ч ${m}\u00A0мин` : `${h}\u00A0ч`;
 }
 
 /** A portrait photo tile: the photo carries the card, text sits underneath. */
@@ -36,7 +37,9 @@ export function RecipeCard({
   className?: string;
   priority?: boolean;
 }) {
-  const meta = [formatMinutes(recipe.cookingTime), recipe.difficulty].filter(Boolean).join(" · ");
+  const meta = [formatMinutes(recipe.cookingTime), recipe.difficulty && difficultyLabel(recipe.difficulty)]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <div className={cn("group relative", className)}>
@@ -54,7 +57,7 @@ export function RecipeCard({
         </h3>
         {meta && <p className="mt-1 text-sm text-muted-foreground">{meta}</p>}
         {recipe.authorName && (
-          <p className="mt-0.5 truncate text-sm text-muted-foreground">by {recipe.authorName}</p>
+          <p className="mt-0.5 truncate text-sm text-muted-foreground">от {recipe.authorName}</p>
         )}
       </Link>
       {action && (
