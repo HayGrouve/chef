@@ -6,9 +6,9 @@ import { Authenticated } from "convex/react";
 import { InstallPwaButton } from "./install-pwa-button";
 
 const links = [
-  { href: "/about", label: "About" },
-  { href: "/privacy", label: "Privacy" },
-  { href: "/terms", label: "Terms" },
+  { href: "/about", label: "За кухнята" },
+  { href: "/privacy", label: "Поверителност" },
+  { href: "/terms", label: "Условия" },
 ];
 
 export function Footer() {
@@ -18,7 +18,7 @@ export function Footer() {
   return (
     <footer className="border-t bg-background">
       <div className="container mx-auto px-4 py-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
-        <p>&copy; {new Date().getFullYear()} CHEF</p>
+        <p>&copy; {new Date().getFullYear()} Онова за кухнята</p>
         <nav className="flex items-center gap-4">
           {links.map(({ href, label }) => (
             <Link

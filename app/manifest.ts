@@ -2,13 +2,14 @@ import { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "CHEF | Your Personal Cookbook",
-    short_name: "CHEF",
+    name: "Онова за кухнята",
+    short_name: "Кухнята",
     description:
-      "Organize your recipes, plan your weekly meals, and manage your shopping list.",
+      "Рецептите ти, планът за седмицата и списъкът за пазаруване на едно място.",
+    lang: "bg",
     start_url: "/",
     display: "standalone",
-    // Also the splash screen color on Android — matches the icon backdrop.
+    // Also the splash screen color on Android; matches the icon backdrop.
     background_color: "#0a0a0a",
     theme_color: "#0a0a0a",
     icons: [

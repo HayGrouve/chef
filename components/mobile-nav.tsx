@@ -26,7 +26,7 @@ export function MobileNav() {
 
   return (
     <nav
-      aria-label="Sections"
+      aria-label="Раздели"
       className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background pb-[env(safe-area-inset-bottom)] md:hidden"
     >
       <div className="grid h-16 grid-cols-3">

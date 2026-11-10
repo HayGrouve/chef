@@ -9,7 +9,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { userId } = await params;
   const user = await fetchQuery(api.users.get, { userId }).catch(() => null);
-  return { title: user ? user.name : "Profile" };
+  return { title: user ? user.name : "Готвач" };
 }
 
 export default function Layout({ children }: { children: React.ReactNode }) {

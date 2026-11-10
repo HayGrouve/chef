@@ -34,6 +34,9 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 - Local setup: `vercel env pull .env.local --environment=development`, then keep `CONVEX_DEPLOYMENT=dev:hearty-kookabura-538` in `.env.local` (`npx convex dev` uses it). There is no `.env`; never commit `.env*` files.
 - Push functions to dev with `npx convex dev --once`. The Vercel build runs `next build` only, so it never deploys Convex functions.
 - Production Convex changes only through `npx convex deploy`, run from the PR head right before its merge, and only after the owner confirms.
+- `NEXT_PUBLIC_SITE_URL` sets `metadataBase` (`lib/site-url.ts`). It is unset everywhere until the cutover sets it in Production to `https://kuhnyata.onovaza.com`; until then the site uses Vercel's production domain, and localhost in dev.
+- UI copy is Bulgarian (informal "ти", no em or en dashes; `lib/copy.test.ts` checks the dashes). Difficulty, tags, aisles, meal types and days stay English keys in the data; `lib/labels.ts` holds their Bulgarian labels.
+- `node scripts/og-image.mjs "$PWD"` re-renders the images with words on them (`app/opengraph-image.png`, `public/mission.png`).
 - `POST /clerk/webhook` (`convex/http.ts`) erases a person on Clerk's `user.deleted`. It answers 503 until `CLERK_WEBHOOK_SIGNING_SECRET` is set on the Convex deployment; production gets its endpoint and secret at the cutover, not before.
 - Dev data comes from the dev seed (`convex/devSeed.ts`), keyed by a Clerk user id and refused on any deployment but dev. Sign in once as a Clerk test user of the онова за dev instance (a `+clerk_test` email, code 424242; `clerk users create --app <онова за app> --instance dev --email you+clerk_test@example.com`), then: `npx convex run devSeed:seedTestUser '{"userId":"user_..."}'`.
 - The cutover wipe (`migrations:cutoverWipe`, chef#27) runs on production once, on cutover day (chef#33). Always run it with `{"dryRun":true}` first.

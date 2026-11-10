@@ -35,11 +35,11 @@ export default function PublicProfilePage() {
   if (user === null) {
     return (
       <div className="container mx-auto max-w-md px-4 py-24 text-center">
-        <h1 className="font-display text-2xl font-bold">Cook not found</h1>
-        <p className="mt-2 text-muted-foreground">This profile doesn’t exist or was removed.</p>
+        <h1 className="font-display text-2xl font-bold">Няма такъв готвач</h1>
+        <p className="mt-2 text-muted-foreground">Страницата не съществува или е изтрита.</p>
         <Button asChild variant="outline" className="mt-6">
           <Link href="/">
-            <ArrowLeft /> Back to Cook
+            <ArrowLeft /> Към рецептите
           </Link>
         </Button>
       </div>
@@ -53,7 +53,7 @@ export default function PublicProfilePage() {
       <div className="mb-6 flex justify-between items-center">
         <Button asChild variant="ghost" className="pl-0">
           <Link href="/">
-            <ArrowLeft className="w-4 h-4 mr-2" /> Back to Cook
+            <ArrowLeft className="w-4 h-4 mr-2" /> Към рецептите
           </Link>
         </Button>
         {isOwnProfile && (
@@ -89,7 +89,7 @@ export default function PublicProfilePage() {
       </div>
 
       <div className="space-y-6">
-        <h2 className="font-display text-2xl font-bold tracking-tight">Public recipes</h2>
+        <h2 className="font-display text-2xl font-bold tracking-tight">Публични рецепти</h2>
         
         {recipes === undefined ? (
             <div className="grid grid-cols-2 gap-x-4 gap-y-8 md:grid-cols-3 lg:grid-cols-4">
@@ -97,7 +97,7 @@ export default function PublicProfilePage() {
             </div>
         ) : recipes.length === 0 ? (
             <div className="py-12 text-center text-muted-foreground bg-muted/30 rounded-lg">
-                This chef hasn’t published any recipes yet.
+                Този готвач още не е публикувал рецепти.
             </div>
         ) : (
             <div className="grid grid-cols-2 gap-x-4 gap-y-8 md:grid-cols-3 lg:grid-cols-4">

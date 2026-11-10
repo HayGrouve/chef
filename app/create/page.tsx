@@ -1028,8 +1028,8 @@ function CreateRecipeContent() {
 
   return (
     <div className="container mx-auto max-w-5xl px-4 pb-4 pt-6 md:pt-10">
-      <title>{editId ? "Edit recipe | CHEF" : "New recipe | CHEF"}</title>
-      <meta name="description" content="Create a new recipe with CHEF" />
+      <title>{editId ? "Редактирай рецептата | Онова за кухнята" : "Нова рецепта | Онова за кухнята"}</title>
+      <meta name="description" content="Напиши нова рецепта в Онова за кухнята." />
 
       <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
         <h1 className="font-display text-3xl font-bold tracking-tight md:text-4xl">

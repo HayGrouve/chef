@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import type { Doc, TableNames } from "./_generated/dataModel";
 import { internalMutation } from "./_generated/server";
-import { authorNamePatch } from "./recipes";
+import { authorNamePatch, recipeSearchText } from "./recipes";
 import schema from "./schema";
 
 export const backfillSearchText = internalMutation({
@@ -17,7 +17,7 @@ export const backfillSearchText = internalMutation({
           .unique();
           
         const authorName = user?.name || "";
-        const searchText = `${recipe.title} ${authorName}`.toLowerCase();
+        const searchText = recipeSearchText(recipe.title, authorName, recipe.tags);
         
         await ctx.db.patch(recipe._id, {
           authorName,

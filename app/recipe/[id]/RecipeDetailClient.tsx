@@ -41,6 +41,7 @@ import { RecipePhoto, formatMinutes } from "@/components/RecipeCard";
 import { formatIngredients, type UnitSystem } from "@/lib/quantities";
 import { useUnitSystem } from "@/hooks/use-unit-system";
 import { cn, pluralize } from "@/lib/utils";
+import { difficultyLabel, tagLabel } from "@/lib/labels";
 
 const SCALES = [
   { value: 0.5, label: "½×" },
@@ -50,8 +51,8 @@ const SCALES = [
 ];
 
 const UNIT_SYSTEMS: { value: UnitSystem; label: string }[] = [
-  { value: "original", label: "As written" },
-  { value: "metric", label: "Metric" },
+  { value: "original", label: "Както е писано" },
+  { value: "metric", label: "Метрични" },
 ];
 
 function Segmented<T extends string | number>({
@@ -135,13 +136,13 @@ function RecipeDetailContent() {
   if (recipe === null) {
     return (
       <div className="container mx-auto max-w-md px-4 py-24 text-center">
-        <h1 className="font-display text-2xl font-bold">Recipe not found</h1>
+        <h1 className="font-display text-2xl font-bold">Няма такава рецепта</h1>
         <p className="mt-2 text-muted-foreground">
-          This recipe may be private or doesn’t exist.
+          Може да е лична или да не съществува.
         </p>
         <Button asChild variant="outline" className="mt-6">
           <Link href="/">
-            <ArrowLeft /> Back to Cook
+            <ArrowLeft /> Към рецептите
           </Link>
         </Button>
       </div>
@@ -156,10 +157,10 @@ function RecipeDetailContent() {
   const showingMetric = formatted.canConvert && unitSystem === "metric";
   const isOwner = "isOwner" in recipe && recipe.isOwner;
   const facts = [
-    { label: "Time", value: formatMinutes(recipe.cookingTime) },
-    { label: "Difficulty", value: recipe.difficulty },
-    { label: "Per serving", value: recipe.calories ? `${recipe.calories}\u00A0kcal` : null },
-    { label: "Steps", value: String(recipe.steps.length) },
+    { label: "Време", value: formatMinutes(recipe.cookingTime) },
+    { label: "Трудност", value: recipe.difficulty ? difficultyLabel(recipe.difficulty) : null },
+    { label: "На порция", value: recipe.calories ? `${recipe.calories}\u00A0ккал` : null },
+    { label: "Стъпки", value: String(recipe.steps.length) },
   ].filter((f) => f.value);
 
   const handleDelete = async () => {
@@ -175,16 +176,16 @@ function RecipeDetailContent() {
         ingredients,
         recipeId: recipe._id,
       });
-      toast.success(`Added ${pluralize(ingredients.length, "ingredient")} to your shopping list`, {
+      toast.success(`Добави ${pluralize(ingredients.length, "съставка", "съставки")} в списъка за пазаруване`, {
         action: ids?.length
           ? {
-              label: "Undo",
+              label: "Отмени",
               onClick: () => removeBatchFromShoppingList({ ids }),
             }
           : undefined,
       });
     } catch {
-      toast.error("Couldn’t add to your shopping list", { description: "Check your connection and try again." });
+      toast.error("Не успях да добавя в списъка за пазаруване", { description: "Провери връзката и опитай пак." });
     } finally {
       setAdding(false);
     }
@@ -201,13 +202,13 @@ function RecipeDetailContent() {
     const copyLink = async () => {
       try {
         await navigator.clipboard.writeText(url);
-        toast.success("Link copied to clipboard");
+        toast.success("Линкът е копиран");
       } catch {
-        toast.error("Couldn’t copy the link", { description: "Copy it from the address bar instead." });
+        toast.error("Не успях да копирам линка", { description: "Копирай го от адресната лента." });
       }
     };
     const shareData = {
-      title: `CHEF | ${recipe.title}`,
+      title: `${recipe.title} | Онова за кухнята`,
       text: recipe.description,
       url: url,
     };
@@ -234,7 +235,7 @@ function RecipeDetailContent() {
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="size-4" />
-          Back
+          Назад
         </button>
 
         <h1 className="mt-6 max-w-4xl text-balance break-words font-display text-4xl font-bold leading-[1.02] tracking-tight md:text-6xl">
@@ -243,7 +244,7 @@ function RecipeDetailContent() {
         {recipe.description && <ClampedText text={recipe.description} />}
         {recipe.authorName && (
           <p className="mt-4 text-sm">
-            By{" "}
+            от{" "}
             <Link
               href={`/profile/${recipe.userId}`}
               className="font-medium underline-offset-4 hover:underline"
@@ -258,7 +259,7 @@ function RecipeDetailContent() {
             <Button asChild size="lg">
               <Link href={`/recipe/${recipeId}/cook`}>
                 <Play />
-                Start cooking
+                Започни да готвиш
               </Link>
             </Button>
             <Button
@@ -267,17 +268,17 @@ function RecipeDetailContent() {
               onClick={handleAddToCart}
               disabled={adding}
               className="max-sm:w-10 max-sm:px-0"
-              aria-label="Add to shopping list"
+              aria-label="Добави в списъка за пазаруване"
             >
               {adding ? <Loader2 className="animate-spin" /> : <ShoppingBasket />}
-              <span className="max-sm:hidden">Add to list</span>
+              <span className="max-sm:hidden">В списъка</span>
             </Button>
             <Button
               size="icon-lg"
               variant="ghost"
               onClick={() => toggleFavorite({ id: recipeId })}
               aria-pressed={!!recipe.isFavorite}
-              aria-label={recipe.isFavorite ? "Remove from favorites" : "Add to favorites"}
+              aria-label={recipe.isFavorite ? "Махни от любими" : "Добави в любими"}
             >
               <Heart className={cn(recipe.isFavorite && "fill-primary text-primary")} />
             </Button>
@@ -291,14 +292,14 @@ function RecipeDetailContent() {
             </Button>
           </Unauthenticated>
           {recipe.isPublic && (
-            <Button size="icon-lg" variant="ghost" onClick={handleShare} aria-label="Share">
+            <Button size="icon-lg" variant="ghost" onClick={handleShare} aria-label="Сподели">
               <Share2 />
             </Button>
           )}
           {isOwner && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button size="icon-lg" variant="ghost" aria-label="More actions">
+                <Button size="icon-lg" variant="ghost" aria-label="Още действия">
                   <MoreHorizontal />
                 </Button>
               </DropdownMenuTrigger>
@@ -306,13 +307,13 @@ function RecipeDetailContent() {
                 <DropdownMenuItem asChild>
                   <Link href={`/create?edit=${recipeId}`}>
                     <Pencil />
-                    Edit recipe
+                    Редактирай
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem variant="destructive" onSelect={() => setShowDeleteDialog(true)}>
                   <Trash2 />
-                  Delete recipe
+                  Изтрий рецептата
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -345,14 +346,14 @@ function RecipeDetailContent() {
       <div className="container mx-auto mt-14 grid max-w-5xl gap-12 px-4 md:grid-cols-[18rem_1fr]">
         <section className="min-w-0 md:sticky md:top-24 md:self-start">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="font-display text-2xl font-bold tracking-tight">Ingredients</h2>
-            <Segmented label="Scale ingredients" options={SCALES} value={scale} onChange={setScale} />
+            <h2 className="font-display text-2xl font-bold tracking-tight">Съставки</h2>
+            <Segmented label="Количества" options={SCALES} value={scale} onChange={setScale} />
           </div>
           {formatted.canConvert && (
             <div className="mt-3 flex items-center justify-between gap-3">
-              <span className="text-xs text-muted-foreground">Measurements</span>
+              <span className="text-xs text-muted-foreground">Мерки</span>
               <Segmented
-                label="Measurements"
+                label="Мерки"
                 options={UNIT_SYSTEMS}
                 value={unitSystem}
                 onChange={setUnitSystem}
@@ -369,13 +370,13 @@ function RecipeDetailContent() {
           </ul>
           {showingMetric && (
             <p className="mt-4 text-xs text-muted-foreground">
-              Cups and spoons are converted to grams or millilitres, so weights are close estimates.
+              Чашите и лъжиците са превърнати в грамове или милилитри, така че теглата са приблизителни.
             </p>
           )}
         </section>
 
         <section className="min-w-0">
-          <h2 className="font-display text-2xl font-bold tracking-tight">Method</h2>
+          <h2 className="font-display text-2xl font-bold tracking-tight">Приготвяне</h2>
           <ol className="mt-6 flex flex-col gap-8">
             {recipe.steps.map((step, i) => (
               <li key={i} className="grid grid-cols-[3rem_1fr] gap-2">
@@ -388,14 +389,14 @@ function RecipeDetailContent() {
           </ol>
           {recipe.tags && recipe.tags.length > 0 && (
             <div className="mt-12 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-              Filed under
+              Етикети
               {recipe.tags.map((tag) => (
                 <Link
                   key={tag}
                   href={`/?tags=${encodeURIComponent(tag)}`}
                   className="rounded-full bg-muted px-3 py-1 hover:text-foreground"
                 >
-                  {tag}
+                  {tagLabel(tag)}
                 </Link>
               ))}
             </div>
@@ -406,19 +407,18 @@ function RecipeDetailContent() {
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete this recipe?</AlertDialogTitle>
+            <AlertDialogTitle>Да изтрия ли рецептата?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete your
-              recipe.
+              Не може да се върне. Рецептата се изтрива завинаги.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>Отказ</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
               className="bg-destructive text-white hover:bg-destructive/90"
             >
-              Delete
+              Изтрий
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -427,7 +427,7 @@ function RecipeDetailContent() {
   );
 }
 
-/** Shows up to three lines, with a "Show more" toggle only when the text is cut off. */
+/** Shows up to three lines, with a "Още" toggle only when the text is cut off. */
 function ClampedText({ text }: { text: string }) {
   const ref = useRef<HTMLParagraphElement>(null);
   const [expanded, setExpanded] = useState(false);
@@ -462,7 +462,7 @@ function ClampedText({ text }: { text: string }) {
           onClick={() => setExpanded((v) => !v)}
           className="mt-1 text-sm font-medium text-primary hover:underline"
         >
-          {expanded ? "Show less" : "Show more"}
+          {expanded ? "По-малко" : "Още"}
         </button>
       )}
     </div>

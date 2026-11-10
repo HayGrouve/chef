@@ -214,6 +214,22 @@ describe("recipe feed and search", () => {
     expect(theirs.page.map((r) => r.title)).toEqual(["Public Shakshuka"]);
   });
 
+  test("a Bulgarian tag label finds recipes with the English tag key", async () => {
+    const { host, guest } = setup();
+    const id = await host.mutation(api.recipes.create, { ...baseRecipe, title: "Oats", tags: ["Breakfast"] });
+    await host.mutation(api.recipes.create, { ...baseRecipe, title: "Stew", tags: ["Dinner"] });
+
+    const found = await guest.query(api.recipes.list, { search: "закуска", paginationOpts: page });
+    expect(found.page.map((r) => r.title)).toEqual(["Oats"]);
+
+    // Changing the tags rewrites what search finds
+    await host.mutation(api.recipes.update, { id, ...baseRecipe, title: "Oats", storageId: undefined, tags: ["Snack"] });
+    const after = await guest.query(api.recipes.list, { search: "закуска", paginationOpts: page });
+    expect(after.page).toEqual([]);
+    const stored = await host.query(api.recipes.get, { id });
+    expect(stored?.tags).toEqual(["Snack"]);
+  });
+
   test("the feed shows public recipes plus the caller's own, newest first, once each", async () => {
     const { host, guest } = setup();
     await host.mutation(api.recipes.create, { ...baseRecipe, title: "Host public 1" });

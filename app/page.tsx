@@ -16,6 +16,7 @@ import { useUser } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { pluralize } from "@/lib/utils";
+import { difficultyLabel, tagLabel } from "@/lib/labels";
 import { RecipeCard, RecipePhoto, formatMinutes } from "@/components/RecipeCard";
 import { RecipeCardSkeleton } from "@/components/RecipeCardSkeleton";
 import {
@@ -147,7 +148,10 @@ function HomeContent() {
 
   // Tags come from the loaded recipes; tag filtering is client-side (AND).
   const allTags = useMemo(
-    () => Array.from(new Set(results.flatMap((r) => r.tags || []))).sort(),
+    () =>
+      Array.from(new Set(results.flatMap((r) => r.tags || []))).sort((a, b) =>
+        tagLabel(a).localeCompare(tagLabel(b), "bg")
+      ),
     [results]
   );
   const filteredRecipes = results.filter((recipe) =>
@@ -181,7 +185,7 @@ function HomeContent() {
     if (shelf.id === "quick") setMaxTime(30);
     else if (shelf.id === "mine") setMyRecipesOnly(true);
     else if (shelf.id === "favorites") setFavoritesOnly(true);
-    else setSelectedTags([shelf.title]);
+    else if (shelf.tag) setSelectedTags([shelf.tag]);
   };
 
   return (
@@ -192,7 +196,7 @@ function HomeContent() {
 
       <div className="max-w-3xl">
         <h1 className="text-balance font-display text-4xl font-bold tracking-tight md:text-5xl">
-          What are we cooking?
+          Какво ще готвим?
         </h1>
         <div className="mt-6 flex gap-2">
           <div className="relative flex-1">
@@ -203,15 +207,15 @@ function HomeContent() {
               autoComplete="off"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search, or list ingredients…"
-              aria-label="Search recipes, or list ingredients you have"
+              placeholder="Рецепта или продукти…"
+              aria-label="Търси рецепти или изброй продуктите, които имаш"
               aria-describedby="home-search-help"
               className="h-14 w-full rounded-full border bg-card pl-13 pr-12 text-base shadow-sm outline-none transition-shadow placeholder:text-muted-foreground focus-visible:ring-[3px] focus-visible:ring-ring/40 [&::-webkit-search-cancel-button]:appearance-none"
             />
             {search && (
               <button
                 onClick={() => setSearch("")}
-                aria-label="Clear search"
+                aria-label="Изчисти търсенето"
                 className="absolute right-4 top-1/2 grid size-8 -translate-y-1/2 place-items-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
               >
                 <X className="size-4" />
@@ -222,10 +226,10 @@ function HomeContent() {
             variant="outline"
             className="relative h-14 gap-2 px-5 max-sm:w-14 max-sm:px-0"
             onClick={() => setFiltersOpen(true)}
-            aria-label={activeFilterCount ? `Filters, ${activeFilterCount} active` : "Filters"}
+            aria-label={activeFilterCount ? `Филтри, ${activeFilterCount} включени` : "Филтри"}
           >
             <SlidersHorizontal className="size-5" />
-            <span className="hidden sm:inline">Filters</span>
+            <span className="hidden sm:inline">Филтри</span>
             {activeFilterCount > 0 && (
               <Badge className="h-5 min-w-5 rounded-full px-1.5 max-sm:absolute max-sm:-right-1 max-sm:-top-1">
                 {activeFilterCount}
@@ -234,28 +238,28 @@ function HomeContent() {
           </Button>
         </div>
         <p id="home-search-help" className="mt-2.5 pl-5 text-sm text-muted-foreground">
-          Separate ingredients with commas to see what you can make: <em>eggs, feta, tomatoes</em>
+          Раздели продуктите със запетаи и виж какво можеш да сготвиш: <em>яйца, сирене, домати</em>
         </p>
       </div>
 
       {activeFilterCount > 0 && (
         <div className="mt-5 flex flex-wrap items-center gap-2">
           {difficulty !== "all" && (
-            <FilterChip label={difficulty} onRemove={() => setDifficulty("all")} />
+            <FilterChip label={difficultyLabel(difficulty)} onRemove={() => setDifficulty("all")} />
           )}
           {maxTime !== MAX_TIME_ANY && (
-            <FilterChip label={`≤ ${maxTime} min`} onRemove={() => setMaxTime(MAX_TIME_ANY)} />
+            <FilterChip label={`≤ ${maxTime}\u00A0мин`} onRemove={() => setMaxTime(MAX_TIME_ANY)} />
           )}
           {favoritesOnly && (
-            <FilterChip label="Favorites" onRemove={() => setFavoritesOnly(false)} />
+            <FilterChip label="Любими" onRemove={() => setFavoritesOnly(false)} />
           )}
           {myRecipesOnly && (
-            <FilterChip label="My recipes" onRemove={() => setMyRecipesOnly(false)} />
+            <FilterChip label="Моите рецепти" onRemove={() => setMyRecipesOnly(false)} />
           )}
           {selectedTags.map((tag) => (
             <FilterChip
               key={tag}
-              label={tag}
+              label={tagLabel(tag)}
               onRemove={() => setSelectedTags(selectedTags.filter((t) => t !== tag))}
             />
           ))}
@@ -265,7 +269,7 @@ function HomeContent() {
             onClick={clearFilters}
             className="h-7 px-2.5 text-muted-foreground"
           >
-            Clear all
+            Изчисти всички
           </Button>
         </div>
       )}
@@ -273,7 +277,7 @@ function HomeContent() {
       <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
         <SheetContent side="right" className="w-full overflow-y-auto overscroll-contain sm:max-w-sm">
           <SheetHeader>
-            <SheetTitle className="font-display text-xl">Filters</SheetTitle>
+            <SheetTitle className="font-display text-xl">Филтри</SheetTitle>
           </SheetHeader>
           <div className="px-4">
             <RecipeFilters {...filterProps} />
@@ -281,11 +285,11 @@ function HomeContent() {
           <SheetFooter className="flex-row">
             {activeFilterCount > 0 && (
               <Button variant="outline" className="flex-1" onClick={clearFilters}>
-                Reset
+                Нулирай
               </Button>
             )}
             <Button className="flex-1" onClick={() => setFiltersOpen(false)}>
-              Done
+              Готово
             </Button>
           </SheetFooter>
         </SheetContent>
@@ -302,8 +306,8 @@ function HomeContent() {
           <p className="text-sm text-muted-foreground" aria-live="polite">
             {filteredRecipes.length}
             {status === "CanLoadMore" ? "+" : ""}{" "}
-            {filteredRecipes.length === 1 ? "recipe" : "recipes"}
-            {debouncedSearch && <> for &ldquo;{debouncedSearch}&rdquo;</>}
+            {filteredRecipes.length === 1 ? "рецепта" : "рецепти"}
+            {debouncedSearch && <> за &bdquo;{debouncedSearch}&ldquo;</>}
           </p>
           <RecipeGrid recipes={filteredRecipes} />
         </section>
@@ -315,7 +319,7 @@ function HomeContent() {
         <div className="flex justify-center pt-10">
           <Button variant="outline" size="lg" onClick={() => loadMore(PAGE_SIZE)} disabled={isLoading}>
             {isLoading && <Loader2 className="animate-spin" />}
-            Load more
+            Покажи още
           </Button>
         </div>
       )}
@@ -323,7 +327,7 @@ function HomeContent() {
   );
 }
 
-type Shelf = { id: string; title: string; recipes: Recipe[] };
+type Shelf = { id: string; title: string; tag?: string; recipes: Recipe[] };
 
 /** The unfiltered home: a feature, then shelves, then everything. */
 function Discover({
@@ -344,14 +348,14 @@ function Discover({
       .slice(0, 2)
       .map(([t]) => t);
     const list: Shelf[] = [
-      { id: "quick", title: "Quick weeknights", recipes: recipes.filter((r) => r.cookingTime && r.cookingTime <= 30) },
+      { id: "quick", title: "Бързо за делничен ден", recipes: recipes.filter((r) => r.cookingTime && r.cookingTime <= 30) },
       ...(isAuthenticated
         ? [
-            { id: "mine", title: "Your recipes", recipes: recipes.filter((r) => r.userId === user?.id) },
-            { id: "favorites", title: "Favorites", recipes: recipes.filter((r) => r.isFavorite) },
+            { id: "mine", title: "Твоите рецепти", recipes: recipes.filter((r) => r.userId === user?.id) },
+            { id: "favorites", title: "Любими", recipes: recipes.filter((r) => r.isFavorite) },
           ]
         : []),
-      ...topTags.map((t) => ({ id: `tag:${t}`, title: t, recipes: recipes.filter((r) => r.tags?.includes(t)) })),
+      ...topTags.map((t) => ({ id: `tag:${t}`, title: tagLabel(t), tag: t, recipes: recipes.filter((r) => r.tags?.includes(t)) })),
     ];
     // A shelf is only worth showing with a few recipes on it.
     return list.filter((s) => s.recipes.length >= 3);
@@ -365,7 +369,7 @@ function Discover({
           <ShelfRow key={shelf.id} shelf={shelf} onSeeAll={() => onOpenShelf(shelf)} />
         ))}
         <section>
-          <h2 className="font-display text-2xl font-bold tracking-tight">All recipes</h2>
+          <h2 className="font-display text-2xl font-bold tracking-tight">Всички рецепти</h2>
           <RecipeGrid recipes={recipes} />
         </section>
       </div>
@@ -396,7 +400,7 @@ function Feature({ recipes }: { recipes: Recipe[] }) {
       </Link>
       <div className="flex flex-col justify-center gap-4 p-6 md:p-10">
         <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
-          {planned ? "On the plan tonight" : "Newest recipe"}
+          {planned ? "В плана за довечера" : "Най-новата рецепта"}
         </p>
         <h2 className="text-balance break-words font-display text-3xl font-bold leading-[1.05] tracking-tight md:text-4xl">
           <Link href={`/recipe/${recipe._id}`} className="hover:underline decoration-primary decoration-2 underline-offset-4">
@@ -407,7 +411,11 @@ function Feature({ recipes }: { recipes: Recipe[] }) {
           <p className="line-clamp-3 max-w-[50ch] text-muted-foreground">{recipe.description}</p>
         )}
         <p className="text-sm text-muted-foreground">
-          {[formatMinutes(recipe.cookingTime), recipe.difficulty, recipe.authorName && `by ${recipe.authorName}`]
+          {[
+            formatMinutes(recipe.cookingTime),
+            recipe.difficulty && difficultyLabel(recipe.difficulty),
+            recipe.authorName && `от ${recipe.authorName}`,
+          ]
             .filter(Boolean)
             .join(" · ")}
         </p>
@@ -416,18 +424,18 @@ function Feature({ recipes }: { recipes: Recipe[] }) {
             <Button asChild size="lg">
               <Link href={`/recipe/${recipe._id}/cook`}>
                 <Play />
-                Start cooking
+                Започни да готвиш
               </Link>
             </Button>
           </Authenticated>
           <Authenticated>
             <Button asChild size="lg" variant="ghost">
-              <Link href={`/recipe/${recipe._id}`}>View recipe</Link>
+              <Link href={`/recipe/${recipe._id}`}>Виж рецептата</Link>
             </Button>
           </Authenticated>
           <Unauthenticated>
             <Button asChild size="lg">
-              <Link href={`/recipe/${recipe._id}`}>View recipe</Link>
+              <Link href={`/recipe/${recipe._id}`}>Виж рецептата</Link>
             </Button>
           </Unauthenticated>
         </div>
@@ -445,7 +453,7 @@ function ShelfRow({ shelf, onSeeAll }: { shelf: Shelf; onSeeAll: () => void }) {
           onClick={onSeeAll}
           className="group flex shrink-0 items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground"
         >
-          See all
+          Виж всички
           <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
         </button>
       </div>
@@ -498,7 +506,7 @@ function PantryResults({ terms }: { terms: string[] }) {
   if (!isAuthenticated) {
     return (
       <p className="mt-10 text-muted-foreground">
-        Searching by the ingredients you have needs an account.{" "}
+        Търсенето по продуктите, които имаш, иска Акаунт.{" "}
         <Link
           href={`/sign-in?redirect_url=${encodeURIComponent(`/?q=${terms.join(", ")}`)}`}
           className="font-medium text-foreground underline underline-offset-4"
@@ -514,8 +522,8 @@ function PantryResults({ terms }: { terms: string[] }) {
     <section className="mt-10">
       <p className="text-sm text-muted-foreground" aria-live="polite">
         {results.length === 0
-          ? "No recipes use those ingredients yet."
-          : `${pluralize(results.length, "recipe uses", "recipes use")} what you have, best matches first`}
+          ? "Още няма рецепти с тези продукти."
+          : `${pluralize(results.length, "рецепта използва", "рецепти използват")} това, което имаш, първо най-близките`}
       </p>
       <div className="mt-6 grid gap-4 md:grid-cols-2">
         {results.map((r) => (
@@ -528,12 +536,12 @@ function PantryResults({ terms }: { terms: string[] }) {
             <div className="min-w-0 py-1">
               <h3 className="line-clamp-2 break-words font-display text-lg font-semibold leading-tight tracking-tight">{r.title}</h3>
               <p className="mt-1 text-sm font-medium text-primary">
-                You have {r.matchCount} of {r.ingredients.length}
+                Имаш {r.matchCount} от {r.ingredients.length}
               </p>
               {r.missingIngredients.length > 0 && (
                 <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
-                  Missing: {r.missingIngredients.slice(0, 4).join(", ")}
-                  {r.missingIngredients.length > 4 && `, +${r.missingIngredients.length - 4} more`}
+                  Липсват: {r.missingIngredients.slice(0, 4).join(", ")}
+                  {r.missingIngredients.length > 4 && ` и още ${r.missingIngredients.length - 4}`}
                 </p>
               )}
             </div>
@@ -554,34 +562,34 @@ function EmptyState({ filtered, onClear }: { filtered: boolean; onClear: () => v
       {filtered ? (
         <>
           <SearchX className="size-10 text-muted-foreground" strokeWidth={1.5} />
-          <p className="font-display text-xl font-semibold">Nothing matches</p>
+          <p className="font-display text-xl font-semibold">Нищо не отговаря</p>
           <p className="max-w-sm text-muted-foreground">
-            Try another word, or clear the filters. Listing ingredients? Separate them with commas.
+            Опитай с друга дума или изчисти филтрите. Изброяваш продукти? Раздели ги със запетаи.
           </p>
           <Button variant="outline" onClick={onClear}>
-            Clear filters
+            Изчисти филтрите
           </Button>
         </>
       ) : (
         <>
           <UtensilsCrossed className="size-10 text-muted-foreground" strokeWidth={1.5} />
           <Authenticated>
-            <p className="font-display text-xl font-semibold">Your cookbook is empty</p>
-            <p className="max-w-sm text-muted-foreground">Write a recipe, or import one from a link or photo.</p>
+            <p className="font-display text-xl font-semibold">Готварската ти книга е празна</p>
+            <p className="max-w-sm text-muted-foreground">Напиши рецепта или я добави от линк или снимка.</p>
             <div className="flex flex-wrap justify-center gap-2">
               <Button asChild>
                 <Link href="/create">
                   <Plus />
-                  Write a recipe
+                  Напиши рецепта
                 </Link>
               </Button>
               <Button asChild variant="outline">
-                <Link href="/import">Import one</Link>
+                <Link href="/import">От линк или снимка</Link>
               </Button>
             </div>
           </Authenticated>
           <Unauthenticated>
-            <p className="font-display text-xl font-semibold">No public recipes yet</p>
+            <p className="font-display text-xl font-semibold">Още няма публични рецепти</p>
           </Unauthenticated>
         </>
       )}
@@ -616,8 +624,8 @@ function ResultsSkeleton() {
 export default function Home() {
   return (
     <div className="min-h-screen bg-background">
-      <title>CHEF | Home</title>
-      <meta name="description" content="Your personal digital cookbook" />
+      <title>Онова за кухнята | Твоята готварска книга</title>
+      <meta name="description" content="Рецептите ти, планът за седмицата и списъкът за пазаруване на едно място." />
       <Suspense
         fallback={
           <div className="container mx-auto px-4 pt-10">
@@ -640,7 +648,7 @@ function FilterChip({ label, onRemove }: { label: string; onRemove: () => void }
       <button
         onClick={onRemove}
         className="rounded-full p-1 hover:bg-foreground/10"
-        aria-label={`Remove ${label} filter`}
+        aria-label={`Махни филтъра ${label}`}
       >
         <X className="size-3" />
       </button>
@@ -667,9 +675,9 @@ function SignInBanner() {
   return (
     <div className="mb-6 flex items-center gap-3 rounded-2xl bg-primary/10 px-4 py-2.5 text-sm">
       <p className="flex-1">
-        <span className="font-medium">Browsing for free.</span>{" "}
+        <span className="font-medium">Разглеждаш свободно.</span>{" "}
         <span className="text-muted-foreground">
-          Sign in to save favorites and share your own recipes.
+          Влез, за да пазиш любими и да споделяш свои рецепти.
         </span>
       </p>
       <Button asChild size="sm">
@@ -681,7 +689,7 @@ function SignInBanner() {
           setDismissed(true);
         }}
         className="-m-1.5 rounded-full p-1.5 text-muted-foreground hover:bg-foreground/10 hover:text-foreground"
-        aria-label="Dismiss sign-in banner"
+        aria-label="Скрий"
       >
         <X className="h-4 w-4" />
       </button>

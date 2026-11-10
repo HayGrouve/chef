@@ -1,5 +1,6 @@
 import { internalMutation } from "./_generated/server";
 import { internal } from "./_generated/api";
+import { recipeSearchText } from "./recipes";
 
 export const seedDatabase = internalMutation({
   handler: async (ctx) => {
@@ -137,7 +138,7 @@ export const seedDatabase = internalMutation({
         .first();
 
       if (!existing) {
-        const searchText = `${r.title} ${r.authorName}`.toLowerCase();
+        const searchText = recipeSearchText(r.title, r.authorName, r.tags);
         const recipeId = await ctx.db.insert("recipes", {
           ...r,
           searchText,

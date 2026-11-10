@@ -10,53 +10,60 @@ import { Footer } from "@/components/footer";
 import { Navbar } from "@/components/navbar";
 import { Toaster } from "@/components/ui/sonner";
 import { GlobalCommandPalette } from "@/components/command-palette/GlobalCommandPalette";
+import { siteUrl } from "@/lib/site-url";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
-  subsets: ["latin"],
+  subsets: ["latin", "cyrillic"],
 });
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
-  subsets: ["latin"],
+  subsets: ["latin", "cyrillic"],
 });
 
-// Headings (the `font-display` utility).
+// Headings (the `font-display` utility). Bricolage has no Cyrillic, so
+// Bulgarian letters fall through to Geist instead of the system font.
 const bricolage = Bricolage_Grotesque({
   variable: "--font-bricolage",
   subsets: ["latin"],
+  adjustFontFallback: false,
+  fallback: ["Geist", "Geist Fallback", "system-ui", "sans-serif"],
 });
 
+const NAME = "Онова за кухнята";
+const TITLE = `${NAME} | Твоята готварска книга`;
+const DESCRIPTION =
+  "Рецептите ти, планът за седмицата и списъкът за пазаруване на едно място.";
+
 export const metadata: Metadata = {
-  metadataBase: new URL("https://chef-black.vercel.app"),
+  metadataBase: new URL(siteUrl()),
   title: {
-    default: "CHEF | Your Personal Cookbook",
-    template: "%s | CHEF",
+    default: TITLE,
+    template: `%s | ${NAME}`,
   },
-  description:
-    "Organize your recipes, plan your weekly meals, and manage your shopping list with CHEF.",
+  description: DESCRIPTION,
+  applicationName: NAME,
   openGraph: {
     type: "website",
-    locale: "en_US",
-    url: "https://chef-black.vercel.app",
-    title: "CHEF | Your Personal Cookbook",
-    description:
-      "Organize your recipes, plan your weekly meals, and manage your shopping list with CHEF.",
-    siteName: "CHEF",
+    locale: "bg_BG",
+    url: "/",
+    title: TITLE,
+    description: DESCRIPTION,
+    siteName: NAME,
     images: [
       {
         url: "/opengraph-image.png",
         width: 1200,
         height: 630,
-        alt: "CHEF App Preview",
+        alt: NAME,
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "CHEF | Your Personal Cookbook",
-    description:
-      "Organize your recipes, plan your weekly meals, and manage your shopping list with CHEF.",
+    title: TITLE,
+    description: DESCRIPTION,
   },
 };
 
@@ -77,7 +84,7 @@ export default function RootLayout({
     // The font variables live on <html> because Tailwind reads --font-sans
     // there; on <body> the app silently fell back to the system font.
     <html
-      lang="en"
+      lang="bg"
       suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} ${bricolage.variable}`}
     >
@@ -93,7 +100,7 @@ export default function RootLayout({
               href="#main"
               className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-full focus:bg-background focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:shadow-md"
             >
-              Skip to content
+              Към съдържанието
             </a>
             <Navbar />
             {/* pb-16 clears the mobile tab bar, which cook mode hides */}

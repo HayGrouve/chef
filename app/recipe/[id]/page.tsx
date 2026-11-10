@@ -29,7 +29,7 @@ export async function generateMetadata({
           ? await getToken()
           : await getToken({ template: "convex" })) ?? undefined;
       const own = token ? await fetchQuery(api.recipes.get, { id: recipeId }, { token }) : null;
-      return { title: own ? own.title : "Recipe not found" };
+      return { title: own ? own.title : "Няма такава рецепта" };
     }
 
     return {
@@ -49,7 +49,7 @@ export async function generateMetadata({
     };
   } catch (error) {
     return {
-      title: "Recipe",
+      title: "Рецепта",
     };
   }
 }
