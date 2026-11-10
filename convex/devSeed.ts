@@ -2,8 +2,10 @@
 //
 //   npx convex run devSeed:seedTestUser '{"userId":"user_..."}'
 //
-// Only runs for Clerk test users (email contains "+clerk_test") so it can't
-// touch a real account. Recipes are private to that user.
+// Only runs on the dev deployment, so it can't touch a real account. Profiles
+// no longer store an email, so a test user (a "+clerk_test" email, sign-in
+// code 424242) is picked by their Clerk user id: sign in once, then run it.
+// Recipes are private to that user.
 import { v, ConvexError } from "convex/values";
 import { internalMutation, type QueryCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
@@ -88,16 +90,27 @@ const PLAN: [string, string, string][] = [
   ["Sunday", "breakfast", "Overnight Oats with Berries"],
 ];
 
+const DEV_DEPLOYMENT_URL = "https://hearty-kookabura-538.convex.cloud";
+
+/** The profile of a user on the dev deployment; refuses anywhere else. */
+async function devUser(ctx: QueryCtx, userId: string) {
+  if (process.env.CONVEX_CLOUD_URL !== DEV_DEPLOYMENT_URL) {
+    throw new ConvexError("Refusing: dev seed data only goes on the dev deployment.");
+  }
+  const user = await ctx.db
+    .query("users")
+    .withIndex("by_userId", (q) => q.eq("userId", userId))
+    .unique();
+  if (!user) {
+    throw new ConvexError("Refusing to seed: no profile for that user id. Sign in once as the test user first.");
+  }
+  return user;
+}
+
 export const seedTestUser = internalMutation({
   args: { userId: v.string(), reset: v.optional(v.boolean()) },
   handler: async (ctx, args) => {
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
-      .unique();
-    if (!user?.email?.includes("+clerk_test")) {
-      throw new ConvexError("Refusing to seed: not a Clerk test user. Sign in once as the test user first.");
-    }
+    const user = await devUser(ctx, args.userId);
 
     if (args.reset) {
       const plans = await ctx.db
@@ -147,13 +160,7 @@ export const seedTestUser = internalMutation({
 // are downloaded locally and uploaded by scripts/attach-demo-photos.sh, which
 // uses the functions below. Dev only, test users only.
 async function testUserRecipes(ctx: QueryCtx, userId: string) {
-  const user = await ctx.db
-    .query("users")
-    .withIndex("by_userId", (q) => q.eq("userId", userId))
-    .unique();
-  if (!user?.email?.includes("+clerk_test")) {
-    throw new ConvexError("Refusing: not a Clerk test user.");
-  }
+  await devUser(ctx, userId);
   return await ctx.db
     .query("recipes")
     .withIndex("by_userId", (q) => q.eq("userId", userId))

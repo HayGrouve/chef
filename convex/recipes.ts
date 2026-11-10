@@ -147,9 +147,16 @@ export async function deleteImageIfUnused(
 }
 
 /**
- * Recipes keep a copy of the author's name (shown in lists and searchable), so
- * a rename rewrites it on all their recipes, a batch at a time.
+ * The author fields a recipe keeps for `name`, or null when they're already
+ * current. Recipes keep a copy of the author's name (shown in lists and
+ * searchable), so a rename rewrites it on all their recipes.
  */
+export function authorNamePatch(recipe: Doc<"recipes">, name: string) {
+  if (recipe.authorName === name) return null;
+  return { authorName: name, searchText: `${recipe.title} ${name}`.toLowerCase() };
+}
+
+/** Rewrites the author's name on all their recipes, a batch at a time. */
 export const refreshAuthorName = internalMutation({
   args: { userId: v.string(), name: v.string(), cursor: v.optional(v.union(v.string(), v.null())) },
   returns: v.null(),
@@ -160,11 +167,8 @@ export const refreshAuthorName = internalMutation({
       // Small batches: a maximum-size recipe is ~250 KB
       .paginate({ numItems: 20, cursor: cursor ?? null });
     for (const recipe of page.page) {
-      if (recipe.authorName === name) continue;
-      await ctx.db.patch(recipe._id, {
-        authorName: name,
-        searchText: `${recipe.title} ${name}`.toLowerCase(),
-      });
+      const patch = authorNamePatch(recipe, name);
+      if (patch) await ctx.db.patch(recipe._id, patch);
     }
     if (!page.isDone) {
       await ctx.scheduler.runAfter(0, internal.recipes.refreshAuthorName, {

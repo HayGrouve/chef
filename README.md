@@ -33,7 +33,8 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 - Push functions to dev with `npx convex dev --once`. The Vercel build runs `next build` only, so it never deploys Convex functions.
 - Production Convex changes only through `npx convex deploy`, run from the PR head right before its merge, and only after the owner confirms.
 - `POST /clerk/webhook` (`convex/http.ts`) erases a person on Clerk's `user.deleted`. It answers 503 until `CLERK_WEBHOOK_SIGNING_SECRET` is set on the Convex deployment; production gets its endpoint and secret at the cutover, not before.
-- Dev data comes from the dev seed (`convex/devSeed.ts`), keyed by a Clerk user id and limited to Clerk test users (`+clerk_test` emails): `npx convex run devSeed:seedTestUser '{"userId":"user_..."}'`.
+- Dev data comes from the dev seed (`convex/devSeed.ts`), keyed by a Clerk user id and refused on any deployment but dev. Sign in once as a Clerk test user (a `+clerk_test` email, code 424242), then: `npx convex run devSeed:seedTestUser '{"userId":"user_..."}'`.
+- The cutover wipe (`migrations:cutoverWipe`, chef#27) runs on production once, on cutover day (chef#33). Always run it with `{"dryRun":true}` first.
 
 ## Learn More
 
