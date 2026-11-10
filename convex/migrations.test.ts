@@ -78,6 +78,7 @@ const expectedCounts = {
   favorites: { keep: 0, drop: 3 },
   shoppingList: { keep: 0, drop: 3 },
   mealPlans: { keep: 0, drop: 3 },
+  processedWebhookEvents: { keep: 0, drop: 0 },
   rateLimits: { keep: 0, drop: 3 },
   _storage: { keep: 3, drop: 1 },
 };
