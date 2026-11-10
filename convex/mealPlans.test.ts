@@ -27,15 +27,15 @@ test("meals can only be planned into slots the planner shows", async () => {
   const { user, recipeId } = await setup();
   await expect(
     user.mutation(api.mealPlans.add, { date: "Funday", mealType: "dinner", recipeId })
-  ).rejects.toThrow("Invalid meal slot");
+  ).rejects.toThrow("Няма такова място в плана.");
   await expect(
     user.mutation(api.mealPlans.add, { date: "Monday", mealType: "brunch", recipeId })
-  ).rejects.toThrow("Invalid meal slot");
+  ).rejects.toThrow("Няма такова място в плана.");
 
   const id = await user.mutation(api.mealPlans.add, { date: "Monday", mealType: "Dinner", recipeId });
   await expect(
     user.mutation(api.mealPlans.move, { id, date: "2026-01-01", mealType: "dinner" })
-  ).rejects.toThrow("Invalid meal slot");
+  ).rejects.toThrow("Няма такова място в плана.");
 
   const week = await user.query(api.mealPlans.getWeek, {});
   expect(week.map((m) => [m.date, m.mealType])).toEqual([["Monday", "dinner"]]);
@@ -100,4 +100,20 @@ test("auto-fill and AI suggestions respect the meal cap and never double-book a 
     ],
   });
   expect(inserted).toBe(2);
+});
+
+test("AI suggestions are mapped by recipe id, never by title", async () => {
+  const { t, recipeId } = await setup();
+  const title = (await t.run((ctx) => ctx.db.get(recipeId)))!.title;
+  const inserted = await t.mutation(internal.ai.insertGeneratedMeals, {
+    userId: USER.subject,
+    newMeals: [
+      { date: "Monday", mealType: "dinner", recipeId: title },
+      { date: "Tuesday", mealType: "Dinner", recipeId: "not-an-id" },
+      { date: "Friday", mealType: "Lunch", recipeId },
+    ],
+  });
+  expect(inserted).toBe(1);
+  const plans = await t.run((ctx) => ctx.db.query("mealPlans").collect());
+  expect(plans.map((p) => [p.date, p.mealType, p.recipeId])).toEqual([["Friday", "lunch", recipeId]]);
 });

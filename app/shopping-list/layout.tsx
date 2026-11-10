@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  description: "Your shopping list for the week",
-  title: "Shopping list",
+  description: "Списъкът ти за пазаруване за седмицата.",
+  title: "Списък за пазаруване",
 };
 
 export default function Layout({ children }: { children: React.ReactNode }) {

@@ -78,16 +78,16 @@ export const update = mutation({
     const user = await findUser(ctx, userId);
 
     if (!user) {
-      throw new Error("User not found");
+      throw new ConvexError("Няма такъв готвач.");
     }
 
     const bio = args.bio.trim();
     if (bio.length > MAX_BIO) {
-      throw new ConvexError(`Keep your bio under ${MAX_BIO} characters.`);
+      throw new ConvexError(`Текстът за теб може да е най-много ${MAX_BIO} знака.`);
     }
     const avatarUrl = args.avatarUrl?.trim() || undefined;
     if (avatarUrl && !isHttpsUrl(avatarUrl)) {
-      throw new ConvexError("The avatar must be an https:// image link.");
+      throw new ConvexError("Снимката трябва да е линк, който започва с https://.");
     }
 
     await ctx.db.patch(user._id, { bio, avatarUrl });

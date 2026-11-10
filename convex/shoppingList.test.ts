@@ -30,7 +30,7 @@ test("batches and whole lists are capped so the list stays readable and clearabl
       await ctx.db.insert("shoppingList", { userId: USER.subject, ingredient: "egg", isChecked: false });
     }
   });
-  await expect(user.mutation(api.shoppingList.add, { ingredient: "milk" })).rejects.toThrow(/full/);
+  await expect(user.mutation(api.shoppingList.add, { ingredient: "milk" })).rejects.toThrow(/пълен/);
   await user.mutation(api.shoppingList.clearAll, {});
   expect(await user.query(api.shoppingList.list, {})).toHaveLength(0);
 });

@@ -36,37 +36,38 @@ function cleanRecipeInput<T extends RecipeInput>(args: T): T {
   // kept, since emoji sequences rely on some of them)
   const isBlank = (text: string) => !text.replace(/\p{Cf}/gu, "").trim();
   const title = args.title.trim();
-  if (isBlank(title)) fail("Give the recipe a title.");
-  if (title.length > L.title) fail(`Keep the title under ${L.title} characters.`);
+  if (isBlank(title)) fail("Дай заглавие на рецептата.");
+  if (title.length > L.title) fail(`Заглавието може да е най-много ${L.title} знака.`);
   const description = args.description.trim();
   if (description.length > L.description) {
-    fail(`Keep the description under ${L.description} characters.`);
+    fail(`Описанието може да е най-много ${L.description} знака.`);
   }
-  const lines = (list: string[], what: string, max: number, maxLength: number) => {
+  type Words = { one: string; many: string };
+  const lines = (list: string[], what: Words, max: number, maxLength: number) => {
     const cleaned = list.map((line) => line.trim()).filter((line) => !isBlank(line));
-    if (cleaned.length === 0) fail(`Add at least one ${what}.`);
-    if (cleaned.length > max) fail(`A recipe can have at most ${max} ${what}s.`);
+    if (cleaned.length === 0) fail(`Добави поне една ${what.one}.`);
+    if (cleaned.length > max) fail(`Рецептата може да има най-много ${max} ${what.many}.`);
     if (cleaned.some((line) => line.length > maxLength)) {
-      fail(`Keep each ${what} under ${maxLength} characters.`);
+      fail(`Всяка ${what.one} може да е най-много ${maxLength} знака.`);
     }
     return cleaned;
   };
-  const ingredients = lines(args.ingredients, "ingredient", L.ingredients, L.ingredientLength);
-  const steps = lines(args.steps, "step", L.steps, L.stepLength);
+  const ingredients = lines(args.ingredients, { one: "съставка", many: "съставки" }, L.ingredients, L.ingredientLength);
+  const steps = lines(args.steps, { one: "стъпка", many: "стъпки" }, L.steps, L.stepLength);
   const inRange = (value: number | undefined, min: number, max: number) =>
     value === undefined || (Number.isFinite(value) && value >= min && value <= max);
   if (!inRange(args.cookingTime, 1, L.cookingTime)) {
-    fail(`Cooking time must be between 1 and ${L.cookingTime} minutes.`);
+    fail(`Времето трябва да е между 1 и ${L.cookingTime} минути.`);
   }
   if (!inRange(args.calories, 0, L.calories)) {
-    fail(`Calories must be between 0 and ${L.calories}.`);
+    fail(`Калориите трябва да са между 0 и ${L.calories}.`);
   }
   if (args.difficulty !== undefined && !["Easy", "Medium", "Hard"].includes(args.difficulty)) {
-    fail("Difficulty must be Easy, Medium or Hard.");
+    fail("Трудността трябва да е лесно, средно или трудно.");
   }
-  if (args.format !== undefined && args.format.length > 50) fail("Invalid image format.");
+  if (args.format !== undefined && args.format.length > 50) fail("Непознат формат на снимката.");
   if (args.tags && !args.tags.every((tag) => (PREDEFINED_TAGS as readonly string[]).includes(tag))) {
-    fail("Invalid tags provided");
+    fail("Има непознат етикет.");
   }
   return {
     ...args,
@@ -96,21 +97,21 @@ async function assertImageAvailable(
   const fileId = ctx.db.system.normalizeId("_storage", storageId);
   const file = fileId && (await ctx.db.system.get(fileId));
   if (!file) {
-    throw new ConvexError("That image upload is invalid. Try adding the photo again.");
+    throw new ConvexError("Снимката не се качи както трябва. Добави я пак.");
   }
   // Upload URLs accept any file; only images may become recipe photos
   // Typed non-images are refused; untyped uploads (contentType null, e.g. a
   // HEIC photo the browser can't name) are allowed, as before
   const notImage = file.contentType != null && !file.contentType.startsWith("image/");
   if (notImage || file.size > MAX_IMAGE_BYTES) {
-    throw new ConvexError("Recipe photos must be images under 10 MB.");
+    throw new ConvexError("Снимката на рецептата трябва да е изображение под 10 MB.");
   }
   const users = await ctx.db
     .query("recipes")
     .withIndex("by_storageId", (q) => q.eq("storageId", storageId))
     .take(2);
   if (users.some((recipe) => recipe._id !== recipeId)) {
-    throw new ConvexError("That image belongs to another recipe.");
+    throw new ConvexError("Тази снимка е на друга рецепта.");
   }
 }
 
@@ -275,15 +276,15 @@ export const update = mutation({
     const userId = await requireUserId(ctx);
     const recipe = await ctx.db.get(rawArgs.id);
     if (!recipe) {
-      throw new Error("Recipe not found");
+      throw new ConvexError("Няма такава рецепта.");
     }
 
     if (recipe.userId !== userId) {
-      throw new Error("Unauthorized");
+      throw new ConvexError("Тази рецепта не е твоя.");
     }
     if (baseVersion !== undefined && baseVersion !== (recipe.updatedAt ?? recipe._creationTime)) {
       throw new ConvexError(
-        "This recipe was changed somewhere else since you opened it. Reload to get the latest version, then make your edits again."
+        "Рецептата е променена другаде, откакто я отвори. Презареди за последната версия и направи промените пак."
       );
     }
 
@@ -813,7 +814,7 @@ export const toggleFavorite = mutation({
     } else {
       const recipe = await ctx.db.get(args.id);
       if (!canReadRecipe(recipe, userId)) {
-        throw new Error("Recipe not found");
+        throw new ConvexError("Няма такава рецепта.");
       }
       await ctx.db.insert("favorites", {
         userId,
@@ -830,11 +831,11 @@ export const remove = mutation({
     const userId = await requireUserId(ctx);
     const recipe = await ctx.db.get(args.id);
     if (!recipe) {
-      throw new Error("Recipe not found");
+      throw new ConvexError("Няма такава рецепта.");
     }
 
     if (recipe.userId !== userId) {
-      throw new Error("Unauthorized");
+      throw new ConvexError("Тази рецепта не е твоя.");
     }
 
     // Other people's favorites, plans and list items are cleaned up in the

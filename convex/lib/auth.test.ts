@@ -35,7 +35,7 @@ describe("without CLERK_AUTHORIZED_PARTIES", () => {
   test("signed out reads as null and requireUserId throws", async () => {
     expect(await as(null, getIdentity)).toBeNull();
     expect(await as(null, getUserId)).toBeNull();
-    await expect(as(null, requireUserId)).rejects.toThrow("Unauthenticated");
+    await expect(as(null, requireUserId)).rejects.toThrow("Влез, за да продължиш.");
     await expect(as(null, (ctx) => requireUserId(ctx, "Sign in first."))).rejects.toThrow("Sign in first.");
   });
 });
@@ -55,7 +55,7 @@ describe("with CLERK_AUTHORIZED_PARTIES", () => {
     for (const identity of [{ ...IDENTITY, azp: "https://smetkata.onovaza.com" }, IDENTITY]) {
       expect(await as(identity, getIdentity)).toBeNull();
       expect(await as(identity, getUserId)).toBeNull();
-      await expect(as(identity, requireUserId)).rejects.toThrow("Unauthenticated");
+      await expect(as(identity, requireUserId)).rejects.toThrow("Влез, за да продължиш.");
     }
   });
 });

@@ -12,6 +12,7 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
+import { dayLabel, mealTypeLabel } from "@/lib/labels";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -53,11 +54,11 @@ export function MealSelector({
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <SheetContent className="flex h-full w-full flex-col sm:max-w-[540px]">
         <SheetHeader className="px-6 pt-6 pb-0 mb-0">
-          <SheetTitle>Pick a recipe</SheetTitle>
+          <SheetTitle>Избери рецепта</SheetTitle>
           <SheetDescription>
             {currentDate && currentMealType
-              ? `Adding for ${currentMealType} on ${currentDate}`
-              : "Choose a recipe to add to your plan"}
+              ? `${mealTypeLabel(currentMealType)}, ${dayLabel(currentDate).toLowerCase()}`
+              : "Избери рецепта за плана"}
           </SheetDescription>
         </SheetHeader>
 
@@ -68,8 +69,8 @@ export function MealSelector({
               type="search"
               name="q"
               autoComplete="off"
-              aria-label="Search recipes"
-              placeholder="Search recipes…"
+              aria-label="Търси рецепти"
+              placeholder="Търси рецепти…"
               className="pl-8"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -82,7 +83,7 @@ export function MealSelector({
               checked={favoritesOnly}
               onCheckedChange={setFavoritesOnly}
             />
-            <Label htmlFor="favorites-mode">Favorites only</Label>
+            <Label htmlFor="favorites-mode">Само любими</Label>
           </div>
         </div>
 
@@ -90,11 +91,11 @@ export function MealSelector({
           {status === "LoadingFirstPage" ? (
             <div className="flex justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-              <span className="sr-only">Loading recipes…</span>
+              <span className="sr-only">Зареждам рецептите…</span>
             </div>
           ) : results.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              No recipes found.
+              Няма такива рецепти.
             </div>
           ) : (
             <div className="space-y-3 pb-4">
@@ -128,17 +129,17 @@ export function MealSelector({
                       {recipe.cookingTime && (
                         <span className="flex items-center gap-1">
                           <Clock className="h-3 w-3" />
-                          {recipe.cookingTime}&nbsp;min
+                          {recipe.cookingTime}&nbsp;мин
                         </span>
                       )}
                       {recipe.isFavorite && (
                         <span className="flex items-center gap-1 text-primary">
                           <Heart className="h-3 w-3 fill-current" />
-                          <span className="sr-only">Favorite</span>
+                          <span className="sr-only">Любима</span>
                         </span>
                       )}
                       {recipe.authorName && (
-                        <span className="truncate">by {recipe.authorName}</span>
+                        <span className="truncate">от {recipe.authorName}</span>
                       )}
                     </span>
                   </span>
@@ -155,7 +156,7 @@ export function MealSelector({
                   {isLoading ? (
                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
                   ) : null}
-                  Load more
+                  Покажи още
                 </Button>
               )}
             </div>

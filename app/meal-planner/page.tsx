@@ -55,6 +55,7 @@ import {
   useSensors,
 } from "@dnd-kit/core";
 import { cn, pluralize } from "@/lib/utils";
+import { dayLabel, mealTypeLabel } from "@/lib/labels";
 
 type PlannedMeal = Doc<"mealPlans"> & {
   recipeTitle?: string;
@@ -108,7 +109,7 @@ function DraggableMeal({
     });
   // Undefined when the recipe was made private by its author
   const unavailable = meal.recipeTitle === undefined;
-  const title = meal.recipeTitle ?? "unavailable recipe";
+  const title = meal.recipeTitle ?? "недостъпна рецепта";
 
   const style = transform
     ? {
@@ -136,7 +137,7 @@ function DraggableMeal({
           type="button"
           ref={setActivatorNodeRef}
           {...attributes}
-          aria-label={`Move ${title}`}
+          aria-label={`Премести ${title}`}
           className="relative h-9 w-9 shrink-0 overflow-hidden rounded bg-muted"
         >
           {meal.recipeImage && (
@@ -151,7 +152,7 @@ function DraggableMeal({
         </button>
         {unavailable ? (
           <span className="text-sm italic leading-tight text-muted-foreground line-clamp-2">
-            Recipe no longer available
+            Рецептата вече не е достъпна
           </span>
         ) : (
           <Link
@@ -167,7 +168,7 @@ function DraggableMeal({
           <button
             type="button"
             className="absolute right-1 top-1/2 grid size-6 -translate-y-1/2 place-items-center rounded text-muted-foreground hover:bg-muted hover:text-foreground md:opacity-0 md:group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
-            aria-label={`Options for ${title}`}
+            aria-label={`Действия за ${title}`}
           >
             <MoreHorizontal className="h-3.5 w-3.5" />
           </button>
@@ -177,12 +178,12 @@ function DraggableMeal({
           <DropdownMenuSub>
             <DropdownMenuSubTrigger>
               <CalendarArrowUp className="h-4 w-4" />
-              Move to
+              Премести в
             </DropdownMenuSubTrigger>
             <DropdownMenuSubContent>
               {WEEK_DAYS.filter((d) => d !== meal.date).map((d) => (
                 <DropdownMenuItem key={d} onSelect={() => onMove(meal, d)}>
-                  {d}
+                  {dayLabel(d)}
                 </DropdownMenuItem>
               ))}
             </DropdownMenuSubContent>
@@ -190,7 +191,7 @@ function DraggableMeal({
           <DropdownMenuSeparator />
           <DropdownMenuItem variant="destructive" onSelect={() => onRemove(meal)}>
             <Trash2 className="h-4 w-4" />
-            Remove
+            Махни
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -227,7 +228,7 @@ function MealSlot({
     >
       {showLabel && (
         <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          {mealType}
+          {mealTypeLabel(mealType)}
         </span>
       )}
       {meals.map((meal) => (
@@ -239,10 +240,10 @@ function MealSlot({
           "flex items-center justify-center gap-1 rounded-md border border-dashed py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-primary",
           meals.length > 0 && "border-transparent"
         )}
-        aria-label={`Add ${mealType.toLowerCase()} on ${day}`}
+        aria-label={`Добави ${mealTypeLabel(mealType).toLowerCase()} за ${dayLabel(day).toLowerCase()}`}
       >
         <Plus className="h-3.5 w-3.5" />
-        {meals.length === 0 && <span>Add</span>}
+        {meals.length === 0 && <span>Добави</span>}
       </button>
     </div>
   );
@@ -276,10 +277,10 @@ function DayTab({
         isOver && "ring-2 ring-primary"
       )}
       aria-pressed={isSelected}
-      aria-label={[day, isToday && "today", hasMeals && "has meals"].filter(Boolean).join(", ")}
+      aria-label={[dayLabel(day), isToday && "днес", hasMeals && "има ястия"].filter(Boolean).join(", ")}
     >
       <span className={cn(isToday && !isSelected && "text-primary")}>
-        {day.slice(0, 3)}
+        {dayLabel(day).slice(0, 3)}
       </span>
       <span
         className={cn(
@@ -303,7 +304,6 @@ const collisionDetection: CollisionDetection = (args) => {
 };
 
 export default function MealPlannerPage() {
-  // CHANGED: No arguments needed for getWeek
   const mealPlans = useQuery(api.mealPlans.getWeek, {});
 
   const addMeal = useMutation(api.mealPlans.add);
@@ -346,17 +346,17 @@ export default function MealPlannerPage() {
 
   // The meal may already be gone (removed in another tab) or its recipe made private
   const failed = (what: string) => () =>
-    toast.error(`Couldn’t ${what}. Refresh and try again.`);
+    toast.error(`Не успях да ${what}. Презареди и опитай пак.`);
 
   const handleRemove = async (meal: PlannedMeal) => {
     try {
       await removeMeal({ id: meal._id });
     } catch {
-      return failed("remove that meal")();
+      return failed("махна ястието")();
     }
-    toast.success(`Removed ${meal.recipeTitle ?? "meal"}`, {
+    toast.success(`Махнах ${meal.recipeTitle ?? "ястието"}`, {
       action: {
-        label: "Undo",
+        label: "Отмени",
         onClick: once(() =>
           addMeal({ date: meal.date, mealType: meal.mealType, recipeId: meal.recipeId }).catch(
             (error) =>
@@ -364,7 +364,7 @@ export default function MealPlannerPage() {
                 // e.g. "Your week is full"; otherwise the recipe went away
                 error instanceof ConvexError && typeof error.data === "string"
                   ? error.data
-                  : "That recipe is no longer available."
+                  : "Тази рецепта вече не е достъпна."
               )
           )
         ),
@@ -375,9 +375,9 @@ export default function MealPlannerPage() {
   const handleMove = async (meal: PlannedMeal, day: string) => {
     try {
       await moveMeal({ id: meal._id, date: day, mealType: meal.mealType });
-      toast.success(`Moved to ${day}`);
+      toast.success(`Преместено в ${dayLabel(day).toLowerCase()}`);
     } catch {
-      failed("move that meal")();
+      failed("преместя ястието")();
     }
   };
 
@@ -391,7 +391,7 @@ export default function MealPlannerPage() {
         });
         setIsAddDialogOpen(false);
       } catch {
-        failed("add that meal")();
+        failed("добавя ястието")();
       }
     }
   });
@@ -423,10 +423,10 @@ export default function MealPlannerPage() {
         mealType: mealType.toLowerCase(),
       });
     } catch {
-      return failed("move that meal")();
+      return failed("преместя ястието")();
     }
     if (overId.startsWith("tab:")) {
-      toast.success(`Moved to ${date}`);
+      toast.success(`Преместено в ${dayLabel(date).toLowerCase()}`);
     }
   };
 
@@ -455,7 +455,7 @@ export default function MealPlannerPage() {
           toast.info(result?.message ?? fallbackResult.message);
         } else if (fallbackResult) {
           toast.info(fallbackResult.message, {
-            description: "AI couldn’t suggest anything, so recipes were picked at random.",
+            description: "AI не предложи нищо, затова рецептите са избрани на случаен принцип.",
           });
         }
       }
@@ -469,12 +469,12 @@ export default function MealPlannerPage() {
           toast.info(fallbackResult.message);
         } else if (fallbackResult) {
           toast.info(fallbackResult.message, {
-            description: "AI planning isn’t available right now, so recipes were picked at random.",
+            description: "Планирането с AI не работи в момента, затова рецептите са избрани на случаен принцип.",
           });
         }
       } catch {
-        toast.error("Couldn’t fill the week", {
-          description: "Try again in a minute, or add meals one at a time.",
+        toast.error("Не успях да напълня седмицата", {
+          description: "Опитай пак след минута или добавяй ястията едно по едно.",
         });
       }
     } finally {
@@ -490,26 +490,26 @@ export default function MealPlannerPage() {
       ids = await addPlannedWeek({});
     } catch (error) {
       console.error("Failed to add the week to the shopping list:", error);
-      toast.error("Couldn’t add the week to your shopping list", {
+      toast.error("Не успях да добавя седмицата в списъка за пазаруване", {
         description:
           error instanceof ConvexError && typeof error.data === "string"
             ? error.data
-            : "Check your connection and try again.",
+            : "Провери връзката си и опитай пак.",
       });
       return;
     }
 
     if (ids.length === 0) {
-      toast.info("Plan some meals first to shop for them.");
+      toast.info("Първо планирай ястия, за да пазаруваш за тях.");
       return;
     }
 
     toast.success(
-      `Added ${pluralize(ids.length, "ingredient")} to your shopping list`,
+      `Добавих ${pluralize(ids.length, "съставка", "съставки")} в списъка за пазаруване`,
       {
         action: ids?.length
           ? {
-              label: "Undo",
+              label: "Отмени",
               onClick: once(() => removeBatchFromShoppingList({ ids })),
             }
           : undefined,
@@ -520,13 +520,13 @@ export default function MealPlannerPage() {
   const handleClearAll = async () => {
     await clearAll();
     setShowClearConfirmDialog(false);
-    toast.success("Meal plan cleared");
+    toast.success("Планът е изчистен");
   };
 
   return (
     <div className="container mx-auto px-4 pb-16 pt-6 md:pt-10">
       <div className="flex items-center justify-between gap-2 mb-6">
-        <h1 className="font-display text-3xl font-bold tracking-tight md:text-4xl">Meal planner</h1>
+        <h1 className="font-display text-3xl font-bold tracking-tight md:text-4xl">План за седмицата</h1>
 
         <div className="flex items-center gap-2">
           <Button
@@ -542,17 +542,17 @@ export default function MealPlannerPage() {
             )}
             {/* Icon-only on phones, but the text stays in the accessible name. */}
             <span className="sr-only sm:not-sr-only">
-              {isGenerating ? "Generating…" : "Magic fill"}
+              {isGenerating ? "Пълня…" : "Напълни седмицата"}
             </span>
           </Button>
           <Button size="sm" onClick={() => void handleAddToShoppingList()} disabled={isShopping}>
             <ShoppingCart className="h-4 w-4 sm:mr-2" />
-            <span className="sr-only sm:not-sr-only">Shop week</span>
+            <span className="sr-only sm:not-sr-only">Пазарувай за седмицата</span>
           </Button>
           {mealPlans && mealPlans.length > 0 && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="More actions">
+                <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Още действия">
                   <MoreHorizontal className="h-5 w-5" />
                 </Button>
               </DropdownMenuTrigger>
@@ -562,7 +562,7 @@ export default function MealPlannerPage() {
                   onSelect={() => setShowClearConfirmDialog(true)}
                 >
                   <Trash2 className="h-4 w-4" />
-                  Clear meal plan
+                  Изчисти плана
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -581,15 +581,15 @@ export default function MealPlannerPage() {
           {isDesktop ? (
             <div className="rounded-lg border">
               <table className="w-full table-fixed border-collapse">
-                <caption className="sr-only">Meals planned this week</caption>
+                <caption className="sr-only">Ястията, планирани за седмицата</caption>
                 <thead className="border-b bg-muted/40 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   <tr>
                     <th scope="col" className="w-32 px-3 py-2">
-                      <span className="sr-only">Day</span>
+                      <span className="sr-only">Ден</span>
                     </th>
                     {MEAL_TYPES.map((type) => (
                       <th key={type} scope="col" className="px-3 py-2 font-semibold">
-                        {type}
+                        {mealTypeLabel(type)}
                       </th>
                     ))}
                   </tr>
@@ -604,11 +604,11 @@ export default function MealPlannerPage() {
                           day === today && "text-primary"
                         )}
                       >
-                        {day}
+                        {dayLabel(day)}
                         {day === today && (
                           <span className="block text-xs font-normal text-muted-foreground">
                             <span className="sr-only">, </span>
-                            Today
+                            Днес
                           </span>
                         )}
                       </th>
@@ -644,10 +644,10 @@ export default function MealPlannerPage() {
                 ))}
               </div>
               <h2 className="text-lg font-semibold">
-                {mobileDay}
+                {dayLabel(mobileDay)}
                 {mobileDay === today && (
                   <span className="ml-2 text-sm font-normal text-muted-foreground">
-                    Today
+                    Днес
                   </span>
                 )}
               </h2>
@@ -666,7 +666,7 @@ export default function MealPlannerPage() {
                 ))}
               </div>
               <p className="text-xs text-muted-foreground">
-                Tip: drag a meal onto another day, or use its ⋯ menu, to move it.
+                Съвет: за да преместиш ястие, го влачи върху друг ден или ползвай менюто му ⋯.
               </p>
             </div>
           )}
@@ -687,19 +687,18 @@ export default function MealPlannerPage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Clear the meal plan?</AlertDialogTitle>
+            <AlertDialogTitle>Да изчистя ли плана?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will remove all meals from your weekly plan. This action
-              cannot be undone.
+              Всички ястия от плана за седмицата ще се махнат. Не може да се върне.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>Отказ</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleClearAll}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Clear
+              Изчисти
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -711,15 +710,15 @@ export default function MealPlannerPage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Fill the week automatically?</AlertDialogTitle>
+            <AlertDialogTitle>Да напълня ли седмицата?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will use AI to intelligently fill empty slots with varied recipes from your collection and public recipes. Continue?
+              AI ще попълни празните места с разнообразни рецепти от твоите и от публичните. Продължаваме ли?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isGenerating}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={isGenerating}>Отказ</AlertDialogCancel>
             <AlertDialogAction onClick={confirmAutoGenerate} disabled={isGenerating}>
-              Generate
+              Напълни
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

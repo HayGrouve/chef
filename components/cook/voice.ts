@@ -43,17 +43,29 @@ function getRecognitionCtor(): RecognitionCtor | null {
 
 export type VoiceCommand = "next" | "back" | "repeat" | "timer" | "ingredients" | "stop";
 
-/** Maps a heard phrase to a command. Order matters: "stop listening" wins. */
+/**
+ * Maps a heard phrase to a command, in Bulgarian or English. Order matters:
+ * "спри да слушаш" wins.
+ */
 export function parseCommand(phrase: string): VoiceCommand | null {
-  const p = ` ${phrase.toLowerCase().replace(/[^\p{L}\s]/gu, " ")} `;
+  const p = ` ${phrase.toLowerCase().replace(/[^\p{L}\s]/gu, " ").replace(/\s+/g, " ")} `;
   const has = (...words: string[]) => words.some((w) => p.includes(` ${w} `));
-  if (has("stop listening", "stop voice")) return "stop";
-  if (has("timer", "start timer")) return "timer";
-  if (has("ingredients", "ingredient")) return "ingredients";
-  if (has("next", "forward", "continue")) return "next";
-  if (has("back", "previous", "go back")) return "back";
-  if (has("repeat", "read", "again", "say again")) return "repeat";
+  if (has("спри да слушаш", "спри слушането", "спри гласа", "stop listening", "stop voice")) return "stop";
+  if (has("таймер", "таймера", "засечи", "timer", "start timer")) return "timer";
+  if (has("съставки", "съставките", "продукти", "продуктите", "ingredients", "ingredient")) return "ingredients";
+  if (has("напред", "следваща", "следващата", "следващ", "нататък", "продължи", "next", "forward", "continue")) return "next";
+  if (has("назад", "предишна", "предишната", "върни", "back", "previous", "go back")) return "back";
+  if (has("повтори", "прочети", "отново", "пак", "repeat", "read", "again", "say again")) return "repeat";
   return null;
+}
+
+/**
+ * The language to listen in: Bulgarian when the browser lists it at all (the
+ * UI is Bulgarian), otherwise the browser's own language. English commands
+ * work either way.
+ */
+export function recognitionLang(languages: readonly string[], fallback: string) {
+  return languages.some((l) => l.toLowerCase().startsWith("bg")) ? "bg-BG" : fallback || "bg-BG";
 }
 
 const noopSubscribe = () => () => undefined;
@@ -93,7 +105,7 @@ export function useVoiceCommands(
     const recognition = new Ctor();
     recognition.continuous = true;
     recognition.interimResults = false;
-    recognition.lang = navigator.language || "en-US";
+    recognition.lang = recognitionLang(navigator.languages ?? [], navigator.language);
 
     recognition.onresult = (event) => {
       if (window.speechSynthesis?.speaking) return;
@@ -110,10 +122,10 @@ export function useVoiceCommands(
     recognition.onerror = (event) => {
       if (event.error === "not-allowed" || event.error === "service-not-allowed") {
         active = false;
-        fatalRef.current("Microphone access was blocked");
+        fatalRef.current("Достъпът до микрофона е спрян");
       } else if (event.error === "audio-capture") {
         active = false;
-        fatalRef.current("No microphone found");
+        fatalRef.current("Няма микрофон");
       }
       // "no-speech" / "network" / "aborted": onend restarts
     };
@@ -131,7 +143,7 @@ export function useVoiceCommands(
     try {
       recognition.start();
     } catch {
-      fatalRef.current("Couldn't start voice control");
+      fatalRef.current("Гласовото управление не тръгна");
     }
 
     return () => {
@@ -145,10 +157,18 @@ export function useVoiceCommands(
   return { lastHeard: enabled ? lastHeard : null };
 }
 
-export function speak(text: string) {
+/**
+ * Reads the parts aloud one after another, each in its own language: the app
+ * speaks Bulgarian, a recipe keeps its own (Cyrillic reads as Bulgarian, the
+ * rest as English).
+ */
+export function speak(...parts: string[]) {
   if (typeof window === "undefined" || !window.speechSynthesis) return;
   window.speechSynthesis.cancel();
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.rate = 0.95;
-  window.speechSynthesis.speak(utterance);
+  for (const text of parts.filter(Boolean)) {
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = /\p{Script=Cyrillic}/u.test(text) ? "bg-BG" : "en-US";
+    utterance.rate = 0.95;
+    window.speechSynthesis.speak(utterance);
+  }
 }

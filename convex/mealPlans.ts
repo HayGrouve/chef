@@ -13,7 +13,7 @@ export const MAX_PLANNED_MEALS = 100;
 export function validSlot(date: string, mealType: string) {
   const type = mealType.toLowerCase();
   if (!DAYS.includes(date) || !MEAL_TYPES.includes(type)) {
-    throw new Error("Invalid meal slot");
+    throw new ConvexError("Няма такова място в плана.");
   }
   return { date, mealType: type };
 }
@@ -68,11 +68,11 @@ export const add = mutation({
       .withIndex("by_user_date", (q) => q.eq("userId", userId))
       .take(MAX_PLANNED_MEALS);
     if (planned.length >= MAX_PLANNED_MEALS) {
-      throw new ConvexError("Your week is full. Remove some meals first.");
+      throw new ConvexError("Седмицата ти е пълна. Първо махни някои ястия.");
     }
     const recipe = await ctx.db.get(args.recipeId);
     if (!canReadRecipe(recipe, userId)) {
-      throw new Error("Recipe not found");
+      throw new ConvexError("Няма такава рецепта.");
     }
     return await ctx.db.insert("mealPlans", {
       userId,
@@ -93,7 +93,7 @@ export const move = mutation({
     const userId = await requireUserId(ctx);
     const meal = await ctx.db.get(args.id);
     if (!meal || meal.userId !== userId) {
-      throw new Error("Unauthorized");
+      throw new ConvexError("Това не е в твоя план.");
     }
 
     await ctx.db.patch(args.id, validSlot(args.date, args.mealType));
@@ -110,7 +110,7 @@ export const autoGenerate = mutation({
     if (recipes.length === 0) {
       return {
         count: 0,
-        message: "No recipes found. Create one or wait for public recipes!",
+        message: "Няма рецепти. Напиши своя или изчакай публични.",
       };
     }
 
@@ -159,12 +159,12 @@ export const autoGenerate = mutation({
     }
 
     if (newPlans.length === 0) {
-      return { count: 0, message: "Your week is already fully planned!" };
+      return { count: 0, message: "Седмицата ти вече е планирана." };
     }
     // Empty slots can remain when other slots hold several meals each
     const room = MAX_PLANNED_MEALS - existingPlans.length;
     if (room <= 0) {
-      return { count: 0, message: "Your week is full. Remove some meals first." };
+      return { count: 0, message: "Седмицата ти е пълна. Първо махни някои ястия." };
     }
     newPlans.splice(room);
 
@@ -172,7 +172,7 @@ export const autoGenerate = mutation({
 
     return {
       count: newPlans.length,
-      message: `Generated ${newPlans.length} meals!`,
+      message: newPlans.length === 1 ? "Добавих 1 ястие в плана." : `Добавих ${newPlans.length} ястия в плана.`,
     };
   },
 });
@@ -183,7 +183,7 @@ export const remove = mutation({
     const userId = await requireUserId(ctx);
     const meal = await ctx.db.get(args.id);
     if (!meal || meal.userId !== userId) {
-      throw new Error("Unauthorized");
+      throw new ConvexError("Това не е в твоя план.");
     }
     await ctx.db.delete(args.id);
   },
