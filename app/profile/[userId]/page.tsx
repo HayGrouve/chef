@@ -3,7 +3,7 @@
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, User as UserIcon, Edit } from "lucide-react";
+import { ArrowLeft, User as UserIcon, Settings } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { useParams } from "next/navigation";
@@ -59,7 +59,7 @@ export default function PublicProfilePage() {
         {isOwnProfile && (
           <Button asChild variant="outline">
             <Link href="/profile/edit">
-              <Edit className="w-4 h-4 mr-2" /> Edit profile
+              <Settings className="w-4 h-4 mr-2" /> Настройки
             </Link>
           </Button>
         )}

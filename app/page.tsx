@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { Suspense, useState, useEffect, useCallback, useMemo } from "react";
 import {
   Authenticated,
   Unauthenticated,
@@ -32,7 +32,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LikeButton } from "@/components/ui/like-button";
-import { InstallDialog } from "@/components/install-dialog";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { RecipeFilters, MAX_TIME_ANY } from "@/components/RecipeFilters";
 import { useDebounce } from "@/hooks/use-debounce";
@@ -85,10 +84,6 @@ function HomeContent() {
   const updateUrl = useCallback(() => {
     const currentQueryString = searchParams.toString();
     const params = new URLSearchParams(currentQueryString);
-    // One-shot flag from sign-up/sign-in; handled below. Dropping it here too
-    // keeps this replace and that one from putting it back for each other.
-    params.delete("welcome");
-
     if (debouncedSearch) params.set("q", debouncedSearch);
     else params.delete("q");
 
@@ -135,33 +130,6 @@ function HomeContent() {
     setFavoritesOnly(false);
     setMyRecipesOnly(false);
   };
-
-  // PWA Install Prompt Logic
-  const [showInstallDialog, setShowInstallDialog] = useState(false);
-  const [isIOS, setIsIOS] = useState(false);
-
-  // Offer the install prompt once after signing up or in (?welcome=true),
-  // then drop the flag from the address bar.
-  const welcomeHandled = useRef(false);
-  useEffect(() => {
-    if (welcomeHandled.current || !searchParams.get("welcome")) return;
-    welcomeHandled.current = true;
-    const isIosDevice = /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
-    // After the sign-in redirect has settled: a replace issued while it's
-    // still committing gets overwritten by it
-    setTimeout(() => {
-      setIsIOS(isIosDevice);
-      if (!localStorage.getItem("hasSeenInstallPrompt")) {
-        setShowInstallDialog(true);
-        localStorage.setItem("hasSeenInstallPrompt", "true");
-      }
-      const url = new URL(window.location.href);
-      if (url.searchParams.has("welcome")) {
-        url.searchParams.delete("welcome");
-        router.replace(`${url.pathname}${url.search}`, { scroll: false });
-      }
-    }, 0);
-  }, [searchParams, router]);
 
   const { results, status, loadMore, isLoading } = usePaginatedQuery(
     api.recipes.list,
@@ -219,7 +187,7 @@ function HomeContent() {
   return (
     <div className="container mx-auto px-4 pb-16 pt-6 md:pt-10">
       <Unauthenticated>
-        <SignUpBanner />
+        <SignInBanner />
       </Unauthenticated>
 
       <div className="max-w-3xl">
@@ -351,15 +319,6 @@ function HomeContent() {
           </Button>
         </div>
       )}
-
-      <InstallDialog
-        open={showInstallDialog}
-        onOpenChange={setShowInstallDialog}
-        isIOS={isIOS}
-        onInstall={() => {
-          setShowInstallDialog(false);
-        }}
-      />
     </div>
   );
 }
@@ -539,10 +498,13 @@ function PantryResults({ terms }: { terms: string[] }) {
   if (!isAuthenticated) {
     return (
       <p className="mt-10 text-muted-foreground">
-        <Link href="/sign-in" className="font-medium text-foreground underline underline-offset-4">
-          Sign in
-        </Link>{" "}
-        to search by the ingredients you have.
+        Searching by the ingredients you have needs an account.{" "}
+        <Link
+          href={`/sign-in?redirect_url=${encodeURIComponent(`/?q=${terms.join(", ")}`)}`}
+          className="font-medium text-foreground underline underline-offset-4"
+        >
+          Вход
+        </Link>
       </p>
     );
   }
@@ -688,7 +650,7 @@ function FilterChip({ label, onRemove }: { label: string; onRemove: () => void }
 
 const BANNER_DISMISSED_KEY = "signUpBannerDismissed";
 
-function SignUpBanner() {
+function SignInBanner() {
   const [dismissed, setDismissed] = useState(true);
 
   useEffect(() => {
@@ -707,11 +669,11 @@ function SignUpBanner() {
       <p className="flex-1">
         <span className="font-medium">Browsing for free.</span>{" "}
         <span className="text-muted-foreground">
-          Sign up to save favorites and share your own recipes.
+          Sign in to save favorites and share your own recipes.
         </span>
       </p>
       <Button asChild size="sm">
-        <Link href="/sign-up">Sign up</Link>
+        <Link href="/sign-in">Вход</Link>
       </Button>
       <button
         onClick={() => {
@@ -719,7 +681,7 @@ function SignUpBanner() {
           setDismissed(true);
         }}
         className="-m-1.5 rounded-full p-1.5 text-muted-foreground hover:bg-foreground/10 hover:text-foreground"
-        aria-label="Dismiss sign-up banner"
+        aria-label="Dismiss sign-in banner"
       >
         <X className="h-4 w-4" />
       </button>
