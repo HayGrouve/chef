@@ -3,6 +3,15 @@ import { internalMutation, MutationCtx } from "./_generated/server";
 
 export type Quota = { limit: number; windowMs: number };
 
+/**
+ * What a caller sees when a limit stops them. The UI reads the seconds back
+ * out of it for a countdown (components/import/lib.ts `rateLimitSeconds`).
+ */
+export function rateLimitMessage(retryAfterMs: number) {
+  const seconds = Math.max(1, Math.ceil(retryAfterMs / 1000));
+  return `Твърде често. Изчакай ${seconds} ${seconds === 1 ? "секунда" : "секунди"}.`;
+}
+
 const MINUTE = 60 * 1000;
 
 /** Background ingredient tagging (one Gemini call per recipe save). */

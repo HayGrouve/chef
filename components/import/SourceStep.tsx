@@ -53,13 +53,13 @@ export function SourceStep(props: Props) {
         <Tabs value={tab} onValueChange={(v) => onTabChange(v as SourceKind)}>
           <TabsList className="grid h-10 w-full grid-cols-3">
             <TabsTrigger value="link" className="gap-1.5">
-              <Link2 className="h-4 w-4" /> Link
+              <Link2 className="h-4 w-4" /> Линк
             </TabsTrigger>
             <TabsTrigger value="text" className="gap-1.5">
-              <TextQuote className="h-4 w-4" /> Text
+              <TextQuote className="h-4 w-4" /> Текст
             </TabsTrigger>
             <TabsTrigger value="photo" className="gap-1.5">
-              <Camera className="h-4 w-4" /> Photo
+              <Camera className="h-4 w-4" /> Снимка
             </TabsTrigger>
           </TabsList>
 
@@ -76,9 +76,9 @@ export function SourceStep(props: Props) {
       </div>
 
       <p className="text-center text-sm text-muted-foreground">
-        Nothing to import?{" "}
+        Нямаш откъде?{" "}
         <Link href="/create" className="font-medium text-foreground underline-offset-4 hover:underline">
-          Type it manually
+          Напиши я сам
         </Link>
       </p>
     </div>
@@ -110,7 +110,7 @@ function LinkSource({ url, onUrlChange, onTextChange, onTabChange, onTextContext
         // Not a link, but it could be the recipe itself
         onTextChange(clip);
         onTabChange("text");
-        toast("That looked like recipe text, so it’s in the Text tab.");
+        toast("Това прилича на текст на рецепта, затова е в „Текст“.");
       } else {
         onUrlChange(clip);
       }
@@ -147,7 +147,7 @@ function LinkSource({ url, onUrlChange, onTextChange, onTabChange, onTextContext
             onUrlChange(e.target.value);
           }}
           placeholder="https://…"
-          aria-label="Recipe link"
+          aria-label="Линк към рецептата"
           aria-invalid={empty || undefined}
           aria-describedby={empty ? "link-empty" : undefined}
           className="h-10"
@@ -157,19 +157,19 @@ function LinkSource({ url, onUrlChange, onTextChange, onTabChange, onTextContext
           variant="outline"
           className="h-10 shrink-0"
           onClick={pasteFromClipboard}
-          aria-label="Paste link"
+          aria-label="Постави линк"
         >
           <ClipboardPaste className="h-4 w-4" />
-          <span className="hidden sm:inline">Paste</span>
+          <span className="hidden sm:inline">Постави</span>
         </Button>
       </div>
       {empty && (
         <p id="link-empty" className="text-sm text-destructive">
-          Paste a link to a recipe first.
+          Първо постави линк към рецепта.
         </p>
       )}
       <p className="text-xs text-muted-foreground">
-        Works with most recipe sites. Instagram and TikTok links work when the caption has the recipe.
+        Става с повечето сайтове за рецепти. Линкове от Instagram и TikTok стават, когато рецептата е в описанието.
       </p>
 
       {linkError && (
@@ -184,14 +184,14 @@ function LinkSource({ url, onUrlChange, onTextChange, onTabChange, onTextContext
                 onTabChange("text");
               }}
             >
-              <TextQuote className="h-4 w-4" /> Paste the text instead
+              <TextQuote className="h-4 w-4" /> Постави текста
             </Button>
           )}
         </ErrorCallout>
       )}
 
       <Button type="submit" className="w-full">
-        Import <ArrowRight className="h-4 w-4" />
+        Добави <ArrowRight className="h-4 w-4" />
       </Button>
     </form>
   );
@@ -219,7 +219,7 @@ function TextSource({ text, onTextChange, textContextUrl, onTextContextUrlChange
       {textContextUrl && (
         <div className="flex items-start gap-2 rounded-lg bg-muted/60 p-3 text-sm">
           <p className="min-w-0 flex-1">
-            Open{" "}
+            Отвори{" "}
             <a
               href={textContextUrl}
               target="_blank"
@@ -228,11 +228,11 @@ function TextSource({ text, onTextChange, textContextUrl, onTextContextUrlChange
             >
               {hostname(textContextUrl)} <ExternalLink className="h-3 w-3" />
             </a>
-            , copy the ingredients and method, and paste them below.
+            , копирай съставките и стъпките и ги постави отдолу.
           </p>
           <button
             type="button"
-            aria-label="Dismiss this tip"
+            aria-label="Скрий съвета"
             className="-m-1 rounded-full p-1 text-muted-foreground hover:bg-foreground/10 hover:text-foreground"
             onClick={() => onTextContextUrlChange(null)}
           >
@@ -249,19 +249,19 @@ function TextSource({ text, onTextChange, textContextUrl, onTextContextUrlChange
           setEmpty(false);
           onTextChange(e.target.value);
         }}
-        placeholder="Paste a recipe from a message, note or caption…"
-        aria-label="Recipe text"
+        placeholder="Постави рецепта от съобщение, бележка или описание…"
+        aria-label="Текст на рецептата"
         aria-invalid={empty || undefined}
         aria-describedby={empty ? "text-empty" : undefined}
         className="min-h-44 max-h-[50vh]"
       />
       {empty && (
         <p id="text-empty" className="text-sm text-destructive">
-          Paste the recipe text first, or try the example.
+          Първо постави текста на рецептата или пробвай примера.
         </p>
       )}
       <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-        <span>AI sorts it into ingredients and steps.</span>
+        <span>AI го подрежда на съставки и стъпки.</span>
         {!text.trim() && (
           <button
             type="button"
@@ -272,14 +272,14 @@ function TextSource({ text, onTextChange, textContextUrl, onTextContextUrlChange
               onTextChange(EXAMPLE_CAPTION);
             }}
           >
-            Try an example
+            Пробвай пример
           </button>
         )}
       </div>
 
       {textError && <ErrorCallout message={textError.message} />}
 
-      <ImportButton wait={wait} label="Read recipe" />
+      <ImportButton wait={wait} label="Прочети рецептата" />
     </form>
   );
 }
@@ -296,7 +296,7 @@ function PhotoSource({ photo, onPhotoChange, error, cooldown, onImport }: Props)
   const pick = (file: File | undefined) => {
     if (!file) return;
     if (!file.type.startsWith("image/")) {
-      toast.error("That isn’t an image. Choose a photo instead.");
+      toast.error("Това не е снимка. Избери снимка.");
       return;
     }
     onPhotoChange(file);
@@ -335,17 +335,17 @@ function PhotoSource({ photo, onPhotoChange, error, cooldown, onImport }: Props)
       {photo ? (
         <div className="relative overflow-hidden rounded-lg border bg-muted/40">
           {/* eslint-disable-next-line @next/next/no-img-element -- local blob preview */}
-          <img src={photo.previewUrl} alt="Selected recipe photo" className="mx-auto h-80 w-full object-contain" />
+          <img src={photo.previewUrl} alt="Избраната снимка на рецепта" className="mx-auto h-80 w-full object-contain" />
           <div className="absolute right-2 top-2 flex gap-2">
             <Button type="button" size="sm" variant="secondary" onClick={() => libraryRef.current?.click()}>
-              Change
+              Смени
             </Button>
             <Button
               type="button"
               size="icon"
               variant="secondary"
               className="h-8 w-8"
-              aria-label="Remove photo"
+              aria-label="Махни снимката"
               onClick={() => onPhotoChange(null)}
             >
               <X className="h-4 w-4" />
@@ -372,23 +372,23 @@ function PhotoSource({ photo, onPhotoChange, error, cooldown, onImport }: Props)
           )}
         >
           <ImageIcon className="h-9 w-9 text-muted-foreground" />
-          <span className="font-medium">Choose a photo</span>
+          <span className="font-medium">Избери снимка</span>
           <span className="text-xs text-muted-foreground">
-            A cookbook page, a handwritten card or a screenshot
-            <span className="hidden md:inline"> · or drop it here</span>
+            Страница от готварска книга, рецепта на ръка или скрийншот
+            <span className="hidden md:inline"> · или я пусни тук</span>
           </span>
         </button>
       )}
 
       {!photo && (
         <Button type="button" variant="outline" className="w-full md:hidden" onClick={() => cameraRef.current?.click()}>
-          <Camera className="h-4 w-4" /> Take a photo
+          <Camera className="h-4 w-4" /> Снимай
         </Button>
       )}
 
       {photoError && <ErrorCallout message={photoError.message} />}
 
-      {photo && <ImportButton wait={wait} label="Read recipe" />}
+      {photo && <ImportButton wait={wait} label="Прочети рецептата" />}
     </form>
   );
 }
@@ -402,7 +402,7 @@ function ImportButton({ wait, label }: { wait: number; label: string }) {
       <Button type="submit" className="w-full" disabled={wait > 0}>
         {wait > 0 ? (
           <>
-            <Timer className="h-4 w-4" /> Ready again in {wait}s
+            <Timer className="h-4 w-4" /> Отново след {wait} с
           </>
         ) : (
           <>
@@ -412,7 +412,7 @@ function ImportButton({ wait, label }: { wait: number; label: string }) {
       </Button>
       {wait > 0 && (
         <p className="text-center text-xs text-muted-foreground">
-          AI reading is limited to one recipe every 30 seconds.
+          AI чете по една рецепта на 30 секунди.
         </p>
       )}
     </div>

@@ -151,7 +151,7 @@ export function SmartImport({ initialUrl, initialText }: { initialUrl?: string; 
         startCooldown(kind, wait * 1000);
         message =
           kind === "link"
-            ? `This page needs AI to read it, and AI can read one recipe every 30 seconds. Try again in ${wait}s.`
+            ? `Тази страница се чете с AI, а AI чете по една рецепта на 30 секунди. Опитай пак след ${wait} с.`
             : "";
       }
       setError(message ? { kind, message } : null);
@@ -169,8 +169,8 @@ export function SmartImport({ initialUrl, initialText }: { initialUrl?: string; 
     const discarded = phase.editor;
     setPhase({ name: "source" });
     window.scrollTo({ top: 0 });
-    toast("Draft discarded", {
-      action: { label: "Undo", onClick: () => setPhase({ name: "review", editor: discarded }) },
+    toast("Черновата е изхвърлена", {
+      action: { label: "Отмени", onClick: () => setPhase({ name: "review", editor: discarded }) },
     });
   };
 
@@ -184,12 +184,12 @@ export function SmartImport({ initialUrl, initialText }: { initialUrl?: string; 
     <div className="space-y-6">
       <header>
         <h1 className="font-display text-3xl font-bold tracking-tight md:text-4xl">
-          {phase.name === "review" ? "Check the recipe" : "Import a recipe"}
+          {phase.name === "review" ? "Провери рецептата" : "Добави от линк или снимка"}
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
           {phase.name === "review"
-            ? "Fix anything that looks off, then save it to your cookbook."
-            : "Paste a link, some text or a photo. You’ll review everything before it’s saved."}
+            ? "Поправи каквото не е наред и я запази в готварската си книга."
+            : "Постави линк, текст или снимка. Ще прегледаш всичко, преди да се запази."}
         </p>
       </header>
 

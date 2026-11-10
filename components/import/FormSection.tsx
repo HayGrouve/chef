@@ -49,7 +49,7 @@ export function FormSection({
         <h2 className="font-semibold leading-7">
           {meta.title}
           {meta.status === "optional" && (
-            <span className="ml-2 text-xs font-normal text-muted-foreground">Optional</span>
+            <span className="ml-2 text-xs font-normal text-muted-foreground">По желание</span>
           )}
         </h2>
         <p className="text-sm text-muted-foreground">

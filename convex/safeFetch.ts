@@ -74,7 +74,7 @@ async function readBody(response: http.IncomingMessage, maxBytes: number) {
     total += chunk.length;
     if (total > maxBytes) {
       response.destroy();
-      throw new ConvexError("That page is too large to import.");
+      throw new ConvexError("Страницата е твърде голяма.");
     }
     chunks.push(chunk);
   }
@@ -97,19 +97,19 @@ export const fetchPublic = internalAction({
         const location = response.headers.location;
         if (status >= 300 && status < 400 && location) {
           response.resume(); // discard the redirect body
-          if (hop >= MAX_REDIRECTS) throw new ConvexError("That link redirects too many times.");
+          if (hop >= MAX_REDIRECTS) throw new ConvexError("Линкът пренасочва твърде много пъти.");
           target = parsePublicUrl(new URL(location, target).toString());
           continue;
         }
         if (status < 200 || status >= 300) {
           response.resume();
           throw new ConvexError(
-            `The site refused the request (HTTP ${status}). Try copying the recipe text instead.`
+            `Сайтът отказа (HTTP ${status}). Копирай текста на рецептата и го постави.`
           );
         }
         if (Number(response.headers["content-length"] ?? 0) > args.maxBytes) {
           response.destroy();
-          throw new ConvexError("That page is too large to import.");
+          throw new ConvexError("Страницата е твърде голяма.");
         }
         return {
           bytes: await readBody(response, args.maxBytes),
@@ -119,8 +119,8 @@ export const fetchPublic = internalAction({
       }
     } catch (error) {
       if (error instanceof ConvexError) throw error;
-      if (error instanceof BlockedHostError) throw new ConvexError("That link can't be imported.");
-      throw new ConvexError("Couldn't reach that page. Check the link or paste the recipe text instead.");
+      if (error instanceof BlockedHostError) throw new ConvexError("От този линк не може да се добавя.");
+      throw new ConvexError("Не успях да отворя страницата. Провери линка или постави текста на рецептата.");
     } finally {
       clearTimeout(timer);
     }

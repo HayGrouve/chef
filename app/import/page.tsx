@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import { SmartImport } from "@/components/import/SmartImport";
 
 export const metadata: Metadata = {
-  title: "Import a recipe",
+  title: "Добави рецепта от линк или снимка",
 };
 
 export default async function ImportPage({
