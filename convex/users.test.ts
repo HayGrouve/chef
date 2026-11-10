@@ -35,3 +35,45 @@ test("store finds the profile by subject and adds no second row", async () => {
   expect(rows).toHaveLength(1);
   expect(rows[0].name).toBe("Мария");
 });
+
+test("store says created only on the call that inserts the profile", async () => {
+  const t = convexTest(schema, modules);
+  const me = t.withIdentity({ subject: "user_new", name: "Нова" });
+  expect(await me.mutation(api.users.store, {})).toMatchObject({ created: true });
+  expect(await me.mutation(api.users.store, {})).toMatchObject({ created: false });
+  expect(await t.mutation(api.users.store, {})).toBeNull();
+});
+
+test("store on an existing profile is not a new chef", async () => {
+  const { me } = await setup();
+  expect(await me.mutation(api.users.store, {})).toMatchObject({ created: false });
+});
+
+// Under `customJwt` the Clerk picture arrives as the raw `picture` claim
+test("store takes the avatar from the picture claim on a new profile", async () => {
+  const t = convexTest(schema, modules);
+  const me = t.withIdentity({
+    subject: "user_n",
+    name: "Нина",
+    picture: "https://img.clerk.com/nina",
+  });
+  await me.mutation(api.users.store, {});
+  expect((await me.query(api.users.getMe, {}))?.avatarUrl).toBe("https://img.clerk.com/nina");
+});
+
+test("store follows a new Clerk picture but keeps an avatar of your own", async () => {
+  const { t } = await setup();
+  const withPicture = (picture: string) =>
+    t.withIdentity({ subject: "user_m", tokenIdentifier: "https://new-issuer|user_m", picture });
+
+  await withPicture("https://img.clerk.com/one").mutation(api.users.store, {});
+  await withPicture("https://img.clerk.com/two").mutation(api.users.store, {});
+  expect((await withPicture("https://img.clerk.com/two").query(api.users.getMe, {}))?.avatarUrl).toBe(
+    "https://img.clerk.com/two"
+  );
+
+  const me = withPicture("https://img.clerk.com/three");
+  await me.mutation(api.users.update, { bio: "", avatarUrl: "https://example.com/me.png" });
+  await me.mutation(api.users.store, {});
+  expect((await me.query(api.users.getMe, {}))?.avatarUrl).toBe("https://example.com/me.png");
+});

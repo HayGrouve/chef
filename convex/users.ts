@@ -1,4 +1,5 @@
 import { v, ConvexError } from "convex/values";
+import type { UserIdentity } from "convex/server";
 import { mutation, query, type QueryCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { getIdentity, getUserId, requireUserId } from "./lib/auth";
@@ -20,6 +21,14 @@ function isClerkImage(url: string) {
   } catch {
     return false;
   }
+}
+
+/**
+ * The Clerk profile picture from the token's `picture` claim. Under
+ * `customJwt` claims arrive under their own names, untyped.
+ */
+function tokenPicture(identity: UserIdentity) {
+  return typeof identity.picture === "string" ? identity.picture : undefined;
 }
 
 /** The profile row of a Clerk user, found by `subject` (stored as `userId`). */
@@ -85,12 +94,17 @@ export const update = mutation({
   },
 });
 
+/**
+ * Syncs the signed-in user's profile from their token. `created` is true only
+ * on the call that inserts the profile, so the client can welcome a new chef
+ * once (the install prompt).
+ */
 export const store = mutation({
   args: {},
   handler: async (ctx) => {
     const identity = await getIdentity(ctx);
     if (!identity) {
-      return;
+      return null;
     }
     const userId = identity.subject;
     const user = await findUser(ctx, userId);
@@ -99,7 +113,7 @@ export const store = mutation({
       // Keep an avatar the user set on their profile; only follow the
       // Clerk picture while they haven't chosen their own.
       const usesClerkAvatar = !user.avatarUrl || isClerkImage(user.avatarUrl);
-      const avatarUrl = usesClerkAvatar ? identity.pictureUrl : user.avatarUrl;
+      const avatarUrl = usesClerkAvatar ? tokenPicture(identity) : user.avatarUrl;
       // A token without a name (an email code sign-in) never renames anyone;
       // names change on /akaunt and arrive with the next token.
       const name = nextSyncedAuthName(user.name, identity.name);
@@ -115,7 +129,7 @@ export const store = mutation({
           name,
         });
       }
-      return user._id;
+      return { userId: user._id, created: false };
     }
 
     // Clerk accounts don't always have a name (e.g. email-only sign-up). The
@@ -128,11 +142,12 @@ export const store = mutation({
     });
     // Email is not stored. `tokenIdentifier` is still written until the
     // retirement cleanup drops it; rows are found by `userId`.
-    return await ctx.db.insert("users", {
+    const id = await ctx.db.insert("users", {
       name,
       tokenIdentifier: identity.tokenIdentifier,
       userId,
-      avatarUrl: identity.pictureUrl,
+      avatarUrl: tokenPicture(identity),
     });
+    return { userId: id, created: true };
   },
 });

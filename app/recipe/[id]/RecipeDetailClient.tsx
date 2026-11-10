@@ -286,7 +286,7 @@ function RecipeDetailContent() {
             <Button asChild size="lg">
               <Link href={`/sign-in?redirect_url=${encodeURIComponent(`${pathname}/cook`)}`}>
                 <Play />
-                Sign in to cook
+                Вход
               </Link>
             </Button>
           </Unauthenticated>

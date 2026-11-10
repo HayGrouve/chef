@@ -4,14 +4,14 @@
 // search box), Plan and Shop. Phones get the same three in a bottom tab bar.
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Link2, LogIn, PenLine, Plus, Search } from "lucide-react";
+import { Link2, LogIn, LogOut, PenLine, Plus, Search, UserRound } from "lucide-react";
 import {
   Authenticated,
   Unauthenticated,
   AuthLoading,
   useQuery,
 } from "convex/react";
-import { UserButton } from "@clerk/nextjs";
+import { useClerk, useUser } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ModeToggle } from "@/components/ui/mode-toggle";
@@ -97,36 +97,59 @@ export function Navbar() {
             <Skeleton className="size-9 rounded-full" />
           </AuthLoading>
           <Authenticated>
-            <UserButton
-              appearance={{
-                elements: {
-                  userButtonTrigger: "rounded-full",
-                  avatarBox: "size-9",
-                },
-              }}
-            />
+            <AccountMenu />
           </Authenticated>
           <Unauthenticated>
-            {/* The sign-in page is the form itself */}
-            {!pathname?.startsWith("/sign-in") && (
-              <Button asChild>
-                {/* Come back to this page afterwards (home keeps the welcome flow) */}
-                <Link
-                  href={
-                    pathname && pathname !== "/"
-                      ? `/sign-in?redirect_url=${encodeURIComponent(pathname)}`
-                      : "/sign-in"
-                  }
-                >
-                  <LogIn />
-                  Sign in
-                </Link>
-              </Button>
-            )}
+            <Button asChild>
+              {/* Come back to this page afterwards */}
+              <Link
+                href={
+                  pathname && pathname !== "/"
+                    ? `/sign-in?redirect_url=${encodeURIComponent(pathname)}`
+                    : "/sign-in"
+                }
+              >
+                <LogIn />
+                Вход
+              </Link>
+            </Button>
           </Unauthenticated>
         </div>
       </div>
     </header>
+  );
+}
+
+/** The account lives in the онова за Акаунт; here only the way there and Изход. */
+function AccountMenu() {
+  const { user } = useUser();
+  const { signOut } = useClerk();
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" className="overflow-hidden rounded-full" aria-label="Твоят акаунт">
+          {user?.imageUrl ? (
+            // Decorative: the button carries the label
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={user.imageUrl} alt="" className="size-9 object-cover" referrerPolicy="no-referrer" />
+          ) : (
+            <UserRound />
+          )}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-48">
+        <DropdownMenuItem asChild>
+          <a href="https://onovaza.com/akaunt">
+            <UserRound />
+            Акаунт
+          </a>
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => void signOut({ redirectUrl: "/" })}>
+          <LogOut />
+          Изход
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
