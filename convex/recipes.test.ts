@@ -285,7 +285,7 @@ describe("photo import", () => {
     const storageId = await storeFile(t);
     await host.mutation(api.recipes.create, { ...baseRecipe, storageId });
     await expect(guest.action(api.importRecipe.fromPhoto, { storageId })).rejects.toThrow(
-      /Upload failed/
+      /Снимката не се качи/
     );
   });
 });

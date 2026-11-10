@@ -75,18 +75,21 @@ export function toEditor(result: ImportResult): Editor {
 
 export function errorMessage(error: unknown): string {
   if (error instanceof ConvexError && typeof error.data === "string") return error.data;
-  return "Something went wrong. Please try again.";
+  return "Нещо се обърка. Опитай пак.";
 }
 
-/** "Rate limit exceeded. Please wait 12 seconds." -> 12 */
+/** "Твърде често. Изчакай 12 секунди." (convex/rateLimit.ts) -> 12 */
 export function rateLimitSeconds(message: string): number | null {
-  const match = message.match(/Rate limit exceeded\. Please wait (\d+) seconds?/i);
+  const match =
+    message.match(/Изчакай (\d+) секунд/i) ??
+    // Wording before the Bulgarian UI, from a backend not yet redeployed
+    message.match(/Rate limit exceeded\. Please wait (\d+) seconds?/i);
   return match ? Number(match[1]) : null;
 }
 
 /** The link couldn't be read, but the text of the page could be pasted. */
 export function suggestsPastingText(message: string): boolean {
-  return /copy(ing)? the recipe text|paste the recipe text|No recipe found/i.test(message);
+  return /текста на рецептата|^Няма рецепта|copy(ing)? the recipe text|paste the recipe text|No recipe found/i.test(message);
 }
 
 export function hostname(url: string): string {
@@ -103,27 +106,27 @@ export function looksLikeUrl(text: string): boolean {
 
 export const AI_COOLDOWN_MS = 30_000;
 
-export const EXAMPLE_CAPTION = `🍋 15-MINUTE LEMON GARLIC SHRIMP PASTA 🍝 my go-to weeknight dinner when I can't be bothered (save this!!)
+export const EXAMPLE_CAPTION = `🍝 ПАСТА С ЧЕСЪН И СКАРИДИ ЗА 15 МИНУТИ 🍋 любимата ми вечеря в делничен ден, когато ме мързи (запази си я!!)
 
-You'll need:
-200g spaghetti
-300g raw king prawns, peeled
-3 garlic cloves, thinly sliced
-2 tbsp butter + a glug of olive oil
-zest & juice of 1 lemon
-pinch of chilli flakes
-big handful of parsley, chopped
-salt + pepper
-parmesan to serve
+Трябват ти:
+200 г спагети
+300 г сурови скариди, почистени
+3 скилидки чесън, на тънко
+2 с.л. масло + малко зехтин
+кората и сокът от 1 лимон
+щипка люти чушки
+шепа магданоз, нарязан
+сол + черен пипер
+пармезан за поднасяне
 
-How to:
-1️⃣ Cook the spaghetti in well salted water, save a mug of pasta water before draining
-2️⃣ Meanwhile melt the butter with the oil, add garlic + chilli and sizzle 1 min (don't let it burn!)
-3️⃣ Add prawns, 2 min each side till pink
-4️⃣ Toss in the pasta, lemon zest + juice and a splash of pasta water till glossy
-5️⃣ Parsley, parmesan, done ✨ serves 2
+Как:
+1️⃣ Свари спагетите в добре осолена вода, запази чаша от водата преди да ги отцедиш
+2️⃣ Междувременно разтопи маслото със зехтина, добави чесъна и лютото и запържи 1 мин (да не прегори!)
+3️⃣ Добави скаридите, по 2 мин от всяка страна, докато порозовеят
+4️⃣ Сложи пастата, кората и сока от лимона и малко от водата, разбъркай, докато лъсне
+5️⃣ Магданоз, пармезан и готово ✨ за 2 души
 
-#pasta #shrimppasta #easydinner #15minutemeals #weeknightdinner`;
+#паста #скариди #лесновечеря #15минути`;
 
 // --- Session persistence ------------------------------------------------------
 // Phones often discard a backgrounded tab (e.g. while copying a caption from

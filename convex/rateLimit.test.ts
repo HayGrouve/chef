@@ -59,7 +59,7 @@ test("import refuses to fetch once the user's fetch quota is spent", async () =>
   // Rejected before any network request is made
   await expect(
     t.withIdentity(USER).action(api.importRecipe.fromUrl, { url: "https://example.com/recipe" })
-  ).rejects.toThrow(/Rate limit exceeded/);
+  ).rejects.toThrow(/Твърде често\. Изчакай \d+ секунд/);
 });
 
 test("AI features share one hourly budget on top of their own cooldowns", async () => {
@@ -71,7 +71,7 @@ test("AI features share one hourly budget on top of their own cooldowns", async 
   }
   await expect(
     t.mutation(internal.ai.checkRateLimit, { userId: "u", actionName: "importRecipeText" })
-  ).rejects.toThrow(/Rate limit exceeded/);
+  ).rejects.toThrow(/Твърде често\. Изчакай \d+ секунд/);
   // Someone else is unaffected
   await t.mutation(internal.ai.checkRateLimit, { userId: "other", actionName: "importRecipeText" });
 });

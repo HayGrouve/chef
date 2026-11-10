@@ -10,7 +10,7 @@ import { internal } from "./_generated/api";
 import { generateJson } from "./gemini";
 import { Doc, Id } from "./_generated/dataModel";
 import { readableRecipeId } from "./access";
-import { AI_QUOTA, takeQuota } from "./rateLimit";
+import { AI_QUOTA, rateLimitMessage, takeQuota } from "./rateLimit";
 import { readableRecipes, takeWithinBudget } from "./feed";
 import { assertRoomFor, cleanItem, MAX_ITEM_LENGTH, MAX_LIST_ITEMS } from "./shoppingList";
 import { categoryKeywords, getCategory } from "./categories";
@@ -38,19 +38,13 @@ export const checkRateLimit = internalMutation({
       .first();
 
     if (existingLimit && now - existingLimit.lastCalledAt < cooldownMs) {
-      throw new ConvexError(
-        `Rate limit exceeded. Please wait ${Math.ceil(
-          (cooldownMs - (now - existingLimit.lastCalledAt)) / 1000
-        )} seconds.`
-      );
+      throw new ConvexError(rateLimitMessage(cooldownMs - (now - existingLimit.lastCalledAt)));
     }
     // Shared budget across every AI feature; same wording so the UI shows
     // its countdown
     const quota = await takeQuota(ctx, args.userId, "aiCalls", AI_QUOTA);
     if (!quota.ok) {
-      throw new ConvexError(
-        `Rate limit exceeded. Please wait ${Math.ceil(quota.retryAfterMs / 1000)} seconds.`
-      );
+      throw new ConvexError(rateLimitMessage(quota.retryAfterMs));
     }
 
     if (existingLimit) {

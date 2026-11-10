@@ -31,7 +31,8 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { compressImage } from "@/lib/image-utils";
 import { PREDEFINED_TAGS, RECIPE_LIMITS } from "@/lib/constants";
-import { cn, scrollBehavior } from "@/lib/utils";
+import { cn, pluralize, scrollBehavior } from "@/lib/utils";
+import { DIFFICULTIES, difficultyLabel, tagLabel } from "@/lib/labels";
 import { FormSection, type SectionMeta } from "./FormSection";
 import {
   errorMessage,
@@ -67,40 +68,40 @@ export function ReviewStep({ editor, onChange, onStartOver, onSaved }: Props) {
 
   const filled = (rows: Row[]) => rows.some((r) => r.value.trim());
   const errors = {
-    title: !form.title.trim() ? "Give the recipe a title." : null,
-    ingredients: !filled(form.ingredients) ? "Add at least one ingredient." : null,
-    steps: !filled(form.steps) ? "Add at least one step." : null,
+    title: !form.title.trim() ? "Дай заглавие на рецептата." : null,
+    ingredients: !filled(form.ingredients) ? "Добави поне една съставка." : null,
+    steps: !filled(form.steps) ? "Добави поне една стъпка." : null,
   };
 
   const sections: Record<string, SectionMeta> = {
     basics: {
       id: "section-basics",
-      title: "Basics",
-      description: "The name and a sentence or two about the dish.",
+      title: "Основното",
+      description: "Името и едно-две изречения за ястието.",
       status: errors.title ? "todo" : "done",
     },
     photo: {
       id: "section-photo",
-      title: "Photo",
-      description: "Optional, but it helps the recipe stand out.",
+      title: "Снимка",
+      description: "По желание, но със снимка рецептата се забелязва.",
       status: image.kind === "none" ? "optional" : "done",
     },
     ingredients: {
       id: "section-ingredients",
-      title: "Ingredients",
-      description: "One per line, with amounts.",
+      title: "Съставки",
+      description: "По една на ред, с количеството.",
       status: errors.ingredients ? "todo" : "done",
     },
     steps: {
       id: "section-steps",
-      title: "Steps",
-      description: "One per line, in order.",
+      title: "Приготвяне",
+      description: "По една стъпка на ред, подред.",
       status: errors.steps ? "todo" : "done",
     },
     extras: {
       id: "section-extras",
-      title: "Extras",
-      description: "Time, difficulty, calories, tags and who can see it.",
+      title: "Подробности",
+      description: "Време, трудност, калории, етикети и кой я вижда.",
       status: "optional",
     },
   };
@@ -109,13 +110,13 @@ export function ReviewStep({ editor, onChange, onStartOver, onSaved }: Props) {
   const doneCount = required.filter((s) => s.status === "done").length;
 
   const extrasSummary = [
-    form.cookingTime ? `${form.cookingTime} min` : null,
-    form.difficulty || null,
+    form.cookingTime ? `${form.cookingTime}\u00A0мин` : null,
+    form.difficulty ? difficultyLabel(form.difficulty) : null,
     form.calories
-      ? `${draft.caloriesEstimated && form.calories === String(draft.calories) ? "~" : ""}${form.calories} kcal/serving`
+      ? `${draft.caloriesEstimated && form.calories === String(draft.calories) ? "~" : ""}${form.calories}\u00A0ккал на порция`
       : null,
-    form.tags.length ? `${form.tags.length} tag${form.tags.length > 1 ? "s" : ""}` : null,
-    form.isPublic ? "Public" : "Private",
+    form.tags.length ? pluralize(form.tags.length, "етикет", "етикета") : null,
+    form.isPublic ? "Публична" : "Лична",
   ]
     .filter(Boolean)
     .join(" · ");
@@ -137,9 +138,9 @@ export function ReviewStep({ editor, onChange, onStartOver, onSaved }: Props) {
     };
     const L = RECIPE_LIMITS;
     const numberError = badNumber(form.cookingTime, 1, L.cookingTime)
-      ? { id: "import-time", message: `Time must be between 1 and ${L.cookingTime} minutes.` }
+      ? { id: "import-time", message: `Времето трябва да е между 1 и ${L.cookingTime} минути.` }
       : badNumber(form.calories, 0, L.calories)
-        ? { id: "import-calories", message: `Calories must be between 0 and ${L.calories}.` }
+        ? { id: "import-calories", message: `Калориите трябва да са между 0 и ${L.calories}.` }
         : null;
     if (!firstError && numberError) {
       toast.error(numberError.message);
@@ -180,16 +181,16 @@ export function ReviewStep({ editor, onChange, onStartOver, onSaved }: Props) {
 
       onSaved();
       const href = `/recipe/${recipeId}`;
-      toast.success("Saved to your cookbook", {
+      toast.success("Запазена в готварската ти книга", {
         description:
           image.kind !== "none" && !imageSaved
-            ? "The photo couldn't be copied from the site. You can add one by editing the recipe."
+            ? "Снимката не се копира от сайта. Можеш да добавиш снимка, като редактираш рецептата."
             : undefined,
-        action: { label: "View", onClick: () => router.push(href) },
+        action: { label: "Виж", onClick: () => router.push(href) },
       });
       router.push(href);
     } catch (error) {
-      toast.error("Couldn't save the recipe", { description: errorMessage(error) });
+      toast.error("Не успях да запазя рецептата", { description: errorMessage(error) });
       setSaving(false);
     }
   };
@@ -201,7 +202,7 @@ export function ReviewStep({ editor, onChange, onStartOver, onSaved }: Props) {
       <FormSection meta={sections.basics} index={0}>
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="import-title">Title</Label>
+            <Label htmlFor="import-title">Заглавие</Label>
             <Input
               id="import-title"
               name="title"
@@ -214,12 +215,12 @@ export function ReviewStep({ editor, onChange, onStartOver, onSaved }: Props) {
             {showErrors && errors.title && <FieldError id="import-title-error">{errors.title}</FieldError>}
           </div>
           <div className="space-y-2">
-            <Label htmlFor="import-description">Description</Label>
+            <Label htmlFor="import-description">Описание</Label>
             <Textarea
               id="import-description"
               value={form.description}
               onChange={(e) => setForm({ description: e.target.value })}
-              placeholder="A sentence or two about the dish…"
+              placeholder="Едно-две изречения за ястието…"
             />
           </div>
         </div>
@@ -237,14 +238,14 @@ export function ReviewStep({ editor, onChange, onStartOver, onSaved }: Props) {
         {draft.servings ? (
           <p className="mb-3 flex items-center gap-1.5 text-xs text-muted-foreground">
             <Users className="h-3.5 w-3.5" />
-            The source says this serves {draft.servings}.
+            Според източника стига за {draft.servings} {draft.servings === 1 ? "човек" : "души"}.
           </p>
         ) : null}
         <ListEditor
           rows={form.ingredients}
           onRowsChange={(ingredients) => setForm({ ingredients })}
-          placeholder="e.g., 200g spaghetti…"
-          noun="ingredient"
+          placeholder="напр. 200 г спагети…"
+          copy={{ item: "Съставка", add: "Добави съставка" }}
           errorId={showErrors && errors.ingredients ? "import-ingredients-error" : undefined}
         />
         {showErrors && errors.ingredients && (
@@ -256,8 +257,8 @@ export function ReviewStep({ editor, onChange, onStartOver, onSaved }: Props) {
         <ListEditor
           rows={form.steps}
           onRowsChange={(steps) => setForm({ steps })}
-          placeholder="e.g., Bring a large pot of salted water to the boil…"
-          noun="step"
+          placeholder="напр. Сложи голяма тенджера с подсолена вода да заври…"
+          copy={{ item: "Стъпка", add: "Добави стъпка" }}
           multiline
           errorId={showErrors && errors.steps ? "import-steps-error" : undefined}
         />
@@ -278,14 +279,14 @@ export function ReviewStep({ editor, onChange, onStartOver, onSaved }: Props) {
 
       <div data-sticky-actions className="sticky bottom-16 z-10 -mx-4 flex items-center gap-2 border-t bg-background/95 px-4 py-3 backdrop-blur md:bottom-0">
         <Button type="button" variant="ghost" onClick={onStartOver} disabled={saving}>
-          <RotateCcw className="h-4 w-4" /> Start over
+          <RotateCcw className="h-4 w-4" /> Отначало
         </Button>
         <span className="ml-auto hidden text-sm text-muted-foreground sm:inline">
-          {doneCount === required.length ? "Ready to save" : `${doneCount} of ${required.length} required`}
+          {doneCount === required.length ? "Готова за запазване" : `${doneCount} от ${required.length} задължителни`}
         </span>
         <Button type="button" onClick={handleSave} disabled={saving} className="ml-auto min-w-40 sm:ml-0">
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-          {saving ? "Saving…" : "Save to cookbook"}
+          {saving ? "Запазвам…" : "Запази в книгата"}
         </Button>
       </div>
     </div>
@@ -323,7 +324,7 @@ function ProvenanceBanner({ editor }: { editor: Editor }) {
   const exact = draft.method === "structured-data";
   const source = draft.sourceUrl ?? contextUrl;
   const origin =
-    kind === "photo" ? "From your photo" : kind === "text" ? "From pasted text" : null;
+    kind === "photo" ? "От твоята снимка" : kind === "text" ? "От поставен текст" : null;
 
   return (
     <div
@@ -341,7 +342,7 @@ function ProvenanceBanner({ editor }: { editor: Editor }) {
           )}
         >
           {exact ? <BadgeCheck className="h-3.5 w-3.5" /> : <Sparkles className="h-3.5 w-3.5" />}
-          {exact ? "Read from the page’s recipe data" : "Extracted by AI"}
+          {exact ? "Прочетена от данните на страницата" : "Извадена от AI"}
         </Badge>
         {origin && <span className="text-muted-foreground">{origin}</span>}
         {source && (
@@ -358,8 +359,8 @@ function ProvenanceBanner({ editor }: { editor: Editor }) {
       </div>
       <p className="mt-2 text-muted-foreground">
         {exact
-          ? "Copied as the site publishes it. Check it over and save."
-          : "Double-check quantities and steps before saving."}
+          ? "Копирана така, както сайтът я публикува. Прегледай я и я запази."
+          : "Провери количествата и стъпките, преди да запазиш."}
       </p>
       {draft.warnings.length > 0 && (
         <ul className="mt-3 space-y-1 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-amber-900 dark:text-amber-200">
@@ -395,7 +396,7 @@ function PhotoEditor({
   const remove = () => {
     const previous = image;
     onImageChange({ kind: "none" });
-    toast("Photo removed", { action: { label: "Undo", onClick: () => onImageChange(previous) } });
+    toast("Снимката е махната", { action: { label: "Отмени", onClick: () => onImageChange(previous) } });
   };
 
   return (
@@ -410,7 +411,7 @@ function PhotoEditor({
           e.target.value = "";
           if (!picked) return;
           if (!picked.type.startsWith("image/")) {
-            toast.error("That isn’t an image. Choose a photo instead.");
+            toast.error("Това не е снимка. Избери снимка.");
             return;
           }
           // Compressing decodes the image, so a renamed non-image fails here
@@ -419,7 +420,7 @@ function PhotoEditor({
           try {
             file = await compressImage(picked);
           } catch {
-            toast.error("Couldn’t read that image", { description: "Choose a different PNG, JPEG or WEBP photo." });
+            toast.error("Не успях да прочета снимката", { description: "Избери друга снимка PNG, JPEG или WEBP." });
             return;
           }
           onImageChange({ kind: "file", file, previewUrl: URL.createObjectURL(file) });
@@ -433,14 +434,14 @@ function PhotoEditor({
               <div className="flex h-full flex-col items-center justify-center gap-1 p-4 text-center text-sm text-muted-foreground">
                 <ImageIcon className="h-6 w-6" />
                 {image.kind === "remote"
-                  ? "The site’s photo can’t be previewed here. We’ll still try to copy it when you save."
-                  : "Preview unavailable, but the photo will still be saved."}
+                  ? "Снимката от сайта не се показва тук. Ще опитам да я копирам, когато запазиш."
+                  : "Не се показва, но снимката пак ще се запази."}
               </div>
             ) : (
               // eslint-disable-next-line @next/next/no-img-element -- arbitrary remote hosts / blob previews
               <img
                 src={previewUrl}
-                alt="Recipe photo preview"
+                alt="Снимка на рецептата"
                 referrerPolicy="no-referrer"
                 className="h-full w-full object-cover"
                 onError={() => setBrokenUrl(previewUrl)}
@@ -449,7 +450,7 @@ function PhotoEditor({
           </div>
           <div className="flex gap-2">
             <Button type="button" size="sm" variant="outline" onClick={() => inputRef.current?.click()}>
-              <Upload className="h-4 w-4" /> Replace
+              <Upload className="h-4 w-4" /> Смени
             </Button>
             <Button
               type="button"
@@ -458,7 +459,7 @@ function PhotoEditor({
               className="text-muted-foreground hover:text-destructive"
               onClick={remove}
             >
-              <Trash2 className="h-4 w-4" /> Remove
+              <Trash2 className="h-4 w-4" /> Махни
             </Button>
           </div>
         </div>
@@ -469,15 +470,15 @@ function PhotoEditor({
           className="flex w-full max-w-md flex-col items-center justify-center gap-1.5 rounded-lg border-2 border-dashed px-4 py-8 text-sm text-muted-foreground transition-colors hover:bg-accent/50"
         >
           <Camera className="h-7 w-7" />
-          <span className="font-medium text-foreground">Add a photo</span>
-          <span className="text-xs">You can also save without one</span>
+          <span className="font-medium text-foreground">Добави снимка</span>
+          <span className="text-xs">Можеш да запазиш и без снимка</span>
         </button>
       )}
 
       {sourcePhoto && (
         <div className="flex max-w-md items-center justify-between gap-3 rounded-lg border p-3">
           <Label htmlFor="use-source-photo" className="font-normal">
-            Use this photo as the recipe image
+            Тази снимка да е снимката на рецептата
           </Label>
           <Switch
             id="use-source-photo"
@@ -496,14 +497,15 @@ function ListEditor({
   rows,
   onRowsChange,
   placeholder,
-  noun,
+  copy,
   multiline,
   errorId,
 }: {
   rows: Row[];
   onRowsChange: (rows: Row[]) => void;
   placeholder: string;
-  noun: string;
+  /** "Съставка 3" names a row; "Добави съставка" adds one. */
+  copy: { item: string; add: string };
   multiline?: boolean;
   /** Set when the list is invalid; links each row to the error message. */
   errorId?: string;
@@ -557,7 +559,7 @@ function ListEditor({
         const shared = {
           value: row.value,
           placeholder,
-          "aria-label": `${noun} ${index + 1}`,
+          "aria-label": `${copy.item} ${index + 1}`,
           "aria-invalid": errorId ? true : undefined,
           "aria-describedby": errorId,
           onChange: (e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>) => update(row.id, e.target.value),
@@ -592,7 +594,7 @@ function ListEditor({
               type="button"
               variant="ghost"
               size="icon"
-              aria-label={`Remove ${noun} ${index + 1}`}
+              aria-label={`Махни ${copy.item.toLowerCase()} ${index + 1}`}
               className="shrink-0 text-muted-foreground hover:text-destructive"
               onClick={() => remove(index)}
             >
@@ -608,7 +610,7 @@ function ListEditor({
         className="w-full border border-dashed text-muted-foreground"
         onClick={() => insertAfter(rows.length - 1)}
       >
-        <Plus className="h-4 w-4" /> Add {noun}
+        <Plus className="h-4 w-4" /> {copy.add}
       </Button>
     </div>
   );
@@ -633,7 +635,7 @@ function ExtrasEditor({
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
         <div className="space-y-2">
-          <Label htmlFor="import-time">Time (min)</Label>
+          <Label htmlFor="import-time">Време (мин)</Label>
           <Input
             id="import-time"
             type="number"
@@ -645,7 +647,7 @@ function ExtrasEditor({
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="import-calories">Calories per serving (kcal)</Label>
+          <Label htmlFor="import-calories">Калории на порция (ккал)</Label>
           <Input
             id="import-calories"
             type="number"
@@ -657,30 +659,32 @@ function ExtrasEditor({
           />
           {estimatedCalories !== undefined && form.calories === String(estimatedCalories) && (
             <p className="flex items-center gap-1 text-xs text-muted-foreground">
-              <Sparkles className="h-3 w-3" /> Estimated from ingredients
+              <Sparkles className="h-3 w-3" /> Изчислени от съставките
             </p>
           )}
         </div>
         <div className="col-span-2 space-y-2 md:col-span-1">
-          <Label htmlFor="import-difficulty">Difficulty</Label>
+          <Label htmlFor="import-difficulty">Трудност</Label>
           <Select
             value={form.difficulty || undefined}
             onValueChange={(v) => setForm({ difficulty: v as Difficulty })}
           >
             <SelectTrigger id="import-difficulty" className="w-full">
-              <SelectValue placeholder="Not set" />
+              <SelectValue placeholder="Не е избрана" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="Easy">Easy</SelectItem>
-              <SelectItem value="Medium">Medium</SelectItem>
-              <SelectItem value="Hard">Hard</SelectItem>
+              {DIFFICULTIES.map((value) => (
+                <SelectItem key={value} value={value}>
+                  {difficultyLabel(value)}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
       </div>
 
       <fieldset className="space-y-2">
-        <legend className="text-sm font-medium leading-none">Tags</legend>
+        <legend className="text-sm font-medium leading-none">Етикети</legend>
         <div className="flex flex-wrap gap-1.5">
           {PREDEFINED_TAGS.map((tag) => {
             const on = form.tags.includes(tag);
@@ -697,7 +701,7 @@ function ExtrasEditor({
                     : "text-muted-foreground hover:border-foreground/30 hover:text-foreground"
                 )}
               >
-                {tag}
+                {tagLabel(tag)}
               </button>
             );
           })}
@@ -706,8 +710,8 @@ function ExtrasEditor({
 
       <div className="flex items-center justify-between gap-4 rounded-lg border p-3">
         <div>
-          <Label htmlFor="import-public">Make public</Label>
-          <p className="text-xs text-muted-foreground">Anyone with the link can view it.</p>
+          <Label htmlFor="import-public">Публична</Label>
+          <p className="text-xs text-muted-foreground">Всеки с линка може да я види.</p>
         </div>
         <Switch id="import-public" checked={form.isPublic} onCheckedChange={(isPublic) => setForm({ isPublic })} />
       </div>

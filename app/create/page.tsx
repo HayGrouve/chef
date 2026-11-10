@@ -83,6 +83,7 @@ import {
 import { compressImage } from "@/lib/image-utils";
 import { PREDEFINED_TAGS } from "@/lib/constants";
 import { cn, hasFinePointer, pluralize, scrollBehavior } from "@/lib/utils";
+import { DIFFICULTIES, difficultyLabel, tagLabel } from "@/lib/labels";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -116,10 +117,10 @@ function BasicsFields({ form }: SectionFormProps) {
         name="title"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>Title</FormLabel>
+            <FormLabel>Заглавие</FormLabel>
             <FormControl>
               <Input
-                placeholder="e.g., Spaghetti carbonara…"
+                placeholder="напр. Мусака…"
                 autoComplete="off"
                 {...field}
               />
@@ -134,10 +135,10 @@ function BasicsFields({ form }: SectionFormProps) {
         name="description"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>Description</FormLabel>
+            <FormLabel>Описание</FormLabel>
             <FormControl>
               <Textarea
-                placeholder="A brief description of your dish…"
+                placeholder="Кратко описание на ястието…"
                 {...field}
               />
             </FormControl>
@@ -165,7 +166,7 @@ function PhotoField({
         type="button"
         className="group flex w-full flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 transition-colors hover:bg-accent/50"
         onClick={() => fileInputRef.current?.click()}
-        aria-label={imagePreview ? "Change photo" : undefined}
+        aria-label={imagePreview ? "Смени снимката" : undefined}
       >
         {imagePreview ? (
           <span className="relative block aspect-video w-full max-w-sm overflow-hidden rounded-md">
@@ -177,14 +178,14 @@ function PhotoField({
               className="object-cover"
             />
             <span className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
-              <span className="font-medium text-white">Change photo</span>
+              <span className="font-medium text-white">Смени снимката</span>
             </span>
           </span>
         ) : (
           <span className="block space-y-2 text-center text-muted-foreground">
             <Upload className="mx-auto h-10 w-10" />
-            <span className="block">Choose a photo</span>
-            <span className="block text-xs">PNG, JPG or WEBP, up to 5&nbsp;MB</span>
+            <span className="block">Избери снимка</span>
+            <span className="block text-xs">PNG, JPG или WEBP, до 5&nbsp;MB</span>
           </span>
         )}
       </button>
@@ -210,7 +211,7 @@ function ExtrasFields({ form }: SectionFormProps) {
           name="cookingTime"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Cooking time (min)</FormLabel>
+              <FormLabel>Време (мин)</FormLabel>
               <FormControl>
                 <Input
                   type="number"
@@ -230,7 +231,7 @@ function ExtrasFields({ form }: SectionFormProps) {
           name="calories"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Calories per serving (kcal)</FormLabel>
+              <FormLabel>Калории на порция (ккал)</FormLabel>
               <FormControl>
                 <Input
                   type="number"
@@ -250,17 +251,19 @@ function ExtrasFields({ form }: SectionFormProps) {
           name="difficulty"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Difficulty</FormLabel>
+              <FormLabel>Трудност</FormLabel>
               <Select onValueChange={field.onChange} value={field.value}>
                 <FormControl>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select difficulty" />
+                    <SelectValue placeholder="Избери трудност" />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  <SelectItem value="Easy">Easy</SelectItem>
-                  <SelectItem value="Medium">Medium</SelectItem>
-                  <SelectItem value="Hard">Hard</SelectItem>
+                  {DIFFICULTIES.map((value) => (
+                    <SelectItem key={value} value={value}>
+                      {difficultyLabel(value)}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               <FormMessage />
@@ -274,7 +277,7 @@ function ExtrasFields({ form }: SectionFormProps) {
         name="tags"
         render={({ field }) => (
           <FormItem className="flex flex-col">
-            <FormLabel>Tags</FormLabel>
+            <FormLabel>Етикети</FormLabel>
             <Popover open={open} onOpenChange={setOpen}>
               <PopoverTrigger asChild>
                 <FormControl>
@@ -285,22 +288,23 @@ function ExtrasFields({ form }: SectionFormProps) {
                     className="w-full justify-between"
                   >
                     {field.value && field.value.length > 0
-                      ? `${pluralize(field.value.length, "tag")} selected`
-                      : "Select tags…"}
+                      ? `Избрани: ${field.value.length}`
+                      : "Избери етикети…"}
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
                 </FormControl>
               </PopoverTrigger>
               <PopoverContent className="w-(--radix-popover-trigger-width) p-0">
                 <Command>
-                  <CommandInput placeholder="Search tags…" />
+                  <CommandInput placeholder="Търси етикет…" />
                   <CommandList>
-                    <CommandEmpty>No tag found.</CommandEmpty>
+                    <CommandEmpty>Няма такъв етикет.</CommandEmpty>
                     <CommandGroup className="max-h-64 overflow-auto">
                       {PREDEFINED_TAGS.map((tag) => (
                         <CommandItem
                           key={tag}
-                          value={tag}
+                          value={tagLabel(tag)}
+                          keywords={[tag]}
                           onSelect={() => {
                             const currentTags = field.value || [];
                             const newTags = currentTags.includes(tag)
@@ -317,7 +321,7 @@ function ExtrasFields({ form }: SectionFormProps) {
                                 : "opacity-0"
                             )}
                           />
-                          {tag}
+                          {tagLabel(tag)}
                         </CommandItem>
                       ))}
                     </CommandGroup>
@@ -328,13 +332,13 @@ function ExtrasFields({ form }: SectionFormProps) {
             <div className="flex flex-wrap gap-2 mt-2">
               {field.value?.map((tag) => (
                 <Badge key={tag} variant="secondary">
-                  {tag}
+                  {tagLabel(tag)}
                   <Button
                     type="button"
                     variant="ghost"
                     size="icon"
                     className="-mr-1 ml-0.5 h-5 w-5 rounded-full p-0 hover:bg-foreground/10"
-                    aria-label={`Remove ${tag} tag`}
+                    aria-label={`Махни етикета ${tagLabel(tag)}`}
                     onClick={() => {
                       const newTags = field.value?.filter((t) => t !== tag);
                       field.onChange(newTags);
@@ -356,9 +360,9 @@ function ExtrasFields({ form }: SectionFormProps) {
         render={({ field }) => (
           <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
             <div className="space-y-0.5">
-              <FormLabel>Make public</FormLabel>
+              <FormLabel>Публична</FormLabel>
               <FormDescription>
-                Anyone with the link can view this recipe.
+                Всеки с линка може да види рецептата.
               </FormDescription>
             </div>
             <FormControl>
@@ -373,7 +377,7 @@ function ExtrasFields({ form }: SectionFormProps) {
 
 interface SortableRowProps {
   id: string;
-  /** Accessible name for the drag handle, e.g. "Reorder ingredient 3". */
+  /** Accessible name for the drag handle, e.g. "Премести съставка 3". */
   handleLabel: string;
   children: React.ReactNode;
 }
@@ -414,18 +418,46 @@ function SortableRow({ id, handleLabel, children }: SortableRowProps) {
   );
 }
 
+/** Each list's own words; Bulgarian nouns don't take an English plural "s". */
+interface ListCopy {
+  empty: string;
+  add: string;
+  hint: string;
+  item: (n: number) => string;
+  reorder: (n: number) => string;
+  remove: (n: number) => string;
+}
+
+const INGREDIENT_COPY: ListCopy = {
+  empty: "Още няма съставки.",
+  add: "Добави съставка",
+  hint: "Enter добавя следваща съставка. Влачи дръжката, за да пренаредиш.",
+  item: (n) => `Съставка ${n}`,
+  reorder: (n) => `Премести съставка ${n}`,
+  remove: (n) => `Махни съставка ${n}`,
+};
+
+const STEP_COPY: ListCopy = {
+  empty: "Още няма стъпки.",
+  add: "Добави стъпка",
+  hint: "Enter добавя следваща стъпка. Влачи дръжката, за да пренаредиш.",
+  item: (n) => `Стъпка ${n}`,
+  reorder: (n) => `Премести стъпка ${n}`,
+  remove: (n) => `Махни стъпка ${n}`,
+};
+
 interface ListSectionProps {
   form: UseFormReturn<RecipeFormValues>;
   name: "ingredients" | "steps";
   placeholder: string;
-  label: string;
+  copy: ListCopy;
 }
 
 function ListSection({
   form,
   name,
   placeholder,
-  label,
+  copy,
 }: ListSectionProps) {
   // Stable id so dnd-kit's aria ids match between server and client render
   const dndId = useId();
@@ -473,14 +505,14 @@ function ListSection({
           <div className="space-y-3">
             {fields.length === 0 && (
               <div className="text-center py-8 text-muted-foreground bg-muted/30 rounded-lg border-2 border-dashed">
-                No {label.toLowerCase()}s added yet.
+                {copy.empty}
               </div>
             )}
             {fields.map((field, index) => (
               <SortableRow
                 key={field.id}
                 id={field.id}
-                handleLabel={`Reorder ${label.toLowerCase()} ${index + 1}`}
+                handleLabel={copy.reorder(index + 1)}
               >
                 <span className="mt-3 text-sm font-medium text-muted-foreground w-6 text-center">
                   {index + 1}.
@@ -493,7 +525,7 @@ function ListSection({
                       <FormControl>
                         <Textarea
                           {...field}
-                          aria-label={`${label} ${index + 1}`}
+                          aria-label={copy.item(index + 1)}
                           placeholder={placeholder}
                           className="min-h-12 resize-y"
                           onKeyDown={handleKeyDown}
@@ -509,7 +541,7 @@ function ListSection({
                   onClick={() => remove(index)}
                   className="mt-1 text-muted-foreground hover:text-destructive"
                   type="button"
-                  aria-label={`Remove ${label.toLowerCase()} ${index + 1}`}
+                  aria-label={copy.remove(index + 1)}
                 >
                   <Trash2 className="w-4 h-4" />
                 </Button>
@@ -526,10 +558,10 @@ function ListSection({
         onClick={() => append({ value: "" })}
         type="button"
       >
-        <Plus className="w-4 h-4 mr-2" /> Add {label.toLowerCase()}
+        <Plus className="w-4 h-4 mr-2" /> {copy.add}
       </Button>
       <p className="text-xs text-muted-foreground">
-        Press Enter to add the next {label.toLowerCase()}. Drag the handle to reorder.
+        {copy.hint}
       </p>
     </div>
   );
@@ -585,7 +617,7 @@ function FormSection({
           {meta.status === "optional" && (
             <span className="ml-2 text-xs font-normal text-muted-foreground">
               <span className="sr-only">, </span>
-              Optional
+              По желание
             </span>
           )}
         </h2>
@@ -641,10 +673,10 @@ function SectionNav({
   const done = required.filter((s) => s.status === "done").length;
 
   return (
-    <nav aria-label="Form sections" className="sticky top-24 space-y-4">
+    <nav aria-label="Части на рецептата" className="sticky top-24 space-y-4">
       <div>
         <p className="text-sm font-medium">
-          {done} of {required.length} required
+          {done} от {required.length} задължителни
         </p>
         <div className="mt-2 h-1.5 rounded-full bg-muted overflow-hidden">
           <div
@@ -754,8 +786,8 @@ function CreateRecipeContent() {
       const validTypes = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
       if (!validTypes.includes(file.type)) {
         showAlert(
-          "Unsupported file type",
-          "Choose a PNG, JPEG or WEBP image."
+          "Този вид файл не става",
+          "Избери снимка PNG, JPEG или WEBP."
         );
         e.target.value = ""; // Reset input
         return;
@@ -763,7 +795,7 @@ function CreateRecipeContent() {
 
       // Validate file size (max 5MB)
       if (file.size > 5 * 1024 * 1024) {
-        showAlert("File too large", "Choose an image smaller than 5\u00A0MB.");
+        showAlert("Файлът е твърде голям", "Избери снимка под 5\u00A0MB.");
         e.target.value = ""; // Reset input
         return;
       }
@@ -780,7 +812,7 @@ function CreateRecipeContent() {
         // Compression decodes the image, so failing here means the file isn't
         // a readable image (e.g. a renamed text file); don't upload it
         console.warn("Image compression failed:", error);
-        showAlert("Couldn’t read that image", "Choose a different PNG, JPEG or WEBP photo.");
+        showAlert("Не успях да прочета снимката", "Избери друга снимка PNG, JPEG или WEBP.");
         e.target.value = "";
       }
     }
@@ -797,7 +829,7 @@ function CreateRecipeContent() {
   const { isDirty, isSubmitSuccessful } = form.formState;
   const hasUnsavedChanges = (isDirty || imageFile !== null) && !isSubmitSuccessful;
   const [confirmLeave, setConfirmLeave] = useState(false);
-  // What "Discard" does: go back (Cancel, Back button) or follow the clicked link
+  // What "Изхвърли" does: go back (Cancel, Back button) or follow the clicked link
   const discardRef = useRef<() => void>(() => {});
   const askToLeave = (proceed: () => void) => {
     discardRef.current = proceed;
@@ -835,7 +867,7 @@ function CreateRecipeContent() {
     e?.preventDefault();
     pruneEmptyRows();
     if (!imagePreview && !editId) {
-      showAlert("Photo required", "Add a photo of the dish to save the recipe.");
+      showAlert("Трябва снимка", "Добави снимка на ястието, за да запазиш рецептата.");
       scrollToSection("section-photo");
       document
         .querySelector<HTMLElement>("#section-photo button")
@@ -849,7 +881,7 @@ function CreateRecipeContent() {
       if (errors.cookingTime || errors.calories || errors.difficulty || errors.tags) {
         setExtrasOpen(true);
       }
-      toast.error("Please fix the highlighted fields.");
+      toast.error("Поправи отбелязаните полета.");
     })();
   };
 
@@ -861,7 +893,7 @@ function CreateRecipeContent() {
     // The browser can think it's online while the connection to the server
     // has dropped, so check that too
     if (!navigator.onLine || !convex.connectionState().isWebSocketConnected) {
-      showAlert("You’re offline", "Reconnect to save. Your changes are still here.");
+      showAlert("Нямаш връзка", "Свържи се отново, за да запазиш. Промените ти са тук.");
       return;
     }
     submitting.current = true;
@@ -869,8 +901,8 @@ function CreateRecipeContent() {
     // "Saving…" with no explanation. It isn't cancelled (it may still go
     // through), so retrying can't create a duplicate.
     const slowSave = setTimeout(() => {
-      toast.info("Still saving…", {
-        description: "This is taking longer than usual. Check your connection; your changes are kept.",
+      toast.info("Още запазвам…", {
+        description: "Отнема повече от обикновено. Провери връзката си; промените ти са запазени тук.",
       });
     }, 15_000);
     try {
@@ -889,7 +921,7 @@ function CreateRecipeContent() {
 
       if (!storageId && !editId) {
         submitting.current = false;
-        showAlert("Photo required", "Add a photo of the dish to save the recipe.");
+        showAlert("Трябва снимка", "Добави снимка на ястието, за да запазиш рецептата.");
         return;
       }
 
@@ -928,7 +960,7 @@ function CreateRecipeContent() {
       }
 
       clearTimeout(slowSave);
-      toast.success(editId ? "Recipe saved" : "Recipe created");
+      toast.success(editId ? "Рецептата е запазена" : "Рецептата е създадена");
       // Replace the editor in history, so Back from the recipe doesn't reopen it
       router.replace(`/recipe/${savedId}`);
     } catch (error) {
@@ -936,10 +968,10 @@ function CreateRecipeContent() {
       submitting.current = false;
       console.error("Failed to save recipe:", error);
       showAlert(
-        "Couldn’t save the recipe",
+        "Не успях да запазя рецептата",
         error instanceof ConvexError && typeof error.data === "string"
           ? error.data
-          : "Check your connection and try again. Your changes are still here."
+          : "Провери връзката си и опитай пак. Промените ти са тук."
       );
     }
   };
@@ -959,13 +991,13 @@ function CreateRecipeContent() {
   if (editId && (!existingRecipe || !existingRecipe.isOwner)) {
     return (
       <div className="container mx-auto max-w-md px-4 py-24 text-center">
-        <h1 className="font-display text-2xl font-bold">Can’t edit this recipe</h1>
+        <h1 className="font-display text-2xl font-bold">Не можеш да редактираш тази рецепта</h1>
         <p className="mt-2 text-muted-foreground">
-          It doesn’t exist, or it belongs to someone else.
+          Не съществува или е на някой друг.
         </p>
         <Button asChild variant="outline" className="mt-6">
           <Link href={existingRecipe ? `/recipe/${editId}` : "/"}>
-            <ArrowLeft /> {existingRecipe ? "Back to recipe" : "Back to Cook"}
+            <ArrowLeft /> {existingRecipe ? "Към рецептата" : "Към рецептите"}
           </Link>
         </Button>
       </div>
@@ -977,13 +1009,11 @@ function CreateRecipeContent() {
   const hasRows = (rows?: { value?: string }[]) =>
     !!rows?.some((r) => r.value?.trim());
   const extrasSummary = [
-    values.cookingTime ? `${values.cookingTime}\u00A0min` : null,
-    values.difficulty,
-    values.calories ? `${values.calories}\u00A0kcal` : null,
-    values.tags?.length
-      ? `${values.tags.length} tag${values.tags.length > 1 ? "s" : ""}`
-      : null,
-    values.isPublic ? "Public" : "Private",
+    values.cookingTime ? `${values.cookingTime}\u00A0мин` : null,
+    values.difficulty && difficultyLabel(values.difficulty),
+    values.calories ? `${values.calories}\u00A0ккал` : null,
+    values.tags?.length ? pluralize(values.tags.length, "етикет", "етикета") : null,
+    values.isPublic ? "Публична" : "Лична",
   ]
     .filter(Boolean)
     .join(" · ");
@@ -991,8 +1021,8 @@ function CreateRecipeContent() {
   const sections: SectionMeta[] = [
     {
       id: "section-basics",
-      title: "Basics",
-      description: "Name your dish and describe it in a sentence or two.",
+      title: "Основното",
+      description: "Кръсти ястието и го опиши с едно-две изречения.",
       status:
         (values.title?.trim().length ?? 0) >= 2 &&
         (values.description?.trim().length ?? 0) >= 10
@@ -1001,26 +1031,26 @@ function CreateRecipeContent() {
     },
     {
       id: "section-photo",
-      title: "Photo",
-      description: "A photo helps your recipe stand out.",
+      title: "Снимка",
+      description: "Със снимка рецептата се забелязва.",
       status: imagePreview ? "done" : "todo",
     },
     {
       id: "section-ingredients",
-      title: "Ingredients",
-      description: "One ingredient per line, with amounts.",
+      title: "Съставки",
+      description: "По една съставка на ред, с количеството.",
       status: hasRows(values.ingredients) ? "done" : "todo",
     },
     {
       id: "section-steps",
-      title: "Instructions",
-      description: "One step per line, in order.",
+      title: "Приготвяне",
+      description: "По една стъпка на ред, подред.",
       status: hasRows(values.steps) ? "done" : "todo",
     },
     {
       id: "section-extras",
-      title: "Extras",
-      description: "Cooking time, calories, difficulty, tags and visibility.",
+      title: "Подробности",
+      description: "Време, калории, трудност, етикети и кой я вижда.",
       status: "optional",
     },
   ];
@@ -1033,13 +1063,13 @@ function CreateRecipeContent() {
 
       <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
         <h1 className="font-display text-3xl font-bold tracking-tight md:text-4xl">
-          {editId ? "Edit recipe" : "New recipe"}
+          {editId ? "Редактирай рецептата" : "Нова рецепта"}
         </h1>
         {!editId && (
           <Button asChild variant="outline" size="sm">
             <Link href="/import">
               <Sparkles className="h-4 w-4" />
-              Import from a link or photo
+              От линк или снимка
             </Link>
           </Button>
         )}
@@ -1067,8 +1097,8 @@ function CreateRecipeContent() {
               <ListSection
                 form={form}
                 name="ingredients"
-                placeholder="e.g., 200g spaghetti…"
-                label="Ingredient"
+                placeholder="напр. 200 г спагети…"
+                copy={INGREDIENT_COPY}
               />
             </FormSection>
 
@@ -1076,8 +1106,8 @@ function CreateRecipeContent() {
               <ListSection
                 form={form}
                 name="steps"
-                placeholder="e.g., Bring a large pot of salted water to a boil…"
-                label="Step"
+                placeholder="напр. Сложи голяма тенджера с подсолена вода да заври…"
+                copy={STEP_COPY}
               />
             </FormSection>
 
@@ -1100,7 +1130,7 @@ function CreateRecipeContent() {
                 onClick={() => (hasUnsavedChanges ? askToLeave(leave) : leave())}
                 disabled={isSubmitting}
               >
-                Cancel
+                Отказ
               </Button>
               <Button type="submit" disabled={isSubmitting} className="min-w-32">
                 {isSubmitting ? (
@@ -1109,10 +1139,10 @@ function CreateRecipeContent() {
                   <CheckCircle2 className="w-4 h-4 mr-2" />
                 )}
                 {isSubmitting
-                  ? "Saving…"
+                  ? "Запазвам…"
                   : editId
-                    ? "Save changes"
-                    : "Create recipe"}
+                    ? "Запази промените"
+                    : "Създай рецептата"}
               </Button>
             </div>
           </form>
@@ -1122,20 +1152,20 @@ function CreateRecipeContent() {
       <AlertDialog open={confirmLeave} onOpenChange={setConfirmLeave}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Discard your changes?</AlertDialogTitle>
+            <AlertDialogTitle>Да изхвърля ли промените?</AlertDialogTitle>
             <AlertDialogDescription>
               {editId
-                ? "Your edits to this recipe haven’t been saved."
-                : "This recipe hasn’t been saved yet."}
+                ? "Промените по рецептата не са запазени."
+                : "Рецептата още не е запазена."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Keep editing</AlertDialogCancel>
+            <AlertDialogCancel>Продължи</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => discardRef.current()}
               className="bg-destructive text-white hover:bg-destructive/90"
             >
-              Discard
+              Изхвърли
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

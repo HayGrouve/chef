@@ -13,23 +13,23 @@ export type WorkingStage = "uploading" | "reading";
 // and stop at the last one rather than looping or pretending to a percentage.
 const MESSAGES: Record<SourceKind, string[]> = {
   link: [
-    "Opening the page…",
-    "Looking for the recipe card…",
-    "Reading ingredients and steps…",
-    "No recipe card? Then AI reads the page…",
-    "Still reading. Long pages take a little longer…",
+    "Отварям страницата…",
+    "Търся рецептата…",
+    "Чета съставките и стъпките…",
+    "Няма готови данни? Тогава AI чете страницата…",
+    "Още чета. Дългите страници отнемат малко повече…",
   ],
   text: [
-    "Reading your text…",
-    "Finding ingredients…",
-    "Separating the steps…",
-    "Still working. This usually takes a few seconds…",
+    "Чета текста ти…",
+    "Намирам съставките…",
+    "Разделям стъпките…",
+    "Още работя. Обикновено отнема няколко секунди…",
   ],
   photo: [
-    "Reading the page…",
-    "Finding ingredients…",
-    "Reading the steps…",
-    "Still working. Handwriting takes a little longer…",
+    "Чета страницата…",
+    "Намирам съставките…",
+    "Чета стъпките…",
+    "Още работя. Ръкописът отнема малко повече…",
   ],
 };
 
@@ -56,7 +56,7 @@ export function WorkingState({
     return () => clearInterval(timer);
   }, [stage, messages.length]);
 
-  const status = stage === "uploading" ? "Uploading your photo…" : messages[index];
+  const status = stage === "uploading" ? "Качвам снимката…" : messages[index];
 
   return (
     <div className="space-y-4" aria-busy="true">
@@ -71,7 +71,7 @@ export function WorkingState({
           </p>
         </div>
         <Button variant="ghost" size="sm" onClick={onCancel}>
-          Cancel
+          Отказ
         </Button>
       </div>
 

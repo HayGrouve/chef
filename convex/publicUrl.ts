@@ -8,10 +8,10 @@ export function parsePublicUrl(raw: string): URL {
   try {
     url = new URL(raw.trim());
   } catch {
-    throw new ConvexError("That doesn't look like a link. Paste the full address, starting with https://");
+    throw new ConvexError("Това не прилича на линк. Постави целия адрес, с https:// отпред.");
   }
   if (url.protocol !== "https:" && url.protocol !== "http:") {
-    throw new ConvexError("Only http and https links can be imported.");
+    throw new ConvexError("Добавя се само от линкове с http и https.");
   }
   // A trailing dot ("localhost.") is the same host; strip it before comparing
   const host = url.hostname.toLowerCase().replace(/\.+$/, "");
@@ -23,7 +23,7 @@ export function parsePublicUrl(raw: string): URL {
     // IP literals: v6 is never needed for a recipe site; v4 must be public
     host.startsWith("[") ||
     isReservedIPv4(host);
-  if (privateHost) throw new ConvexError("That link can't be imported.");
+  if (privateHost) throw new ConvexError("От този линк не може да се добавя.");
   return url;
 }
 
