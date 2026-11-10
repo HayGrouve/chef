@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
+import { legalRedirects } from "./lib/legal";
 
 const nextConfig: NextConfig = {
+  redirects: async () => legalRedirects,
   images: {
     remotePatterns: [
       {
