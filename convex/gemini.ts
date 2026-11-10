@@ -22,12 +22,12 @@ async function callGemini(apiKey: string, parts: GeminiPart[]) {
     );
   } catch (error) {
     console.error("Gemini request failed:", error);
-    throw new ConvexError("The AI service didn't respond. Try again in a minute.");
+    throw new ConvexError("AI не отговори. Опитай пак след минута.");
   }
   if (!response.ok) {
     // The body can include quota or project details: log it, don't show it
     console.error("Gemini API Error:", response.status, await response.text());
-    throw new ConvexError("The AI service is unavailable right now. Try again in a minute.");
+    throw new ConvexError("AI не работи в момента. Опитай пак след минута.");
   }
   const data = await response.json();
   return data?.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -50,7 +50,7 @@ export async function generateJson<T = unknown>(prompt: string): Promise<T> {
     return JSON.parse(text) as T;
   } catch (error) {
     console.error("Failed to parse Gemini response:", text, error);
-    throw new ConvexError("The AI returned something we couldn't read. Try again.");
+    throw new ConvexError("Отговорът на AI не се прочете. Опитай пак.");
   }
 }
 
@@ -75,7 +75,7 @@ export async function generateJsonFromParts<T = unknown>(
     return JSON.parse(text) as T;
   } catch {
     console.error("Failed to parse Gemini response:", text);
-    throw new ConvexError("The AI returned something we couldn't read. Try again.");
+    throw new ConvexError("Отговорът на AI не се прочете. Опитай пак.");
   }
 }
 

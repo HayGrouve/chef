@@ -7,13 +7,17 @@ import { toWords } from "@/convex/ingredientMatch";
 // --- Timers -----------------------------------------------------------------
 
 const TIME_PATTERN =
-  /(\d+(?:\.\d+)?)(?:\s*(?:-|–|to)\s*(\d+(?:\.\d+)?))?\s*(seconds?|secs?|minutes?|mins?|hours?|hrs?)\b/gi;
+  /(\d+(?:[.,]\d+)?)(?:\s*(?:-|–|to|до)\s*(\d+(?:[.,]\d+)?))?\s*(seconds?|secs?|minutes?|mins?|hours?|hrs?|секунди|секунда|сек|минути|минута|мин|часа|час|ч)(?!\p{L})/giu;
 
 const COOKING_VERBS = [
   "simmer", "bake", "boil", "cook", "fry", "sear", "roast", "rest", "marinate",
   "reduce", "chill", "refrigerate", "steam", "grill", "toast", "stir", "whisk",
   "knead", "proof", "rise", "soak", "cool", "brown", "sauté", "saute", "poach",
   "blanch", "microwave", "heat", "preheat", "caramelize", "braise", "stew", "fold",
+  // Bulgarian recipes
+  "вари", "свари", "печи", "изпечи", "запечи", "пържи", "запържи", "изпържи",
+  "задуши", "задушавай", "къкри", "готви", "остави", "охлади", "мариновай", "разбъркай",
+  "бъркай", "намали", "загрей", "препечи", "бланширай", "втаса", "накисни",
 ];
 
 export type StepSegment =
@@ -22,8 +26,8 @@ export type StepSegment =
 
 function secondsFor(amount: number, unit: string): number {
   const u = unit.toLowerCase();
-  if (u.startsWith("h")) return Math.round(amount * 3600);
-  if (u.startsWith("s")) return Math.round(amount);
+  if (u.startsWith("h") || u.startsWith("ч")) return Math.round(amount * 3600);
+  if (u.startsWith("s") || u.startsWith("с")) return Math.round(amount);
   return Math.round(amount * 60);
 }
 
@@ -43,12 +47,12 @@ function labelFor(textBefore: string, fallback: string): string {
  * Splits a step into text and tappable timer segments. Ranges ("6-8 minutes")
  * use the lower bound so the cook checks early rather than late.
  */
-export function segmentStep(step: string, fallbackLabel = "Timer"): StepSegment[] {
+export function segmentStep(step: string, fallbackLabel = "Таймер"): StepSegment[] {
   const segments: StepSegment[] = [];
   let last = 0;
   for (const match of step.matchAll(TIME_PATTERN)) {
     const index = match.index ?? 0;
-    const seconds = secondsFor(Number(match[1]), match[3]);
+    const seconds = secondsFor(Number(match[1].replace(",", ".")), match[3]);
     if (seconds <= 0 || seconds > 24 * 3600) continue;
     if (index > last) segments.push({ type: "text", text: step.slice(last, index) });
     segments.push({

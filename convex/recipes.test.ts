@@ -311,10 +311,10 @@ describe("recipe text and author name", () => {
     const { host } = setup();
     await expect(
       host.mutation(api.recipes.create, { ...baseRecipe, title: "​​⁠" })
-    ).rejects.toThrow(/title/);
+    ).rejects.toThrow(/заглавие/);
     await expect(
       host.mutation(api.recipes.create, { ...baseRecipe, ingredients: ["﻿"] })
-    ).rejects.toThrow(/ingredient/);
+    ).rejects.toThrow(/съставка/);
     // Emoji sequences use joiners and stay intact
     const id = await host.mutation(api.recipes.create, { ...baseRecipe, title: "Chef 👨‍🍳 soup" });
     expect((await host.query(api.recipes.get, { id }))?.title).toBe("Chef 👨‍🍳 soup");
@@ -379,7 +379,7 @@ describe("concurrent edits", () => {
     // Tab B loaded the same version and saves later
     await expect(
       host.mutation(api.recipes.update, { id, ...baseRecipe, storageId: undefined, description: "Tab B edit", baseVersion: version })
-    ).rejects.toThrow(/changed somewhere else/);
+    ).rejects.toThrow(/променена другаде/);
     expect((await host.query(api.recipes.get, { id }))?.title).toBe("Tab A");
 
     // Reloading picks up the new version, and saving works again

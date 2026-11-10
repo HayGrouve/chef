@@ -36,6 +36,7 @@ import {
 import { useState, useMemo, useEffect } from "react";
 import { toast } from "sonner";
 import { cn, pluralize } from "@/lib/utils";
+import { aisleLabel } from "@/lib/labels";
 import { Id } from "../../convex/_generated/dataModel";
 
 type AggregatedItem = {
@@ -106,13 +107,13 @@ export default function ShoppingListPage() {
       setCooldown(30);
       toast.success(
         merged > 0
-          ? `Sorted into aisles and combined ${merged} duplicate item${merged === 1 ? "" : "s"}`
-          : "Sorted into aisles",
+          ? `Подредено по щандове, ${merged === 1 ? "събран 1 повтарящ се продукт" : `събрани ${merged} повтарящи се продукта`}`
+          : "Подредено по щандове",
         {
           action:
             originals.length > 0
               ? {
-                  label: "Undo",
+                  label: "Отмени",
                   onClick: once(() => restoreShoppingListItems({ items: originals })),
                 }
               : undefined,
@@ -122,8 +123,8 @@ export default function ShoppingListPage() {
       console.error("Failed to organize:", error);
       const reason =
         error instanceof ConvexError && typeof error.data === "string" ? error.data : null;
-      toast.error("Couldn’t organize the list", {
-        description: reason ?? "Try again in a minute. Your list hasn’t changed.",
+      toast.error("Не успях да подредя списъка", {
+        description: reason ?? "Опитай пак след минута. Списъкът ти не е променен.",
       });
     } finally {
       setIsOrganizing(false);
@@ -155,7 +156,7 @@ export default function ShoppingListPage() {
     await removeBatch({ ids });
     toast.success(message, {
       action: {
-        label: "Undo",
+        label: "Отмени",
         // Undo re-creates deleted rows, so a double click must not run it twice
         onClick: once(() =>
           restoreShoppingListItems({
@@ -176,7 +177,7 @@ export default function ShoppingListPage() {
 
   const handleClearChecked = () => {
     const ids = (items ?? []).filter((i) => i.isChecked).map((i) => i._id);
-    if (ids.length) void removeWithUndo(ids, `Cleared ${pluralize(ids.length, "checked item")}`);
+    if (ids.length) void removeWithUndo(ids, `Махнах ${pluralize(ids.length, "отметнат продукт", "отметнати продукта")}`);
   };
 
   const handleAddItem = async (e: React.FormEvent) => {
@@ -189,11 +190,11 @@ export default function ShoppingListPage() {
       await addItem({ ingredient });
     } catch (error) {
       setNewItem(ingredient);
-      toast.error("Couldn’t add that item", {
+      toast.error("Не успях да добавя продукта", {
         description:
           error instanceof ConvexError && typeof error.data === "string"
             ? error.data
-            : "Check your connection and try again.",
+            : "Провери връзката си и опитай пак.",
       });
     }
   };
@@ -210,10 +211,10 @@ export default function ShoppingListPage() {
 
       if (groupBy === "recipe") {
         groupKey = item.recipeId ? item.recipeId : "general";
-        groupTitle = item.recipeTitle ? item.recipeTitle : "General Items";
+        groupTitle = item.recipeTitle ? item.recipeTitle : "Други продукти";
       } else {
         groupKey = item.category || "Other";
-        groupTitle = item.category || "Other";
+        groupTitle = aisleLabel(item.category || "Other");
       }
 
       if (!groupedItems[groupKey]) {
@@ -252,11 +253,11 @@ export default function ShoppingListPage() {
       if (groupBy === "recipe") {
         if (a.id === "general") return -1;
         if (b.id === "general") return 1;
-        return a.title.localeCompare(b.title);
+        return a.title.localeCompare(b.title, "bg");
       } else {
-        if (a.title === "Other") return 1;
-        if (b.title === "Other") return -1;
-        return a.title.localeCompare(b.title);
+        if (a.id === "Other") return 1;
+        if (b.id === "Other") return -1;
+        return a.title.localeCompare(b.title, "bg");
       }
     });
   }, [items, groupBy]);
@@ -279,11 +280,11 @@ export default function ShoppingListPage() {
     <div className="container mx-auto max-w-2xl px-4 pb-16 pt-6 md:pt-10">
 
       <div className="flex items-center justify-between gap-2 mb-4">
-        <h1 className="font-display text-3xl font-bold tracking-tight md:text-4xl">Shopping list</h1>
+        <h1 className="font-display text-3xl font-bold tracking-tight md:text-4xl">Списък за пазаруване</h1>
         {items.length > 0 && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" aria-label="More actions">
+              <Button variant="ghost" size="icon" aria-label="Още действия">
                 <MoreHorizontal className="h-5 w-5" />
               </Button>
             </DropdownMenuTrigger>
@@ -293,14 +294,14 @@ export default function ShoppingListPage() {
                 onSelect={handleClearChecked}
               >
                 <Eraser className="h-4 w-4" />
-                Clear checked
+                Махни отметнатите
               </DropdownMenuItem>
               <DropdownMenuItem
                 variant="destructive"
                 onSelect={() => setShowClearAllDialog(true)}
               >
                 <Trash2 className="h-4 w-4" />
-                Delete all
+                Изтрий всички
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -311,13 +312,13 @@ export default function ShoppingListPage() {
         <Input
           name="item"
           autoComplete="off"
-          aria-label="Add an item"
+          aria-label="Добави продукт"
           maxLength={300}
           value={newItem}
           onChange={(e) => setNewItem(e.target.value)}
-          placeholder="Add an item, e.g. milk…"
+          placeholder="Добави продукт, напр. мляко…"
         />
-        <Button type="submit" size="icon" aria-label="Add item">
+        <Button type="submit" size="icon" aria-label="Добави">
           <Plus className="w-4 h-4" />
         </Button>
       </form>
@@ -325,7 +326,7 @@ export default function ShoppingListPage() {
       {items.length === 0 ? (
         <div className="text-center text-muted-foreground py-16 flex flex-col items-center gap-3">
           <ShoppingBasket className="h-12 w-12 opacity-50" />
-          <p>Your shopping list is empty.</p>
+          <p>Списъкът ти за пазаруване е празен.</p>
         </div>
       ) : (
         <>
@@ -344,7 +345,7 @@ export default function ShoppingListPage() {
                       "bg-background shadow-sm hover:bg-background"
                   )}
                 >
-                  {value === "category" ? "By aisle" : "By recipe"}
+                  {value === "category" ? "По щандове" : "По рецепти"}
                 </Button>
               ))}
             </div>
@@ -355,7 +356,7 @@ export default function ShoppingListPage() {
                 onClick={handleOrganize}
                 disabled={isOrganizing || cooldown > 0}
                 className="text-primary"
-                title="Sort into aisles and combine duplicate items"
+                title="Подреди по щандове и събери повтарящите се продукти"
               >
                 {isOrganizing ? (
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -363,10 +364,10 @@ export default function ShoppingListPage() {
                   <Sparkles className="w-4 h-4 mr-2" />
                 )}
                 {isOrganizing
-                  ? "Organizing…"
+                  ? "Подреждам…"
                   : cooldown > 0
-                  ? `Wait ${cooldown}s`
-                  : "Organize"}
+                  ? `Изчакай ${cooldown} с`
+                  : "Подреди"}
               </Button>
             )}
           </div>
@@ -406,8 +407,8 @@ export default function ShoppingListPage() {
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 text-muted-foreground hover:text-destructive md:opacity-0 md:group-hover:opacity-100 focus-visible:opacity-100"
-                        onClick={() => removeWithUndo(item.ids, `Removed ${item.ingredient}`)}
-                        aria-label={`Remove ${item.ingredient}`}
+                        onClick={() => removeWithUndo(item.ids, `Махнах ${item.ingredient}`)}
+                        aria-label={`Махни ${item.ingredient}`}
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>
@@ -423,18 +424,18 @@ export default function ShoppingListPage() {
       <AlertDialog open={showClearAllDialog} onOpenChange={setShowClearAllDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete all items?</AlertDialogTitle>
+            <AlertDialogTitle>Да изтрия ли всички продукти?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently remove all items from your shopping list.
+              Всички продукти от списъка за пазаруване ще се изтрият завинаги.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>Отказ</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => clearAll()}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Delete all
+              Изтрий всички
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

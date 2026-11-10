@@ -10,7 +10,7 @@ export async function generateMetadata({
   const { id } = await params;
   // Only public titles: metadata is rendered without the visitor's auth
   const recipe = await fetchQuery(api.recipes.getPublic, { id }).catch(() => null);
-  return { title: recipe ? `Cooking ${recipe.title}` : "Cook mode" };
+  return { title: recipe ? `Готвиш ${recipe.title}` : "Готвене" };
 }
 
 export default function Layout({ children }: { children: React.ReactNode }) {

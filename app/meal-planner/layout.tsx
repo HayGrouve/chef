@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  description: "Plan your weekly meals with ease",
-  title: "Meal planner",
+  description: "Планирай ястията за седмицата.",
+  title: "План за седмицата",
 };
 
 export default function Layout({ children }: { children: React.ReactNode }) {

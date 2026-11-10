@@ -10,15 +10,15 @@ export default function CookModeError({ reset }: { error: Error; reset: () => vo
     <div className="flex h-dvh flex-col items-center justify-center gap-4 p-6 text-center">
       <ChefHat className="h-10 w-10 text-muted-foreground" />
       <div>
-        <h1 className="text-xl font-semibold">Couldn’t open this recipe</h1>
-        <p className="text-muted-foreground">The link may be broken or the recipe is no longer available.</p>
+        <h1 className="text-xl font-semibold">Не успях да отворя рецептата</h1>
+        <p className="text-muted-foreground">Линкът може да е грешен или рецептата вече да не е достъпна.</p>
       </div>
       <div className="flex gap-2">
         <Button variant="outline" onClick={reset}>
-          Try again
+          Опитай пак
         </Button>
         <Button asChild>
-          <Link href="/">Back to recipes</Link>
+          <Link href="/">Към рецептите</Link>
         </Button>
       </div>
     </div>

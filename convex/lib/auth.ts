@@ -45,7 +45,7 @@ export async function getUserId(ctx: Ctx): Promise<string | null> {
 /** The caller's Clerk user id (`subject`); throws when signed out. */
 export async function requireUserId(
   ctx: Ctx,
-  message = "Unauthenticated",
+  message = "Влез, за да продължиш.",
 ): Promise<string> {
   const userId = await getUserId(ctx);
   if (!userId) throw new ConvexError(message);

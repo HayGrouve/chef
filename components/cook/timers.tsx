@@ -88,7 +88,7 @@ async function notify(title: string, body: string) {
 function alarm(timer: CookTimer, context: string) {
   beep();
   navigator.vibrate?.([300, 150, 300, 150, 300]);
-  void notify(`${timer.label} is done`, context);
+  void notify(`${timer.label}: готово`, context);
 }
 
 // --- State hook -------------------------------------------------------------
@@ -218,16 +218,16 @@ function TimerCard({ timer, api }: { timer: CookTimer; api: CookTimersApi }) {
           {timer.label}
         </p>
         <p className={cn("font-mono text-lg font-semibold leading-tight tabular-nums", paused && "opacity-60")}>
-          {done ? "Done!" : formatDuration(left)}
+          {done ? "Готово!" : formatDuration(left)}
         </p>
       </div>
       {!done &&
         (paused ? (
-          <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => api.resume(timer.id)} aria-label={`Resume ${timer.label}`}>
+          <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => api.resume(timer.id)} aria-label={`Продължи ${timer.label}`}>
             <Play className="h-4 w-4 fill-current" />
           </Button>
         ) : (
-          <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => api.pause(timer.id)} aria-label={`Pause ${timer.label}`}>
+          <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => api.pause(timer.id)} aria-label={`Пауза ${timer.label}`}>
             <Pause className="h-4 w-4 fill-current" />
           </Button>
         ))}
@@ -236,16 +236,16 @@ function TimerCard({ timer, api }: { timer: CookTimer; api: CookTimersApi }) {
         size="sm"
         className={cn("h-9 px-2 text-xs", done && "hover:bg-primary-foreground/15 hover:text-primary-foreground")}
         onClick={() => api.addMinute(timer.id)}
-        aria-label={`Add one minute to ${timer.label}`}
+        aria-label={`Още минута за ${timer.label}`}
       >
-        <Plus className="h-3 w-3" />1m
+        <Plus className="h-3 w-3" />1&nbsp;мин
       </Button>
       <Button
         variant="ghost"
         size="icon"
         className={cn("h-9 w-9", done && "hover:bg-primary-foreground/15 hover:text-primary-foreground")}
         onClick={() => api.dismiss(timer.id)}
-        aria-label={`Dismiss ${timer.label}`}
+        aria-label={`Махни ${timer.label}`}
       >
         <X className="h-4 w-4" />
       </Button>

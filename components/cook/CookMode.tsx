@@ -56,6 +56,7 @@ import {
   segmentStep,
   type StepSegment,
 } from "@/lib/recipe-text";
+import { difficultyLabel } from "@/lib/labels";
 import { cn, pluralize } from "@/lib/utils";
 import { formatIngredients, type UnitSystem } from "@/lib/quantities";
 import { useUnitSystem } from "@/hooks/use-unit-system";
@@ -153,14 +154,14 @@ function ScaleControl({
       size="sm"
       value={String(value)}
       onValueChange={(v) => v && onChange(Number(v))}
-      aria-label="Scale recipe"
+      aria-label="Количества"
       className={className}
     >
       {SCALES.map((s) => (
         <ToggleGroupItem
           key={s}
           value={String(s)}
-          aria-label={`Scale ${scaleLabel(s)}`}
+          aria-label={`Количества ${scaleLabel(s)}`}
           // Announced as radio buttons, so arrow keys should select, not just move focus
           onFocus={() => s !== value && onChange(s)}
           className="px-2.5 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
@@ -182,8 +183,8 @@ function UnitsControl({
   className?: string;
 }) {
   const options: { value: UnitSystem; label: string }[] = [
-    { value: "original", label: "As written" },
-    { value: "metric", label: "Metric" },
+    { value: "original", label: "Както е писано" },
+    { value: "metric", label: "Метрични" },
   ];
   return (
     <ToggleGroup
@@ -192,7 +193,7 @@ function UnitsControl({
       size="sm"
       value={value}
       onValueChange={(v) => v && onChange(v as UnitSystem)}
-      aria-label="Measurements"
+      aria-label="Мерки"
       className={className}
     >
       {options.map((o) => (
@@ -273,8 +274,8 @@ function TimerChip({
       onClick={onTap}
       aria-label={
         state === "idle"
-          ? `Start ${segment.label} timer, ${segment.text}`
-          : `${segment.label} timer ${state}, ${formatDuration(remainingSeconds(timer!, now))} left`
+          ? `Пусни таймер ${segment.label}, ${segment.text}`
+          : `Таймер ${segment.label}, ${TIMER_STATE[state as CookTimer["status"]]}, остават ${formatDuration(remainingSeconds(timer!, now))}`
       }
       className={cn(
         "mx-0.5 inline-flex items-center gap-1.5 rounded-lg px-2 py-0 align-baseline font-semibold transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
@@ -286,13 +287,19 @@ function TimerChip({
     >
       <Clock className="h-[0.8em] w-[0.8em] shrink-0" />
       <span className="tabular-nums">
-        {state === "idle" ? segment.text : state === "done" ? "Done" : formatDuration(remainingSeconds(timer!, now))}
+        {state === "idle" ? segment.text : state === "done" ? "Готово" : formatDuration(remainingSeconds(timer!, now))}
       </span>
     </button>
   );
 }
 
 const MAX_TIMER_MINUTES = 24 * 60;
+
+const TIMER_STATE: Record<CookTimer["status"], string> = {
+  running: "върви",
+  paused: "на пауза",
+  done: "готово",
+};
 
 function ManualTimerButton({ onStart }: { onStart: (minutes: number) => void }) {
   const [open, setOpen] = useState(false);
@@ -308,12 +315,12 @@ function ManualTimerButton({ onStart }: { onStart: (minutes: number) => void }) 
       <Tooltip>
         <TooltipTrigger asChild>
           <PopoverTrigger asChild>
-            <Button variant="ghost" size="icon" aria-label="Add a timer">
+            <Button variant="ghost" size="icon" aria-label="Добави таймер">
               <TimerReset className="h-5 w-5" />
             </Button>
           </PopoverTrigger>
         </TooltipTrigger>
-        <TooltipContent>Add a timer</TooltipContent>
+        <TooltipContent>Добави таймер</TooltipContent>
       </Tooltip>
       <PopoverContent align="end" className="w-64">
         <form
@@ -323,7 +330,7 @@ function ManualTimerButton({ onStart }: { onStart: (minutes: number) => void }) 
             start(Number(minutes));
           }}
         >
-          <p className="text-sm font-medium">New timer</p>
+          <p className="text-sm font-medium">Нов таймер</p>
           <div className="flex flex-wrap gap-1.5">
             {[1, 3, 5, 10, 15, 30].map((m) => (
               <Button
@@ -332,9 +339,9 @@ function ManualTimerButton({ onStart }: { onStart: (minutes: number) => void }) 
                 variant="outline"
                 size="sm"
                 onClick={() => start(m)}
-                aria-label={pluralize(m, "minute")}
+                aria-label={pluralize(m, "минута", "минути")}
               >
-                {m}m
+                {m}&nbsp;мин
               </Button>
             ))}
           </div>
@@ -347,9 +354,9 @@ function ManualTimerButton({ onStart }: { onStart: (minutes: number) => void }) 
               step="0.5"
               value={minutes}
               onChange={(e) => setMinutes(e.target.value)}
-              aria-label="Minutes"
+              aria-label="Минути"
             />
-            <Button type="submit">Start</Button>
+            <Button type="submit">Пусни</Button>
           </div>
         </form>
       </PopoverContent>
@@ -371,12 +378,12 @@ function VoiceToggle({
       <Tooltip>
         <TooltipTrigger asChild>
           <span tabIndex={0} className="inline-flex">
-            <Toggle disabled aria-label="Voice control unavailable" className="h-9 w-9">
+            <Toggle disabled aria-label="Гласовото управление не е достъпно" className="h-9 w-9">
               <MicOff className="h-5 w-5" />
             </Toggle>
           </span>
         </TooltipTrigger>
-        <TooltipContent>Voice needs Chrome or Edge</TooltipContent>
+        <TooltipContent>Гласът иска Chrome или Edge</TooltipContent>
       </Tooltip>
     );
   }
@@ -386,24 +393,24 @@ function VoiceToggle({
         <Toggle
           pressed={on}
           onPressedChange={onChange}
-          aria-label="Hands-free voice control"
+          aria-label="Гласово управление"
           className="h-9 w-9 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
         >
           <Mic className="h-5 w-5" />
         </Toggle>
       </TooltipTrigger>
       <TooltipContent>
-        {on ? "Stop listening" : "Hands-free: say “next”, “back”, “repeat”, “timer”"}
+        {on ? "Спри да слушаш" : "Без ръце: кажи „напред“, „назад“, „повтори“, „таймер“"}
       </TooltipContent>
     </Tooltip>
   );
 }
 
 function formatMinutes(total: number) {
-  if (total < 60) return `${total}\u00A0min`;
+  if (total < 60) return `${total}\u00A0мин`;
   const h = Math.floor(total / 60);
   const m = total % 60;
-  return m ? `${h}\u00A0h ${m}\u00A0min` : `${h}\u00A0h`;
+  return m ? `${h}\u00A0ч ${m}\u00A0мин` : `${h}\u00A0ч`;
 }
 
 // --- Session ----------------------------------------------------------------
@@ -503,14 +510,14 @@ function CookSession({ recipe }: { recipe: Recipe }) {
       if (!seg || seg.type !== "timer") return false;
       const key = `s${stepIndex}-t${timerIndex}`;
       const existing = timerBySource.get(key);
-      const label = `${seg.label} · step ${stepIndex + 1}`;
+      const label = `${seg.label} · стъпка ${stepIndex + 1}`;
       if (existing?.status === "running") {
-        toast(`${label} is already running`);
+        toast(`${label} вече върви`);
       } else if (existing?.status === "paused") {
         timers.resume(existing.id);
       } else {
         timers.start(label, seg.seconds, key);
-        toast.success(`${label}: ${formatDuration(seg.seconds)} started`);
+        toast.success(`${label}: ${formatDuration(seg.seconds)}, пуснат`);
       }
       return true;
     },
@@ -518,14 +525,14 @@ function CookSession({ recipe }: { recipe: Recipe }) {
   );
 
   const startManual = (minutes: number) => {
-    const label = step >= 0 && step < total ? `Timer · step ${step + 1}` : "Timer";
+    const label = step >= 0 && step < total ? `Таймер · стъпка ${step + 1}` : "Таймер";
     timers.start(label, Math.round(minutes * 60));
   };
 
   const readCurrent = useCallback(() => {
-    if (onOverview) speak(`${recipe.title}. ${pluralize(total, "step")}. Say next to start.`);
-    else if (finished) speak("All done. Enjoy your meal!");
-    else speak(`Step ${step + 1}. ${recipe.steps[step]}`);
+    if (onOverview) speak(recipe.title, `${pluralize(total, "стъпка", "стъпки")}. Кажи „напред“, за да започнеш.`);
+    else if (finished) speak("Готово. Добър апетит!");
+    else speak(`Стъпка ${step + 1}.`, recipe.steps[step]);
   }, [onOverview, finished, recipe.title, recipe.steps, step, total]);
 
   const handleVoice = useCallback(
@@ -541,10 +548,10 @@ function CookSession({ recipe }: { recipe: Recipe }) {
           return setSheetOpen(true);
         case "stop":
           setVoiceOn(false);
-          toast("Voice control off");
+          toast("Гласовото управление е спряно");
           return;
         case "timer":
-          if (step < 0 || step >= total || !tapTimer(step, 0)) toast("No timer in this step");
+          if (step < 0 || step >= total || !tapTimer(step, 0)) toast("В тази стъпка няма таймер");
           return;
       }
     },
@@ -620,24 +627,24 @@ function CookSession({ recipe }: { recipe: Recipe }) {
       {/* Header */}
       <header className="shrink-0 border-b bg-background">
         <div className="flex items-center gap-1 px-2 py-2 sm:gap-2 sm:px-4">
-          <Button variant="ghost" size="icon" onClick={exit} aria-label="Exit cook mode">
+          <Button variant="ghost" size="icon" onClick={exit} aria-label="Излез от готвенето">
             <X className="h-5 w-5" />
           </Button>
           <div className="min-w-0 flex-1">
             <h1 className="truncate font-semibold leading-tight">{recipe.title}</h1>
             <div className="flex min-w-0 items-center text-sm text-muted-foreground">
               {finished ? (
-                "Finished"
+                "Готово"
               ) : (
                 // Jump to any step without a permanent step list on screen
                 <DropdownMenu>
                   <DropdownMenuTrigger className="-ml-1 flex items-center gap-0.5 rounded px-1 hover:bg-muted hover:text-foreground">
-                    {onOverview ? "Get ready" : `Step ${step + 1} of ${total}`}
+                    {onOverview ? "Подготовка" : `Стъпка ${step + 1} от ${total}`}
                     <ChevronDown className="h-3.5 w-3.5" />
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start" className="max-h-[60vh] w-80 overflow-y-auto">
                     <DropdownMenuItem onSelect={() => goTo(-1)}>
-                      <ChefHat /> Get ready
+                      <ChefHat /> Подготовка
                     </DropdownMenuItem>
                     {recipe.steps.map((s, i) => (
                       <DropdownMenuItem
@@ -662,7 +669,7 @@ function CookSession({ recipe }: { recipe: Recipe }) {
               )}
               <span className="truncate">
                 {scale !== 1 && <span className="text-primary"> · {scaleLabel(scale)}</span>}
-                {wakeLockFailed && <span className="text-xs"> · Screen may sleep</span>}
+                {wakeLockFailed && <span className="text-xs"> · Екранът може да заспи</span>}
               </span>
             </div>
           </div>
@@ -673,16 +680,16 @@ function CookSession({ recipe }: { recipe: Recipe }) {
             variant="outline"
             size="sm"
             onClick={() => setSheetOpen(true)}
-            aria-label="Ingredients"
+            aria-label="Съставки"
           >
             <ListChecks className="h-4 w-4" />
-            <span className="hidden sm:inline">Ingredients</span>
+            <span className="hidden sm:inline">Съставки</span>
           </Button>
         </div>
-        <Progress value={progress} aria-label="Recipe progress" className="h-1 rounded-none" />
+        <Progress value={progress} aria-label="Напредък" className="h-1 rounded-none" />
         {/* Steps also change by swipe, keyboard and voice: announce where we are. */}
         <p className="sr-only" aria-live="polite">
-          {finished ? "Finished" : onOverview ? "Get ready" : `Step ${step + 1} of ${total}`}
+          {finished ? "Готово" : onOverview ? "Подготовка" : `Стъпка ${step + 1} от ${total}`}
         </p>
         {voiceOn && (
           <div role="status" className="flex items-center gap-2 bg-muted/50 px-4 py-1 text-xs text-muted-foreground">
@@ -690,8 +697,8 @@ function CookSession({ recipe }: { recipe: Recipe }) {
               <span className="absolute inline-flex h-full w-full rounded-full motion-safe:animate-ping bg-primary opacity-60" />
               <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
             </span>
-            <span>Listening</span>
-            {lastHeard && <span className="truncate">· heard “{lastHeard}”</span>}
+            <span>Слушам</span>
+            {lastHeard && <span className="truncate">· чух „{lastHeard}“</span>}
           </div>
         )}
       </header>
@@ -734,31 +741,31 @@ function CookSession({ recipe }: { recipe: Recipe }) {
                     </span>
                   </div>
                 </div>
-                <h2 className="text-4xl font-bold text-primary md:text-5xl">Bon appétit!</h2>
+                <h2 className="text-4xl font-bold text-primary md:text-5xl">Добър апетит!</h2>
                 <p className="mt-4 max-w-lg text-xl leading-relaxed text-muted-foreground">
-                  You cooked <span className="font-semibold text-foreground">{recipe.title}</span>. Time to enjoy it!
+                  Сготви <span className="font-semibold text-foreground">{recipe.title}</span>. Време е да му се насладиш!
                 </p>
                 {runningCount > 0 && (
                   <p className="mt-3 text-sm text-muted-foreground">
-                    {runningCount === 1 ? "A timer is" : `${runningCount} timers are`} still running. Keep an eye on them above.
+                    {runningCount === 1 ? "Един таймер още върви" : `${runningCount} таймера още вървят`}. Следи ги горе.
                   </p>
                 )}
                 <div className="mt-10 flex w-full max-w-md flex-col gap-3 sm:flex-row">
                   <Button asChild size="lg" className="h-14 w-full text-lg sm:w-auto sm:flex-1">
-                    <Link href={`/recipe/${recipe._id}`}>Back to recipe</Link>
+                    <Link href={`/recipe/${recipe._id}`}>Към рецептата</Link>
                   </Button>
                   <Button asChild size="lg" variant="outline" className="h-14 w-full text-lg sm:w-auto sm:flex-1">
-                    <Link href="/">Cook something else</Link>
+                    <Link href="/">Сготви нещо друго</Link>
                   </Button>
                 </div>
                 <Button variant="link" className="mt-3 text-muted-foreground" onClick={prev}>
-                  <ArrowLeft className="h-4 w-4" /> Back to the last step
+                  <ArrowLeft className="h-4 w-4" /> Към последната стъпка
                 </Button>
               </div>
             ) : onOverview ? (
               <div className="space-y-8">
                 <div>
-                  <h2 className="text-3xl font-bold">Get ready</h2>
+                  <h2 className="text-3xl font-bold">Подготовка</h2>
                   <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-muted-foreground">
                     {recipe.cookingTime ? (
                       <span className="inline-flex items-center gap-1.5">
@@ -766,21 +773,21 @@ function CookSession({ recipe }: { recipe: Recipe }) {
                       </span>
                     ) : null}
                     <span className="inline-flex items-center gap-1.5">
-                      <ListOrdered className="h-4 w-4" /> {pluralize(total, "step")}
+                      <ListOrdered className="h-4 w-4" /> {pluralize(total, "стъпка", "стъпки")}
                     </span>
                     {timerCount > 0 && (
                       <span className="inline-flex items-center gap-1.5">
-                        <TimerIcon className="h-4 w-4" /> {timerCount} {timerCount === 1 ? "timer" : "timers"}
+                        <TimerIcon className="h-4 w-4" /> {timerCount} {timerCount === 1 ? "таймер" : "таймера"}
                       </span>
                     )}
-                    {recipe.difficulty && <span>{recipe.difficulty}</span>}
+                    {recipe.difficulty && <span>{difficultyLabel(recipe.difficulty)}</span>}
                   </div>
                 </div>
 
                 <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4">
                   <div>
-                    <p className="font-medium">Scale</p>
-                    <p className="text-sm text-muted-foreground">Quantities update everywhere.</p>
+                    <p className="font-medium">Количества</p>
+                    <p className="text-sm text-muted-foreground">Променят се навсякъде.</p>
                   </div>
                   <ScaleControl value={scale} onChange={setScale} />
                 </div>
@@ -788,9 +795,9 @@ function CookSession({ recipe }: { recipe: Recipe }) {
                 {canConvert && (
                   <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4">
                     <div>
-                      <p className="font-medium">Measurements</p>
+                      <p className="font-medium">Мерки</p>
                       <p className="text-sm text-muted-foreground">
-                        Metric turns cups and spoons into grams and millilitres.
+                        Метричните превръщат чашите и лъжиците в грамове и милилитри.
                       </p>
                     </div>
                     <UnitsControl value={unitSystem} onChange={setUnitSystem} />
@@ -799,23 +806,23 @@ function CookSession({ recipe }: { recipe: Recipe }) {
 
                 <section>
                   <div className="mb-3 flex items-baseline justify-between gap-3">
-                    <h3 className="text-lg font-semibold">Ingredients</h3>
+                    <h3 className="text-lg font-semibold">Съставки</h3>
                     <span className="text-sm text-muted-foreground">
-                      {checked.size} of {recipe.ingredients.length} ready
+                      {checked.size} от {recipe.ingredients.length} готови
                     </span>
                   </div>
                   <IngredientChecklist lines={scaledLines} checked={checked} onToggle={toggleIngredient} large />
                 </section>
 
                 <p className="text-sm text-muted-foreground">
-                  Tip: tap a time in a step to start a timer. Swipe, or use ← → on a keyboard, to move between steps.
+                  Съвет: докосни време в стъпка, за да пуснеш таймер. Плъзгай или ползвай ← → на клавиатурата, за да сменяш стъпките.
                 </p>
               </div>
             ) : (
               <article key={step}>
                 <p className="mb-4 text-sm font-semibold uppercase tracking-wide text-primary">
-                  Step {step + 1}
-                  <span className="font-normal text-muted-foreground"> of {total}</span>
+                  Стъпка {step + 1}
+                  <span className="font-normal text-muted-foreground"> от {total}</span>
                 </p>
                 <p className="text-2xl leading-[1.6] sm:text-3xl sm:leading-[1.55]">
                   {(() => {
@@ -840,8 +847,8 @@ function CookSession({ recipe }: { recipe: Recipe }) {
                 {currentIngredients.length > 0 && (
                   <section className="mt-10">
                     <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                      You’ll need
-                      {scale !== 1 && <span className="ml-2 normal-case text-primary">scaled {scaleLabel(scale)}</span>}
+                      Ще ти трябват
+                      {scale !== 1 && <span className="ml-2 normal-case text-primary">количества {scaleLabel(scale)}</span>}
                     </h3>
                     <IngredientChecklist
                       lines={scaledLines}
@@ -865,21 +872,21 @@ function CookSession({ recipe }: { recipe: Recipe }) {
           <div className="mx-auto flex max-w-3xl gap-3">
             {onOverview ? (
               <Button size="lg" className="h-14 flex-1 text-lg" onClick={next}>
-                Start cooking <ArrowRight className="h-5 w-5" />
+                Започни да готвиш <ArrowRight className="h-5 w-5" />
               </Button>
             ) : (
               <>
                 <Button variant="outline" size="lg" className="h-14 flex-1 text-lg" onClick={prev}>
-                  <ArrowLeft className="h-5 w-5" /> {step === 0 ? "Overview" : "Back"}
+                  <ArrowLeft className="h-5 w-5" /> {step === 0 ? "Подготовка" : "Назад"}
                 </Button>
                 <Button size="lg" className="h-14 flex-[2] text-lg" onClick={next}>
                   {step === total - 1 ? (
                     <>
-                      Finish <Check className="h-5 w-5" />
+                      Готово <Check className="h-5 w-5" />
                     </>
                   ) : (
                     <>
-                      Next <ArrowRight className="h-5 w-5" />
+                      Напред <ArrowRight className="h-5 w-5" />
                     </>
                   )}
                 </Button>
@@ -893,9 +900,9 @@ function CookSession({ recipe }: { recipe: Recipe }) {
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
         <SheetContent side="right" className="w-full gap-0 sm:max-w-md">
           <SheetHeader className="border-b">
-            <SheetTitle>Ingredients</SheetTitle>
+            <SheetTitle>Съставки</SheetTitle>
             <SheetDescription>
-              {checked.size} of {recipe.ingredients.length} checked
+              {checked.size} от {recipe.ingredients.length} отметнати
             </SheetDescription>
             <div className="mt-2 flex flex-wrap gap-2">
               <ScaleControl value={scale} onChange={setScale} />
@@ -913,7 +920,7 @@ function CookSession({ recipe }: { recipe: Recipe }) {
           {checked.size > 0 && (
             <div className="border-t p-4">
               <Button variant="ghost" size="sm" onClick={() => setChecked(new Set())}>
-                Clear checks
+                Махни отметките
               </Button>
             </div>
           )}
@@ -932,7 +939,7 @@ export function CookMode({ id }: { id: string }) {
     return (
       <div className="flex h-dvh items-center justify-center" aria-busy="true">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        <span className="sr-only">Loading recipe…</span>
+        <span className="sr-only">Зареждам рецептата…</span>
       </div>
     );
   }
@@ -942,11 +949,11 @@ export function CookMode({ id }: { id: string }) {
       <div className="flex h-dvh flex-col items-center justify-center gap-4 p-6 text-center">
         <ChefHat className="h-10 w-10 text-muted-foreground" />
         <div>
-          <h1 className="text-xl font-semibold">Recipe not found</h1>
-          <p className="text-muted-foreground">It may have been deleted or made private.</p>
+          <h1 className="text-xl font-semibold">Няма такава рецепта</h1>
+          <p className="text-muted-foreground">Може да е изтрита или лична.</p>
         </div>
         <Button asChild>
-          <Link href="/">Back to recipes</Link>
+          <Link href="/">Към рецептите</Link>
         </Button>
       </div>
     );

@@ -56,6 +56,7 @@ import {
   todayName,
   useModKey,
 } from "./shared";
+import { dayLabel, mealTypeLabel } from "@/lib/labels";
 
 type RecipeRef = { _id: Id<"recipes">; title: string };
 type Page = { kind: "recipe" | "plan"; recipe: RecipeRef; prevSearch: string };
@@ -63,24 +64,30 @@ type Overview = FunctionReturnType<typeof api.commandPalette.suggestions>;
 type Meal = NonNullable<Overview>["meals"][number];
 
 const NAV: { href: string; label: string; icon: LucideIcon; keywords: string }[] = [
-  { href: "/", label: "Cook", icon: ChefHat, keywords: "recipes home feed browse" },
-  { href: "/meal-planner", label: "Plan", icon: Calendar, keywords: "meal planner week" },
-  { href: "/shopping-list", label: "Shop", icon: ShoppingCart, keywords: "shopping list groceries buy" },
-  // Pantry search now lives in the Cook search box (comma-separated ingredients).
-  { href: "/", label: "What can I make?", icon: Refrigerator, keywords: "pantry fridge have ingredients" },
-  { href: "/create", label: "New recipe", icon: PlusSquare, keywords: "create write" },
-  { href: "/import", label: "Import recipe", icon: Sparkles, keywords: "paste link url photo ai" },
+  { href: "/", label: "Готви", icon: ChefHat, keywords: "рецепти начало cook recipes home" },
+  { href: "/meal-planner", label: "Планирай", icon: Calendar, keywords: "план седмица ястия plan meal planner week" },
+  { href: "/shopping-list", label: "Пазарувай", icon: ShoppingCart, keywords: "списък пазаруване купи shop shopping list" },
+  // Pantry search now lives in the Готви search box (comma-separated ingredients).
+  { href: "/", label: "Какво мога да сготвя?", icon: Refrigerator, keywords: "хладилник продукти имам pantry fridge" },
+  { href: "/create", label: "Нова рецепта", icon: PlusSquare, keywords: "напиши създай new create write" },
+  { href: "/import", label: "Рецепта от линк или снимка", icon: Sparkles, keywords: "добави постави линк снимка import link photo ai" },
 ];
 
-const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-const QUICK_ADD = /^\s*add\s+(.*)$/i;
-// "add to shopping list" is someone looking for the action, not an item
-const ADD_ACTION_PHRASES = ["to shopping list", "to the shopping list", "to my shopping list", "to list"];
+const QUICK_ADD = /^\s*(?:добави|add)\s+(.*)$/i;
+// "добави в списъка" is someone looking for the action, not an item
+const ADD_ACTION_PHRASES = [
+  "в списъка за пазаруване",
+  "в списъка",
+  "to shopping list",
+  "to the shopping list",
+  "to my shopping list",
+  "to list",
+];
 const isAddActionPhrase = (text: string) => {
   const typed = text.trim().toLowerCase().replace(/\s+/g, " ");
   return typed.length >= 2 && ADD_ACTION_PHRASES.some((phrase) => phrase.startsWith(typed));
 };
-/** "milk to shopping list" / "to the shopping list milk" → "milk" */
+/** "мляко в списъка" / "в списъка мляко" → "мляко" */
 const stripAddActionPhrase = (text: string) => {
   let item = text.trim();
   for (const phrase of ADD_ACTION_PHRASES) {
@@ -146,7 +153,7 @@ export function CommandPalette() {
     console.error(err);
     // Server validation messages (e.g. "Your week is full") are worth showing
     const message = err instanceof ConvexError && typeof err.data === "string" ? err.data : null;
-    toast.error(message ?? "Something went wrong. Please try again.");
+    toast.error(message ?? "Нещо се обърка. Опитай пак.");
   };
 
   /** Close first so the palette feels instant, then do the work. */
@@ -174,46 +181,46 @@ export function CommandPalette() {
   const planMeal = (recipe: RecipeRef, day: string, mealType: string) =>
     run(async () => {
       const id = await addMeal({ date: day, mealType, recipeId: recipe._id });
-      toast.success(`Planned for ${day} ${mealType}`, {
+      toast.success(`В плана: ${dayLabel(day).toLowerCase()}, ${mealTypeLabel(mealType).toLowerCase()}`, {
         description: recipe.title,
-        action: { label: "Undo", onClick: () => void removeMeal({ id }).catch(fail) },
+        action: { label: "Отмени", onClick: () => void removeMeal({ id }).catch(fail) },
       });
     });
 
   const quickAdd = (ingredient: string) =>
     run(async () => {
       const id = await addItem({ ingredient });
-      toast.success(`Added “${ingredient}” to shopping list`, {
-        action: { label: "Undo", onClick: () => void removeItem({ id }).catch(fail) },
+      toast.success(`Добавих „${ingredient}“ в списъка за пазаруване`, {
+        action: { label: "Отмени", onClick: () => void removeItem({ id }).catch(fail) },
       });
     });
 
   const addIngredients = (recipe: RecipeRef, ingredients: string[]) =>
     run(async () => {
       const ids = await addItems({ ingredients, recipeId: recipe._id });
-      toast.success(`Added ${pluralize(ids.length, "ingredient")} to shopping list`, {
+      toast.success(`Добавих ${pluralize(ids.length, "съставка", "съставки")} в списъка за пазаруване`, {
         description: recipe.title,
-        action: { label: "Undo", onClick: () => void removeItems({ ids }).catch(fail) },
+        action: { label: "Отмени", onClick: () => void removeItems({ ids }).catch(fail) },
       });
     });
 
   const favorite = (recipe: RecipeRef, wasFavorite: boolean) =>
     run(async () => {
       await toggleFavorite({ id: recipe._id });
-      toast.success(wasFavorite ? "Removed from favorites" : "Added to favorites", {
+      toast.success(wasFavorite ? "Махнах я от любими" : "Добавих я в любими", {
         description: recipe.title,
         action: {
-          label: "Undo",
+          label: "Отмени",
           onClick: () => void toggleFavorite({ id: recipe._id }).catch(fail),
         },
       });
     });
 
   const placeholder = !page
-    ? "Search recipes, pages, or type “add milk”…"
+    ? "Търси рецепти и страници или напиши „добави мляко“…"
     : page.kind === "recipe"
-      ? "What do you want to do with it?"
-      : "Pick a day and meal… (e.g. “thu dinner”)";
+      ? "Какво искаш да направиш с нея?"
+      : "Избери ден и хранене… (напр. „чет вечеря“)";
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -221,9 +228,9 @@ export function CommandPalette() {
         showCloseButton={false}
         className="top-[8vh] translate-y-0 gap-0 overflow-hidden p-0 sm:top-[14vh] sm:max-w-xl"
       >
-        <DialogTitle className="sr-only">Command palette</DialogTitle>
+        <DialogTitle className="sr-only">Бързи действия</DialogTitle>
         <DialogDescription className="sr-only">
-          Search recipes, plan meals, add to your shopping list or jump to a page.
+          Търси рецепти, планирай ястия, добавяй в списъка за пазаруване или отиди на страница.
         </DialogDescription>
         <Command
           shouldFilter={false}
@@ -241,7 +248,7 @@ export function CommandPalette() {
               <button
                 type="button"
                 onClick={pop}
-                aria-label="Back"
+                aria-label="Назад"
                 className="rounded p-1 hover:bg-accent hover:text-foreground"
               >
                 <ChevronLeft className="h-4 w-4" />
@@ -251,7 +258,7 @@ export function CommandPalette() {
                   <span key={i}>
                     {i > 0 && <span className="mx-1 opacity-60">›</span>}
                     <span className={cn(i === pages.length - 1 && "font-medium text-foreground")}>
-                      {p.kind === "recipe" ? p.recipe.title : "Plan it"}
+                      {p.kind === "recipe" ? p.recipe.title : "В плана"}
                     </span>
                   </span>
                 ))}
@@ -263,7 +270,7 @@ export function CommandPalette() {
             value={search}
             onValueChange={setSearch}
             placeholder={placeholder}
-            aria-label="Search recipes and actions"
+            aria-label="Търси рецепти и действия"
           />
           <CommandList className="max-h-[min(60vh,420px)]">
             {!page && (
@@ -273,7 +280,7 @@ export function CommandPalette() {
                 onGo={go}
                 onRecipe={(r) => push("recipe", r)}
                 onQuickAdd={quickAdd}
-                onStartAdd={() => setSearch("add ")}
+                onStartAdd={() => setSearch("добави ")}
               />
             )}
             {page?.kind === "recipe" && (
@@ -346,15 +353,15 @@ function RootPage({
   if (quick) {
     const text = stripAddActionPhrase(quick[1]);
     return (
-      <CommandGroup heading="Shopping list">
+      <CommandGroup heading="Списък за пазаруване">
         <CommandItem value="quick-add" disabled={!text} onSelect={() => onQuickAdd(text)}>
           <ShoppingCart />
           {text ? (
             <span>
-              Add <span className="font-medium">“{text}”</span> to shopping list
+              Добави <span className="font-medium">„{text}“</span> в списъка за пазаруване
             </span>
           ) : (
-            <span className="text-muted-foreground">Type an item, e.g. “add 2 lemons”</span>
+            <span className="text-muted-foreground">Напиши продукт, напр. „добави 2 лимона“</span>
           )}
         </CommandItem>
       </CommandGroup>
@@ -365,16 +372,16 @@ function RootPage({
   const actions = [
     {
       id: "theme",
-      label: isDark ? "Switch to light theme" : "Switch to dark theme",
+      label: isDark ? "Светла тема" : "Тъмна тема",
       icon: isDark ? Sun : Moon,
-      keywords: "toggle theme dark light mode appearance",
+      keywords: "тема светла тъмна вид toggle theme dark light",
       onSelect: () => setTheme(isDark ? "light" : "dark"),
     },
     {
       id: "add",
-      label: "Add to shopping list…",
+      label: "Добави в списъка за пазаруване…",
       icon: ShoppingCart,
-      keywords: "add shop item grocery buy",
+      keywords: "добави продукт купи add shop item buy",
       onSelect: onStartAdd,
     },
   ];
@@ -385,7 +392,7 @@ function RootPage({
   const staticGroups = (
     <>
       {navItems.length > 0 && (
-        <CommandGroup heading="Go to">
+        <CommandGroup heading="Отиди на">
           {navItems.map(({ href, label, icon: Icon }) => (
             <CommandItem key={label} value={`go:${label}`} onSelect={() => onGo(href)}>
               <Icon />
@@ -395,7 +402,7 @@ function RootPage({
         </CommandGroup>
       )}
       {actionItems.length > 0 && (
-        <CommandGroup heading="Actions">
+        <CommandGroup heading="Действия">
           {actionItems.map(({ id, label, icon: Icon, onSelect }) => (
             <CommandItem key={id} value={`action:${id}`} onSelect={onSelect}>
               <Icon />
@@ -413,7 +420,7 @@ function RootPage({
     if (overview === undefined) {
       return (
         <div className="flex items-center gap-2 px-4 py-3 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" /> Loading…
+          <Loader2 className="h-4 w-4 animate-spin" /> Зареждам…
         </div>
       );
     }
@@ -429,7 +436,7 @@ function RootPage({
     return (
       <>
         {upNext.length > 0 && (
-          <CommandGroup heading={`Up next · ${today}`}>
+          <CommandGroup heading={`Следва · ${dayLabel(today)}`}>
             {upNext.map((m) => (
               <CommandItem
                 key={m._id}
@@ -438,15 +445,15 @@ function RootPage({
               >
                 <CookingPot />
                 <span className="truncate">
-                  Cook <span className="font-medium">{m.recipe.title}</span>
+                  Готви <span className="font-medium">{m.recipe.title}</span>
                 </span>
-                <CommandShortcut className="tracking-normal">{cap(m.mealType)}</CommandShortcut>
+                <CommandShortcut className="tracking-normal">{mealTypeLabel(m.mealType)}</CommandShortcut>
               </CommandItem>
             ))}
           </CommandGroup>
         )}
         {recent.length > 0 && (
-          <CommandGroup heading="Your recent recipes">
+          <CommandGroup heading="Последните ти рецепти">
             {recent.map((r) => (
               <CommandItem
                 key={r._id}
@@ -456,7 +463,7 @@ function RootPage({
                 <UtensilsCrossed />
                 <span className="truncate">{r.title}</span>
                 {r.cookingTime ? (
-                  <CommandShortcut className="tracking-normal">{r.cookingTime}{"\u00A0"}min</CommandShortcut>
+                  <CommandShortcut className="tracking-normal">{r.cookingTime}{"\u00A0"}мин</CommandShortcut>
                 ) : null}
               </CommandItem>
             ))}
@@ -482,7 +489,7 @@ function RootPage({
     <>
       {staticGroups}
       {recipes.length > 0 && !loading && (
-        <CommandGroup heading="Recipes">
+        <CommandGroup heading="Рецепти">
           {recipes.map((r) => (
             <CommandItem
               key={r._id}
@@ -492,7 +499,7 @@ function RootPage({
               <UtensilsCrossed />
               <span className="truncate">{r.title}</span>
               <CommandShortcut className="tracking-normal">
-                {r.own ? (r.cookingTime ? `${r.cookingTime}\u00A0min` : "") : `by ${r.authorName ?? "someone"}`}
+                {r.own ? (r.cookingTime ? `${r.cookingTime}\u00A0мин` : "") : `от ${r.authorName ?? "някого"}`}
               </CommandShortcut>
             </CommandItem>
           ))}
@@ -500,13 +507,13 @@ function RootPage({
       )}
       {loading ? (
         <div className="flex items-center gap-2 px-4 py-3 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" /> Searching recipes…
+          <Loader2 className="h-4 w-4 animate-spin" /> Търся рецепти…
         </div>
       ) : (
         <CommandEmpty>
-          No results for “{q}”.
+          Нищо за „{q}“.
           <span className="mt-1 block text-xs text-muted-foreground">
-            Tip: start with “add ” to put it on your shopping list.
+            Съвет: започни с „добави “, за да го сложиш в списъка за пазаруване.
           </span>
         </CommandEmpty>
       )}
@@ -535,31 +542,31 @@ function RecipePage({
   const items = [
     {
       id: "open",
-      label: "Open recipe",
+      label: "Отвори рецептата",
       icon: BookOpen,
       onSelect: () => onGo(`/recipe/${recipe._id}`),
     },
     {
       id: "cook",
-      label: "Cook",
+      label: "Готви",
       icon: CookingPot,
-      hint: "step by step",
+      hint: "стъпка по стъпка",
       onSelect: () => onGo(`/recipe/${recipe._id}/cook`),
     },
-    { id: "plan", label: "Plan it…", icon: CalendarPlus, hint: "day & meal", onSelect: onPlan },
+    { id: "plan", label: "Сложи я в плана…", icon: CalendarPlus, hint: "ден и хранене", onSelect: onPlan },
     {
       id: "shop",
-      label: "Add ingredients to shopping list",
+      label: "Съставките в списъка за пазаруване",
       icon: ShoppingCart,
-      hint: full ? pluralize(count, "item") : "",
+      hint: full ? pluralize(count, "продукт", "продукта") : "",
       disabled: !full || count === 0,
       onSelect: () => full && onAddIngredients(full.ingredients),
     },
     {
       id: "fav",
-      label: full?.isFavorite ? "Remove from favorites" : "Add to favorites",
+      label: full?.isFavorite ? "Махни от любими" : "Добави в любими",
       icon: Heart,
-      keywords: "favorite star like",
+      keywords: "любима харесай favorite like",
       disabled: !full,
       onSelect: () => full && onFavorite(full.isFavorite),
     },
@@ -576,7 +583,7 @@ function RecipePage({
           </CommandItem>
         ))}
       </CommandGroup>
-      <CommandEmpty>No matching action.</CommandEmpty>
+      <CommandEmpty>Няма такова действие.</CommandEmpty>
     </>
   );
 }
@@ -600,7 +607,7 @@ function PlanPage({
       {days.map((day) => {
         const isToday = day === today;
         const slots = MEAL_TYPES.filter((mt) =>
-          matches(search, day, mt, isToday ? "today" : "")
+          matches(search, dayLabel(day), mealTypeLabel(mt), day, mt, isToday ? "днес today" : "")
         );
         if (slots.length === 0) return null;
         return (
@@ -608,10 +615,10 @@ function PlanPage({
             key={day}
             heading={
               <span className="flex items-center gap-2">
-                {day}
+                {dayLabel(day)}
                 {isToday && (
                   <span className="rounded bg-primary/10 px-1.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
-                    Today
+                    Днес
                   </span>
                 )}
               </span>
@@ -627,14 +634,14 @@ function PlanPage({
                   value={`${day}-${mt}`}
                   onSelect={() => onPick(day, mt)}
                 >
-                  <span className="w-20 shrink-0">{cap(mt)}</span>
+                  <span className="w-20 shrink-0">{mealTypeLabel(mt)}</span>
                   <span
                     className={cn(
                       "min-w-0 truncate text-xs text-muted-foreground",
                       planned.length === 0 && "opacity-50"
                     )}
                   >
-                    {planned.length ? `+ with ${planned.join(", ")}` : "empty"}
+                    {planned.length ? `+ при ${planned.join(", ")}` : "празно"}
                   </span>
                 </CommandItem>
               );
@@ -642,7 +649,7 @@ function PlanPage({
           </CommandGroup>
         );
       })}
-      <CommandEmpty>No matching slot. Try “thu dinner”.</CommandEmpty>
+      <CommandEmpty>Няма такова място. Опитай „чет вечеря“.</CommandEmpty>
     </>
   );
 }
@@ -653,23 +660,23 @@ function Footer({ nested }: { nested: boolean }) {
     <div className="hidden items-center gap-4 border-t bg-muted/40 px-3 py-2 text-xs text-muted-foreground sm:flex">
       <span className="flex items-center gap-1">
         <Kbd>↑</Kbd>
-        <Kbd>↓</Kbd> navigate
+        <Kbd>↓</Kbd> избор
       </span>
       <span className="flex items-center gap-1">
-        <Kbd>↵</Kbd> select
+        <Kbd>↵</Kbd> отвори
       </span>
       <span className="flex items-center gap-1">
-        <Kbd>esc</Kbd> close
+        <Kbd>esc</Kbd> затвори
       </span>
       {nested && (
         <span className="flex items-center gap-1">
-          <Kbd>⌫</Kbd> back
+          <Kbd>⌫</Kbd> назад
         </span>
       )}
       {mod && (
         <span className="ml-auto flex items-center gap-1">
           <Kbd>{mod}</Kbd>
-          <Kbd>K</Kbd> toggle
+          <Kbd>K</Kbd> отвори и затвори
         </span>
       )}
     </div>

@@ -13,9 +13,9 @@ export const MAX_LIST_ITEMS = 1000;
 /** Trims an item and rejects empty or oversized ones. */
 export function cleanItem(ingredient: string) {
   const cleaned = ingredient.trim();
-  if (!cleaned) throw new ConvexError("Item can't be empty.");
+  if (!cleaned) throw new ConvexError("Продуктът не може да е празен.");
   if (cleaned.length > MAX_ITEM_LENGTH) {
-    throw new ConvexError(`Keep items under ${MAX_ITEM_LENGTH} characters.`);
+    throw new ConvexError(`Всеки продукт може да е най-много ${MAX_ITEM_LENGTH} знака.`);
   }
   return cleaned;
 }
@@ -28,7 +28,7 @@ export async function assertRoomFor(ctx: MutationCtx, userId: string, count: num
     .take(MAX_LIST_ITEMS);
   if (existing.length + count > MAX_LIST_ITEMS) {
     throw new ConvexError(
-      `Your shopping list is full (${MAX_LIST_ITEMS} items). Clear some items first.`
+      `Списъкът ти за пазаруване е пълен (${MAX_LIST_ITEMS} продукта). Първо махни някои.`
     );
   }
 }
@@ -124,7 +124,7 @@ export const addBatch = mutation({
     // We just insert new items. Complex merging requires more robust parsing logic.
     // Returns the inserted ids so the client can offer "Undo".
     if (args.ingredients.length > MAX_BATCH) {
-      throw new ConvexError(`Add at most ${MAX_BATCH} items at a time.`);
+      throw new ConvexError(`Добавяй най-много ${MAX_BATCH} продукта наведнъж.`);
     }
     const ingredients = args.ingredients.map(cleanItem);
     await assertRoomFor(ctx, userId, ingredients.length);
@@ -163,7 +163,7 @@ export const addPlannedWeek = mutation({
         const recipe = await ctx.db.get(plan.recipeId);
         bytes += recipe ? JSON.stringify(recipe).length : 0;
         if (bytes > READ_BYTES_BUDGET) {
-          throw new ConvexError("This week's recipes are too long to add at once. Add them from each recipe instead.");
+          throw new ConvexError("Рецептите за седмицата са твърде много за наведнъж. Добави ги от всяка рецепта поотделно.");
         }
         recipes.set(plan.recipeId, canReadRecipe(recipe, userId) ? recipe : null);
       }
@@ -196,7 +196,7 @@ export const toggle = mutation({
     const userId = await requireUserId(ctx);
     const item = await ctx.db.get(args.id);
     if (!item || item.userId !== userId) {
-      throw new Error("Unauthorized");
+      throw new ConvexError("Това не е в твоя списък.");
     }
     await ctx.db.patch(args.id, { isChecked: !item.isChecked });
   },
@@ -228,7 +228,7 @@ export const remove = mutation({
     const userId = await requireUserId(ctx);
     const item = await ctx.db.get(args.id);
     if (!item || item.userId !== userId) {
-      throw new Error("Unauthorized");
+      throw new ConvexError("Това не е в твоя списък.");
     }
     await ctx.db.delete(args.id);
   },
