@@ -1,4 +1,5 @@
 import { v, ConvexError } from "convex/values";
+import type { UserIdentity } from "convex/server";
 import { mutation, query, type QueryCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { getIdentity, getUserId, requireUserId } from "./lib/auth";
@@ -20,6 +21,14 @@ function isClerkImage(url: string) {
   } catch {
     return false;
   }
+}
+
+/**
+ * The Clerk profile picture from the token's `picture` claim. Under
+ * `customJwt` claims arrive under their own names, untyped.
+ */
+function tokenPicture(identity: UserIdentity) {
+  return typeof identity.picture === "string" ? identity.picture : undefined;
 }
 
 /** The profile row of a Clerk user, found by `subject` (stored as `userId`). */
@@ -104,7 +113,7 @@ export const store = mutation({
       // Keep an avatar the user set on their profile; only follow the
       // Clerk picture while they haven't chosen their own.
       const usesClerkAvatar = !user.avatarUrl || isClerkImage(user.avatarUrl);
-      const avatarUrl = usesClerkAvatar ? identity.pictureUrl : user.avatarUrl;
+      const avatarUrl = usesClerkAvatar ? tokenPicture(identity) : user.avatarUrl;
       // A token without a name (an email code sign-in) never renames anyone;
       // names change on /akaunt and arrive with the next token.
       const name = nextSyncedAuthName(user.name, identity.name);
@@ -137,7 +146,7 @@ export const store = mutation({
       name,
       tokenIdentifier: identity.tokenIdentifier,
       userId,
-      avatarUrl: identity.pictureUrl,
+      avatarUrl: tokenPicture(identity),
     });
     return { userId: id, created: true };
   },
