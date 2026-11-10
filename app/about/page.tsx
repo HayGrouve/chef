@@ -95,7 +95,7 @@ export default function AboutPage() {
           Join thousands of home cooks organizing their kitchen life with CHEF.
         </p>
         <Button asChild size="lg" variant="secondary" className="font-semibold">
-          <Link href="/sign-up">Get started for free</Link>
+          <Link href="/sign-in">Вход</Link>
         </Button>
       </div>
     </div>

@@ -67,7 +67,7 @@ export default function EditProfilePage() {
       <div className="container mx-auto max-w-md px-4 py-24 text-center">
         <h1 className="font-display text-2xl font-bold">Sign in to edit your profile</h1>
         <Button asChild className="mt-6">
-          <Link href="/sign-in">Sign in</Link>
+          <Link href="/sign-in?redirect_url=%2Fprofile%2Fedit">Вход</Link>
         </Button>
       </div>
     );
