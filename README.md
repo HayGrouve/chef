@@ -22,13 +22,15 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 
 ## Environments and Convex
 
-| Where | Convex deployment |
-| --- | --- |
-| Production (armyant.app) | `descriptive-snail-667` (prod) |
-| Vercel previews | `hearty-kookabura-538` (dev) |
-| Local dev | `hearty-kookabura-538` (dev) |
+| Where | Convex deployment | Clerk instance |
+| --- | --- | --- |
+| Production (armyant.app) | `descriptive-snail-667` (prod) | Chef's old dev instance (`good-puma-58`) until the cutover (chef#33), then онова за production |
+| Vercel previews | `hearty-kookabura-538` (dev) | онова за development (`fancy-bobcat-6703`) |
+| Local dev | `hearty-kookabura-538` (dev) | онова за development (`fancy-bobcat-6703`) |
 
 - Vercel's `NEXT_PUBLIC_CONVEX_URL` has one value for Production and another for Preview and Development, so previews and local dev never read or write production data.
+- Vercel's `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` are split the same way: Preview and Development hold the онова за **dev** instance keys (`pk_live_` does not work on `*.vercel.app`), Production keeps its own. Each Convex deployment trusts its Clerk instance through `CLERK_JWT_ISSUER_DOMAIN`: dev has `https://fancy-bobcat-6703.clerk.accounts.dev`.
+- Signed out, a protected page sends you to the dev Account Portal (`fancy-bobcat-6703.accounts.dev`), which says "онова за" and brings you back.
 - Local setup: `vercel env pull .env.local --environment=development`, then keep `CONVEX_DEPLOYMENT=dev:hearty-kookabura-538` in `.env.local` (`npx convex dev` uses it). There is no `.env`; never commit `.env*` files.
 - Push functions to dev with `npx convex dev --once`. The Vercel build runs `next build` only, so it never deploys Convex functions.
 - Production Convex changes only through `npx convex deploy`, run from the PR head right before its merge, and only after the owner confirms.
@@ -36,7 +38,7 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 - UI copy is Bulgarian (informal "ти", no em or en dashes; `lib/copy.test.ts` checks the dashes). Difficulty, tags, aisles, meal types and days stay English keys in the data; `lib/labels.ts` holds their Bulgarian labels.
 - `node scripts/og-image.mjs "$PWD"` re-renders the images with words on them (`app/opengraph-image.png`, `public/mission.png`).
 - `POST /clerk/webhook` (`convex/http.ts`) erases a person on Clerk's `user.deleted`. It answers 503 until `CLERK_WEBHOOK_SIGNING_SECRET` is set on the Convex deployment; production gets its endpoint and secret at the cutover, not before.
-- Dev data comes from the dev seed (`convex/devSeed.ts`), keyed by a Clerk user id and refused on any deployment but dev. Sign in once as a Clerk test user (a `+clerk_test` email, code 424242), then: `npx convex run devSeed:seedTestUser '{"userId":"user_..."}'`.
+- Dev data comes from the dev seed (`convex/devSeed.ts`), keyed by a Clerk user id and refused on any deployment but dev. Sign in once as a Clerk test user of the онова за dev instance (a `+clerk_test` email, code 424242; `clerk users create --app <онова за app> --instance dev --email you+clerk_test@example.com`), then: `npx convex run devSeed:seedTestUser '{"userId":"user_..."}'`.
 - The cutover wipe (`migrations:cutoverWipe`, chef#27) runs on production once, on cutover day (chef#33). Always run it with `{"dryRun":true}` first.
 
 ## Learn More
