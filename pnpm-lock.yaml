@@ -147,6 +147,9 @@ importers:
       sharp:
         specifier: 0.34.5
         version: 0.34.5
+      standardwebhooks:
+        specifier: ^1.0.0
+        version: 1.0.0
       tailwindcss:
         specifier: ^4
         version: 4.1.17

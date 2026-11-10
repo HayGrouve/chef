@@ -9,16 +9,20 @@
  */
 
 import type * as access from "../access.js";
+import type * as accountDeletion from "../accountDeletion.js";
 import type * as ai from "../ai.js";
 import type * as categories from "../categories.js";
+import type * as cleanup from "../cleanup.js";
 import type * as commandPalette from "../commandPalette.js";
 import type * as crons from "../crons.js";
 import type * as devSeed from "../devSeed.js";
 import type * as feed from "../feed.js";
 import type * as gemini from "../gemini.js";
+import type * as http from "../http.js";
 import type * as importRecipe from "../importRecipe.js";
 import type * as ingredientMatch from "../ingredientMatch.js";
 import type * as lib_auth from "../lib/auth.js";
+import type * as lib_clerkWebhook from "../lib/clerkWebhook.js";
 import type * as lib_names from "../lib/names.js";
 import type * as mealPlans from "../mealPlans.js";
 import type * as migrations from "../migrations.js";
@@ -39,16 +43,20 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   access: typeof access;
+  accountDeletion: typeof accountDeletion;
   ai: typeof ai;
   categories: typeof categories;
+  cleanup: typeof cleanup;
   commandPalette: typeof commandPalette;
   crons: typeof crons;
   devSeed: typeof devSeed;
   feed: typeof feed;
   gemini: typeof gemini;
+  http: typeof http;
   importRecipe: typeof importRecipe;
   ingredientMatch: typeof ingredientMatch;
   "lib/auth": typeof lib_auth;
+  "lib/clerkWebhook": typeof lib_clerkWebhook;
   "lib/names": typeof lib_names;
   mealPlans: typeof mealPlans;
   migrations: typeof migrations;
