@@ -21,13 +21,8 @@ export async function generateMetadata({
       // Not public: it may be the visitor's own private recipe. Title it for
       // them (asking as them), but keep it out of the social preview tags.
       // The онова за instances put `aud: "convex"` on the session token
-      // itself; Chef's old instance (production until the cutover) needs the
-      // "convex" JWT template. Same choice ConvexProviderWithClerk makes.
-      const { getToken, sessionClaims } = await auth();
-      const token =
-        (sessionClaims?.aud === "convex"
-          ? await getToken()
-          : await getToken({ template: "convex" })) ?? undefined;
+      // itself, so the session token is what Convex checks.
+      const token = (await (await auth()).getToken()) ?? undefined;
       const own = token ? await fetchQuery(api.recipes.get, { id: recipeId }, { token }) : null;
       return { title: own ? own.title : "Няма такава рецепта" };
     }
