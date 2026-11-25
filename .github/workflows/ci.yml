@@ -16,11 +16,12 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
-    # Public values only: the dev Convex URL and the Clerk dev publishable key
+    # Public values only: the dev Convex URL and the онова за Clerk dev
+    # instance's publishable key (fancy-bobcat-6703, as previews and dev use)
     # both ship to every browser. No secrets, and nothing here deploys Convex.
     env:
       NEXT_PUBLIC_CONVEX_URL: https://hearty-kookabura-538.convex.cloud
-      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_Z29vZC1wdW1hLTU4LmNsZXJrLmFjY291bnRzLmRldiQ
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_ZmFuY3ktYm9iY2F0LTY3MDMuY2xlcmsuYWNjb3VudHMuZGV2JA
       NEXT_TELEMETRY_DISABLED: "1"
     steps:
       - uses: actions/checkout@v4
