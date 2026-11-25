@@ -15,6 +15,7 @@ import { ArrowLeft, Download, Loader2, Save, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { PRIVACY_URL } from "@/lib/legal";
 
 const AKAUNT_URL = "https://onovaza.com/akaunt";
 const CONFIRM_WORD = "ИЗТРИЙ";
@@ -227,6 +228,13 @@ export default function SettingsPage() {
           </CardHeader>
           <CardContent className="space-y-8">
             <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Какво пазим за теб и защо, пише в{" "}
+                <a href={PRIVACY_URL} className="font-medium text-foreground underline underline-offset-4">
+                  Поверителност
+                </a>
+                .
+              </p>
               <p className="text-sm text-muted-foreground">
                 Свали всичко като JSON файл, с линкове към снимките на рецептите.
               </p>
