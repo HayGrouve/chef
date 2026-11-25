@@ -24,7 +24,7 @@ async function seed(t: T) {
       { userId: "user_dim", name: "Дими" },
     ];
     for (const person of people) {
-      await ctx.db.insert("users", { ...person, tokenIdentifier: `https://good-puma-58.clerk.accounts.dev|${person.userId}` });
+      await ctx.db.insert("users", person);
     }
     const photos: Id<"_storage">[] = [];
     const recipeIds: Id<"recipes">[] = [];
@@ -105,8 +105,8 @@ test("the wipe keeps every recipe under anonymous chefs and drops everything els
   const after = await snapshot(t);
   // The two owners stay, anonymised and unclaimable; the old Clerk id stays
   expect(after.users).toEqual([
-    { _id: expect.anything(), _creationTime: expect.any(Number), userId: "user_ana", name: ANONYMOUS_CHEF, tokenIdentifier: "anonymous|1" },
-    { _id: expect.anything(), _creationTime: expect.any(Number), userId: "user_bob", name: ANONYMOUS_CHEF, tokenIdentifier: "anonymous|2" },
+    { _id: expect.anything(), _creationTime: expect.any(Number), userId: "user_ana", name: ANONYMOUS_CHEF },
+    { _id: expect.anything(), _creationTime: expect.any(Number), userId: "user_bob", name: ANONYMOUS_CHEF },
   ]);
   // Every recipe stays, with its photo, credited to the anonymous chef
   expect(after.recipes.map((recipe) => recipe._id)).toEqual(recipeIds);
@@ -169,4 +169,23 @@ test("no file is deleted while a recipe has a storage id that can't be matched",
   const result = await t.mutation(internal.migrations.cutoverWipe, { dryRun: false });
   expect(result.unrecognisedStorageIds).toBe(1);
   expect(result.tables._storage).toEqual({ keep: 1, drop: 0 });
+});
+
+test("unsetTokenIdentifier clears the field on every users row and is safe to repeat", async () => {
+  const t = convexTest(schema, modules);
+  await t.run(async (ctx) => {
+    await ctx.db.insert("users", { name: "Ана", userId: "user_ana", tokenIdentifier: "https://clerk.example.com|user_ana" });
+    await ctx.db.insert("users", { name: ANONYMOUS_CHEF, userId: "user_bob", tokenIdentifier: "anonymous|1" });
+    await ctx.db.insert("users", { name: "Цвети", userId: "user_cvet" });
+  });
+
+  expect(await t.mutation(internal.migrations.unsetTokenIdentifier, {})).toEqual({ unset: 2 });
+  const users = await t.run((ctx) => ctx.db.query("users").collect());
+  expect(users.map(({ name, userId }) => ({ name, userId }))).toEqual([
+    { name: "Ана", userId: "user_ana" },
+    { name: ANONYMOUS_CHEF, userId: "user_bob" },
+    { name: "Цвети", userId: "user_cvet" },
+  ]);
+  expect(users.every((user) => !("tokenIdentifier" in user))).toBe(true);
+  expect(await t.mutation(internal.migrations.unsetTokenIdentifier, {})).toEqual({ unset: 0 });
 });

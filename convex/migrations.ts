@@ -1,35 +1,8 @@
 import { v } from "convex/values";
 import type { Doc, TableNames } from "./_generated/dataModel";
 import { internalMutation } from "./_generated/server";
-import { authorNamePatch, recipeSearchText } from "./recipes";
+import { authorNamePatch } from "./recipes";
 import schema from "./schema";
-
-export const backfillSearchText = internalMutation({
-  handler: async (ctx) => {
-    const recipes = await ctx.db.query("recipes").collect();
-    
-    let count = 0;
-    for (const recipe of recipes) {
-      if (!recipe.searchText || !recipe.authorName) {
-        const user = await ctx.db
-          .query("users")
-          .withIndex("by_userId", (q) => q.eq("userId", recipe.userId))
-          .unique();
-          
-        const authorName = user?.name || "";
-        const searchText = recipeSearchText(recipe.title, authorName, recipe.tags);
-        
-        await ctx.db.patch(recipe._id, {
-          authorName,
-          searchText,
-        });
-        count++;
-      }
-    }
-    
-    return `Backfilled ${count} recipes`;
-  },
-});
 
 /** What every recipe's owner becomes at the cutover: unclaimable, with no personal data. */
 export const ANONYMOUS_CHEF = "Анонимен готвач";
@@ -78,11 +51,9 @@ export const cutoverWipe = internalMutation({
         await write(() => ctx.db.delete(user._id));
       }
     }
-    for (const [index, owner] of owners.entries()) {
+    for (const owner of owners) {
       const fields = {
         name: ANONYMOUS_CHEF,
-        // Real token identifiers are "<issuer URL>|<subject>"; this one matches no sign-in
-        tokenIdentifier: `anonymous|${index + 1}`,
         email: undefined,
         avatarUrl: undefined,
         bio: undefined,
@@ -161,5 +132,26 @@ export const cutoverWipe = internalMutation({
       pendingScheduled: pendingByName,
       cancelledRenames,
     };
+  },
+});
+
+/**
+ * One-off after the cutover (chef#35): clears `tokenIdentifier` on every
+ * `users` row, so a later schema change can drop the field (Convex rejects a
+ * schema that stored documents don't match). Nothing reads it; rows are found
+ * by `userId`. Safe to run twice.
+ *
+ *   npx convex run --prod migrations:unsetTokenIdentifier
+ */
+export const unsetTokenIdentifier = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    let unset = 0;
+    for (const user of await ctx.db.query("users").collect()) {
+      if (user.tokenIdentifier === undefined) continue;
+      await ctx.db.patch(user._id, { tokenIdentifier: undefined });
+      unset++;
+    }
+    return { unset };
   },
 });

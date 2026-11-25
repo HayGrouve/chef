@@ -9,21 +9,18 @@ export const seedDatabase = internalMutation({
       {
         name: "Chef Gordon",
         email: "gordon@example.com",
-        tokenIdentifier: "ghost_gordon",
         userId: "ghost_user_1",
         bio: "I love cooking fast and loud.",
       },
       {
         name: "Julia C.",
         email: "julia@example.com",
-        tokenIdentifier: "ghost_julia",
         userId: "ghost_user_2",
         bio: "Mastering the art of French cooking.",
       },
       {
         name: "Healthy Eats",
         email: "healthy@example.com",
-        tokenIdentifier: "ghost_healthy",
         userId: "ghost_user_3",
         bio: "All about macros and micros.",
       },

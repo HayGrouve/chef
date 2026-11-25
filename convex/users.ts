@@ -140,11 +140,9 @@ export const store = mutation({
       userId,
       name,
     });
-    // Email is not stored. `tokenIdentifier` is still written until the
-    // retirement cleanup drops it; rows are found by `userId`.
+    // Email is not stored; rows are found by `userId`
     const id = await ctx.db.insert("users", {
       name,
-      tokenIdentifier: identity.tokenIdentifier,
       userId,
       avatarUrl: tokenPicture(identity),
     });
