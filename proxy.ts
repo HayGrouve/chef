@@ -6,7 +6,6 @@ const isPublicRoute = createRouteMatcher([
   "/",
   "/sign-in(.*)",
   "/sign-up(.*)",
-  "/share(.*)",
   "/about",
   "/recipe(.*)",
   "/profile/(.*)",
@@ -20,8 +19,8 @@ const isProtectedRoute = createRouteMatcher([
 ]);
 
 // Nobody signs in inside the app: these paths only send you to Clerk's
-// sign-in (onovaza.com/vhod in production once the Акаунт is live, the Account
-// Portal of the Clerk dev instance until then) and back.
+// sign-in (onovaza.com/vhod in production, the Account Portal of the онова за
+// dev instance in previews and dev) and back.
 const isAuthPage = createRouteMatcher(["/sign-in(.*)", "/sign-up(.*)"]);
 
 /**
