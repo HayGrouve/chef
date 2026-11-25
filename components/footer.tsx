@@ -4,11 +4,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Authenticated } from "convex/react";
 import { InstallPwaButton } from "./install-pwa-button";
+import { PRIVACY_URL, TERMS_URL } from "@/lib/legal";
 
 const links = [
   { href: "/about", label: "За кухнята" },
-  { href: "/privacy", label: "Поверителност" },
-  { href: "/terms", label: "Условия" },
+  // On the hub's shared legal pages, Кухнята's own sections
+  { href: PRIVACY_URL, label: "Поверителност" },
+  { href: TERMS_URL, label: "Условия" },
 ];
 
 export function Footer() {
