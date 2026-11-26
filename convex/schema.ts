@@ -22,9 +22,6 @@ export default defineSchema({
   users: defineTable({
     name: v.string(),
     email: v.optional(v.string()),
-    // Unused since the cutover: `migrations.unsetTokenIdentifier` clears it on
-    // existing rows, then a follow-up drops the field
-    tokenIdentifier: v.optional(v.string()),
     userId: v.optional(v.string()), // The 'subject' field from the identity, matching recipes.userId
     bio: v.optional(v.string()),
     avatarUrl: v.optional(v.string()),

@@ -170,22 +170,3 @@ test("no file is deleted while a recipe has a storage id that can't be matched",
   expect(result.unrecognisedStorageIds).toBe(1);
   expect(result.tables._storage).toEqual({ keep: 1, drop: 0 });
 });
-
-test("unsetTokenIdentifier clears the field on every users row and is safe to repeat", async () => {
-  const t = convexTest(schema, modules);
-  await t.run(async (ctx) => {
-    await ctx.db.insert("users", { name: "Ана", userId: "user_ana", tokenIdentifier: "https://clerk.example.com|user_ana" });
-    await ctx.db.insert("users", { name: ANONYMOUS_CHEF, userId: "user_bob", tokenIdentifier: "anonymous|1" });
-    await ctx.db.insert("users", { name: "Цвети", userId: "user_cvet" });
-  });
-
-  expect(await t.mutation(internal.migrations.unsetTokenIdentifier, {})).toEqual({ unset: 2 });
-  const users = await t.run((ctx) => ctx.db.query("users").collect());
-  expect(users.map(({ name, userId }) => ({ name, userId }))).toEqual([
-    { name: "Ана", userId: "user_ana" },
-    { name: ANONYMOUS_CHEF, userId: "user_bob" },
-    { name: "Цвети", userId: "user_cvet" },
-  ]);
-  expect(users.every((user) => !("tokenIdentifier" in user))).toBe(true);
-  expect(await t.mutation(internal.migrations.unsetTokenIdentifier, {})).toEqual({ unset: 0 });
-});

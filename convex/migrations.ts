@@ -134,24 +134,3 @@ export const cutoverWipe = internalMutation({
     };
   },
 });
-
-/**
- * One-off after the cutover (chef#35): clears `tokenIdentifier` on every
- * `users` row, so a later schema change can drop the field (Convex rejects a
- * schema that stored documents don't match). Nothing reads it; rows are found
- * by `userId`. Safe to run twice.
- *
- *   npx convex run --prod migrations:unsetTokenIdentifier
- */
-export const unsetTokenIdentifier = internalMutation({
-  args: {},
-  handler: async (ctx) => {
-    let unset = 0;
-    for (const user of await ctx.db.query("users").collect()) {
-      if (user.tokenIdentifier === undefined) continue;
-      await ctx.db.patch(user._id, { tokenIdentifier: undefined });
-      unset++;
-    }
-    return { unset };
-  },
-});
