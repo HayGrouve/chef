@@ -15,7 +15,7 @@ afterEach(() => {
 async function setup() {
   const t = convexTest(schema, modules);
   // Profiles no longer keep an email, so the test user is found by id alone
-  await t.run((ctx) => ctx.db.insert("users", { name: "QA", tokenIdentifier: "test|user_qa", userId: "user_qa" }));
+  await t.run((ctx) => ctx.db.insert("users", { name: "QA", userId: "user_qa" }));
   return t;
 }
 

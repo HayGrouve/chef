@@ -165,7 +165,7 @@ describe("recipe lookups by URL id", () => {
   test("malformed or foreign-table ids read as not found instead of throwing", async () => {
     const { t, host } = setup();
     const userRow = await t.run((ctx) =>
-      ctx.db.insert("users", { name: "x", tokenIdentifier: "x" })
+      ctx.db.insert("users", { name: "x" })
     );
     for (const id of ["abc", "", userRow]) {
       expect(await host.query(api.recipes.get, { id })).toBeNull();

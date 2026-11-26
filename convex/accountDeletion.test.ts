@@ -17,7 +17,7 @@ type T = ReturnType<typeof convexTest>;
 /** One person with everything Кухнята stores: profile, recipes with photos, favourites, list, plans, counters. */
 async function seedPerson(t: T, userId: string, name: string, recipeCount: number) {
   return await t.run(async (ctx) => {
-    await ctx.db.insert("users", { name, tokenIdentifier: `test|${userId}`, userId, bio: "Готвя." });
+    await ctx.db.insert("users", { name, userId, bio: "Готвя." });
     const recipeIds: Id<"recipes">[] = [];
     const fileIds: Id<"_storage">[] = [];
     for (let i = 0; i < recipeCount; i++) {

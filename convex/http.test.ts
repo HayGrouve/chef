@@ -32,7 +32,7 @@ function delivery(id: string, signingSecret = secret) {
 async function setup() {
   const t = convexTest(schema, modules);
   await t.run(async (ctx) => {
-    await ctx.db.insert("users", { name: "Гошо", tokenIdentifier: `test|${userId}`, userId });
+    await ctx.db.insert("users", { name: "Гошо", userId });
     await ctx.db.insert("rateLimits", { userId, action: "aiCalls", lastCalledAt: Date.now(), count: 1 });
   });
   const rows = () =>
@@ -68,7 +68,7 @@ test("a signed user.deleted erases the person and their counters; a repeated svi
   expect(await rows()).toEqual({ users: 0, rateLimits: 0, events: 1 });
 
   // The person signs in again before Svix repeats the old delivery
-  await t.run((ctx) => ctx.db.insert("users", { name: "Гошо", tokenIdentifier: `test|${userId}`, userId }));
+  await t.run((ctx) => ctx.db.insert("users", { name: "Гошо", userId }));
   expect((await t.fetch("/clerk/webhook", delivery("msg_1"))).status).toBe(200);
   await t.finishAllScheduledFunctions(vi.runAllTimers);
   expect(await rows()).toEqual({ users: 1, rateLimits: 0, events: 1 });

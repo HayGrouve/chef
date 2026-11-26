@@ -6,12 +6,12 @@ import schema from "./schema";
 
 const modules = import.meta.glob("./**/*.ts");
 
-// The profile row was stored under another token identifier (another issuer);
-// only the Clerk user id (`subject`) matches.
+// The profile row is found by the Clerk user id (`subject`) alone, whatever
+// issuer the token comes from.
 async function setup() {
   const t = convexTest(schema, modules);
   await t.run((ctx) =>
-    ctx.db.insert("users", { name: "Мария", tokenIdentifier: "https://old-issuer|user_m", userId: "user_m" })
+    ctx.db.insert("users", { name: "Мария", userId: "user_m" })
   );
   return { t, me: t.withIdentity({ subject: "user_m", tokenIdentifier: "https://new-issuer|user_m" }) };
 }
@@ -42,6 +42,15 @@ test("store says created only on the call that inserts the profile", async () =>
   expect(await me.mutation(api.users.store, {})).toMatchObject({ created: true });
   expect(await me.mutation(api.users.store, {})).toMatchObject({ created: false });
   expect(await t.mutation(api.users.store, {})).toBeNull();
+});
+
+test("store writes no tokenIdentifier on a new profile", async () => {
+  const t = convexTest(schema, modules);
+  const me = t.withIdentity({ subject: "user_new", name: "Нова", tokenIdentifier: "https://clerk.example.com|user_new" });
+  await me.mutation(api.users.store, {});
+  const rows = await t.run((ctx) => ctx.db.query("users").collect());
+  expect(rows).toHaveLength(1);
+  expect("tokenIdentifier" in rows[0]).toBe(false);
 });
 
 test("store on an existing profile is not a new chef", async () => {
